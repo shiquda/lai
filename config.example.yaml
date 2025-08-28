@@ -1,0 +1,22 @@
+# Log monitoring configuration example
+# Copy this file to config.yaml and fill in the actual configuration
+
+# Log file path to monitor
+log_file: "/var/log/app.log"
+
+# Line threshold for triggering summary generation
+line_threshold: 10  # Number of new lines
+
+# Check interval
+check_interval: 30s
+
+# OpenAI configuration
+openai:
+  api_key: "your-openai-api-key"
+  base_url: "https://api.openai.com/v1"  # Optional, defaults to OpenAI
+  model: "gpt-3.5-turbo"  # Optional, defaults to gpt-3.5-turbo
+
+# Telegram configuration
+telegram:
+  bot_token: "your-telegram-bot-token"
+  chat_id: "your-telegram-chat-id"
