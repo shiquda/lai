@@ -49,6 +49,8 @@ go run main.go
 ./lai start /path/to/logfile.log -d -n "webapp-logs"
 ```
 
+> Example: Consider a project that stores its logs in a local file. You can leverage `lai start /path/to/logfile.log -d -n "your-project"` command to monitor these logs dynamically, without requiring any modifications to the existing codebase.
+
 #### Command Output Monitoring
 
 Monitor any command's stdout/stderr in real-time:
@@ -72,6 +74,14 @@ Monitor any command's stdout/stderr in real-time:
 # Run in specific working directory
 ./lai exec "make test" --workdir /path/to/project
 ```
+
+> Example: Suppose you are running a Python script and wish to receive notifications upon encountering errors or a concise summary upon completion. Simply execute:
+>
+> ```bash
+> lai exec "python3 main.py" --final-summary
+> ```
+>
+> This accomplishes the desired outcome seamlessly.
 
 ### Daemon Process Management
 
@@ -280,6 +290,12 @@ make clean
 - Go 1.21.5 or later
 - OpenAI API access
 - Telegram bot token
+
+## To Do
+
+- [ ] Add more notification methods, e.g. email
+- [ ] Support more customized settings, e.g. notification format, prompts, languages etc.
+
 
 ## License
 
