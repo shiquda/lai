@@ -120,7 +120,14 @@ lai start /var/log/api/error.log -d -n "api-monitor"
    lai config set defaults.chat_id "-100123456789"
    ```
 
-3. **Start monitoring**:
+3. **Configure AI response language** (optional):
+   ```bash
+   lai config set defaults.language "Chinese"  # Chinese
+   lai config set defaults.language "Spanish"  # Spanish  
+   lai config set defaults.language "English"  # English (default)
+   ```
+
+4. **Start monitoring**:
 
    ```bash
    lai start /path/to/your.log
@@ -179,8 +186,9 @@ lai clean          # Remove stopped entries
 ## 📋 Roadmap
 
 - [ ] Add more notification methods (email, Slack, Discord...)
-- [ ] Support more customized settings (notification format, prompts, languages)
-- [ ] Error-only notification mode (filter out normal logs, notify only on errors/exceptions)
+- [ ] Support more customized notification formats and prompts
+- [x] Multi-language support for AI responses
+- [x] Error-only notification mode (filter out normal logs, notify only on errors/exceptions)
 
 ## 🤝 Contributing
 

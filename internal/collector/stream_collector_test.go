@@ -31,12 +31,14 @@ func getSleepCommand() (string, []string) {
 	return "sh", []string{"-c", "for i in $(seq 1 100); do echo line$i; sleep 0.1; done"}
 }
 
-// getSimpleEchoCommand returns a platform-appropriate simple echo command
+// getSimpleEchoCommand returns a platform-appropriate simple echo command with slight delay
 func getSimpleEchoCommand(text string) (string, []string) {
 	if runtime.GOOS == "windows" {
-		return "cmd", []string{"/c", "echo " + text}
+		// Add a small delay on Windows using ping (more reliable than timeout)
+		return "cmd", []string{"/c", "echo " + text + " & ping -n 1 127.0.0.1 >nul"}
 	}
-	return "sh", []string{"-c", "echo " + text}
+	// Add a small delay on Unix systems
+	return "sh", []string{"-c", "echo " + text + "; sleep 0.05"}
 }
 
 func TestNewStreamCollector(t *testing.T) {

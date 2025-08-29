@@ -124,14 +124,15 @@ func runStreamMonitor(command string, commandArgs []string, lineThreshold *int, 
 
 	// Create service instances
 	openaiClient := summarizer.NewOpenAIClient(cfg.OpenAI.APIKey, cfg.OpenAI.BaseURL, cfg.OpenAI.Model)
-	telegramNotifier := notifier.NewTelegramNotifier(cfg.Telegram.BotToken, cfg.ChatID)
+	templates := cfg.Telegram.MessageTemplates.GetTemplateMap()
+	telegramNotifier := notifier.NewTelegramNotifier(cfg.Telegram.BotToken, cfg.ChatID, templates)
 	streamCollector := collector.NewStreamCollector(cfg.Command, cfg.CommandArgs, cfg.LineThreshold, cfg.CheckInterval, cfg.FinalSummary)
 
 	// Set trigger handler
 	streamCollector.SetTriggerHandler(func(newContent string) error {
 		fmt.Printf("Command output changes detected, generating summary...\n")
 
-		summary, err := openaiClient.Summarize(newContent)
+		summary, err := openaiClient.Summarize(newContent, cfg.Language)
 		if err != nil {
 			return fmt.Errorf("failed to generate summary: %w", err)
 		}
