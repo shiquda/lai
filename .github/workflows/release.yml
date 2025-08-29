@@ -1,0 +1,178 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            suffix: linux-amd64
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            suffix: darwin-amd64
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+            suffix: darwin-arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run tests
+        run: make test-quick
+
+      - name: Get version info
+        id: version
+        run: |
+          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          echo "BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')" >> $GITHUB_OUTPUT
+          echo "GIT_COMMIT=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          BUILD_TIME: ${{ steps.version.outputs.BUILD_TIME }}
+          GIT_COMMIT: ${{ steps.version.outputs.GIT_COMMIT }}
+        run: |
+          # Build using Makefile
+          make build
+          
+          # Rename binary to platform-specific name
+          BINARY_NAME="lai-${{ matrix.suffix }}"
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            BINARY_NAME="${BINARY_NAME}.exe"
+          fi
+          
+          mv lai "${BINARY_NAME}"
+
+      - name: Create archive
+        run: |
+          BINARY_NAME="lai-${{ matrix.suffix }}"
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            BINARY_NAME="${BINARY_NAME}.exe"
+          fi
+          
+          tar -czf "lai-${{ matrix.suffix }}.tar.gz" "${BINARY_NAME}" README.md LICENSE
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: lai-${{ matrix.suffix }}
+          path: lai-${{ matrix.suffix }}.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Get version info
+        id: version
+        run: |
+          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          # Extract version without 'v' prefix for changelog lookup
+          VERSION_NUM=${GITHUB_REF#refs/tags/v}
+          
+          # Create release notes
+          cat > release_notes.md << 'EOF'
+          ## What's Changed
+          
+          ### Highlights
+          - AI-powered log monitoring and notification system
+          - Support for multiple notification channels (Telegram)
+          - Daemon process management for continuous monitoring
+          - Built-in log summarization using OpenAI API
+          
+          ### Installation
+          
+          Download the appropriate binary for your platform:
+          - **Linux (x64)**: `lai-linux-amd64.tar.gz`
+          - **macOS (Intel)**: `lai-darwin-amd64.tar.gz` 
+          - **macOS (Apple Silicon)**: `lai-darwin-arm64.tar.gz`
+          
+          Extract and run:
+          ```bash
+          tar -xzf lai-*.tar.gz
+          chmod +x lai-*
+          ./lai-* --help
+          ```
+          
+          ### Configuration
+          
+          Set up your configuration:
+          ```bash
+          # Set OpenAI API key
+          ./lai config set notifications.openai.api_key "your-api-key"
+          
+          # Set Telegram bot token
+          ./lai config set notifications.telegram.bot_token "your-bot-token"
+          
+          # Set default chat ID
+          ./lai config set defaults.chat_id "your-chat-id"
+          ```
+          
+          Then start monitoring:
+          ```bash
+          ./lai start /path/to/your/logfile.log -d
+          ```
+          
+          **Full Changelog**: https://github.com/shiquda/lai/compare/${{ steps.version.outputs.VERSION }}
+          EOF
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            lai-linux-amd64/*.tar.gz
+            lai-darwin-amd64/*.tar.gz
+            lai-darwin-arm64/*.tar.gz
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
