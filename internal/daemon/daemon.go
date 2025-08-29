@@ -131,11 +131,18 @@ func (m *Manager) ListProcesses() ([]*ProcessInfo, error) {
 			continue // Skip invalid files
 		}
 
-		// Check if process is still running
-		info.Status = m.getProcessStatus(info.PID)
+		// Check if process is still running and update status
+		currentStatus := m.getProcessStatus(info.PID)
 		
-		// Update the file with current status
-		m.SaveProcessInfo(info)
+		// Only update file if status changed to avoid unnecessary writes
+		if info.Status != currentStatus {
+			info.Status = currentStatus
+			// Update the file with current status
+			if saveErr := m.SaveProcessInfo(info); saveErr != nil {
+				// Log error but continue with updated status
+				fmt.Printf("Warning: failed to update status for process %s: %v\n", processID, saveErr)
+			}
+		}
 
 		processes = append(processes, info)
 	}

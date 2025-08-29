@@ -203,8 +203,12 @@ func runStreamDaemon(command string, commandArgs []string, lineThreshold *int, c
 		}
 		defer logFileHandle.Close()
 
-		// Start daemon process
-		cmd := os.Args[0]
+		// Start daemon process - get full executable path
+		execPath, err := os.Executable()
+		if err != nil {
+			return fmt.Errorf("failed to get executable path: %w", err)
+		}
+		cmd := execPath
 		args := append([]string{cmd}, os.Args[1:]...)
 		
 		procAttr := &os.ProcAttr{

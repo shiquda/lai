@@ -148,10 +148,12 @@ func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration,
 
 	// Generate process ID
 	var processID string
+	isResumeMode := os.Getenv("LAI_RESUME_MODE") == "1"
+	
 	if processName != "" {
 		processID = manager.GenerateProcessIDWithName(processName)
-		// Check if process name already exists
-		if manager.ProcessExists(processID) {
+		// Check if process name already exists (only in parent process and not in resume mode)
+		if os.Getenv("LAI_DAEMON_MODE") != "1" && !isResumeMode && manager.ProcessExists(processID) {
 			return fmt.Errorf("process with name '%s' already exists", processName)
 		}
 	} else {
@@ -173,8 +175,12 @@ func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration,
 		}
 		defer logFileHandle.Close()
 
-		// Start daemon process
-		cmd := os.Args[0]
+		// Start daemon process - get full executable path
+		execPath, err := os.Executable()
+		if err != nil {
+			return fmt.Errorf("failed to get executable path: %w", err)
+		}
+		cmd := execPath
 		args := append([]string{cmd}, os.Args[1:]...)
 		
 		procAttr := &os.ProcAttr{
@@ -188,17 +194,19 @@ func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration,
 			return fmt.Errorf("failed to start daemon process: %w", err)
 		}
 
-		// Save process information
-		processInfo := &daemon.ProcessInfo{
-			ID:        processID,
-			PID:       process.Pid,
-			LogFile:   logFile,
-			StartTime: time.Now(),
-			Status:    "running",
-		}
+		// Save process information (only if not in resume mode)
+		if !isResumeMode {
+			processInfo := &daemon.ProcessInfo{
+				ID:        processID,
+				PID:       process.Pid,
+				LogFile:   logFile,
+				StartTime: time.Now(),
+				Status:    "running",
+			}
 
-		if err := manager.SaveProcessInfo(processInfo); err != nil {
-			return fmt.Errorf("failed to save process info: %w", err)
+			if err := manager.SaveProcessInfo(processInfo); err != nil {
+				return fmt.Errorf("failed to save process info: %w", err)
+			}
 		}
 
 		fmt.Printf("Started daemon with process ID: %s (PID: %d)\n", processID, process.Pid)
@@ -211,6 +219,24 @@ func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration,
 	}
 
 	// Child process - run as daemon
+	// First update our status to ensure we're properly registered
+	if isResumeMode {
+		// In resume mode, the process info should already exist with "resuming" status
+		// We don't need to update it here as resume command will update it
+	} else {
+		// In normal start mode, ensure our process info is saved
+		processInfo := &daemon.ProcessInfo{
+			ID:        processID,
+			PID:       os.Getpid(),
+			LogFile:   logFile,
+			StartTime: time.Now(),
+			Status:    "running",
+		}
+		if err := manager.SaveProcessInfo(processInfo); err != nil {
+			log.Printf("Failed to save process info in child: %v", err)
+		}
+	}
+	
 	// Setup cleanup for daemon process
 	defer func() {
 		// Update process status to stopped instead of removing

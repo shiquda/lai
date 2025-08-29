@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"syscall"
+	"time"
 
 	"github.com/shiquda/lai/internal/daemon"
 	"github.com/spf13/cobra"
@@ -46,10 +47,13 @@ func resumeProcess(manager *daemon.Manager, processID string) error {
 		return fmt.Errorf("process %s is already running", processID)
 	}
 
-	// Temporarily remove the existing process info to avoid duplicate name error
+	// Save original log file, but keep process info intact
 	originalLogFile := info.LogFile
-	if err := manager.RemoveProcessInfo(processID); err != nil {
-		return fmt.Errorf("failed to remove existing process info: %w", err)
+	
+	// Mark process as resuming to prevent duplicate operations
+	info.Status = "resuming"
+	if err := manager.SaveProcessInfo(info); err != nil {
+		return fmt.Errorf("failed to update process status: %w", err)
 	}
 
 	// Get log file path for daemon
@@ -61,6 +65,9 @@ func resumeProcess(manager *daemon.Manager, processID string) error {
 	// Redirect output to log file
 	logFileHandle, err := os.OpenFile(daemonLogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
+		// Restore status on error
+		info.Status = "stopped"
+		manager.SaveProcessInfo(info)
 		return fmt.Errorf("failed to create log file: %w", err)
 	}
 	defer logFileHandle.Close()
@@ -76,16 +83,24 @@ func resumeProcess(manager *daemon.Manager, processID string) error {
 
 	procAttr := &os.ProcAttr{
 		Files: []*os.File{nil, logFileHandle, logFileHandle},
-		Env:   append(os.Environ(), "LAI_DAEMON_MODE=1"),
+		Env:   append(os.Environ(), "LAI_DAEMON_MODE=1", "LAI_RESUME_MODE=1"),
 		Sys:   &syscall.SysProcAttr{Setsid: true},
 	}
 
 	process, err := os.StartProcess(cmd, args, procAttr)
 	if err != nil {
-		// If failed to start, restore the original process info
+		// Restore status on error
 		info.Status = "stopped"
 		manager.SaveProcessInfo(info)
 		return fmt.Errorf("failed to start daemon process: %w", err)
+	}
+
+	// Process started successfully, update with new PID and status
+	info.PID = process.Pid
+	info.Status = "running" 
+	info.StartTime = time.Now()
+	if err := manager.SaveProcessInfo(info); err != nil {
+		log.Printf("Warning: failed to update process info: %v", err)
 	}
 
 	fmt.Printf("Resumed daemon with process ID: %s (PID: %d)\n", processID, process.Pid)
