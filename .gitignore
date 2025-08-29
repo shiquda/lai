@@ -1,6 +1,11 @@
 config.yaml
 
 .claude/
+
+# executable
 lai.exe
+lai
 
 test.log
+
+CLAUDE.local.md
