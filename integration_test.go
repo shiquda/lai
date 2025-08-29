@@ -124,7 +124,7 @@ func TestConfigMerging(t *testing.T) {
 	checkInterval := 30 * time.Second
 	chatID := "-100override"
 
-	runtimeConfig, err := config.BuildRuntimeConfig("/tmp/test.log", &lineThreshold, &checkInterval, &chatID)
+	runtimeConfig, err := config.BuildRuntimeConfig("/tmp/test.log", &lineThreshold, &checkInterval, &chatID, nil)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "/tmp/test.log", runtimeConfig.LogFile)
