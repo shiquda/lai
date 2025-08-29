@@ -33,7 +33,7 @@ var logsCmd = &cobra.Command{
 		}
 
 		logPath := manager.GetProcessLogPath(processID)
-		
+
 		// Check if log file exists
 		if _, err := os.Stat(logPath); os.IsNotExist(err) {
 			fmt.Printf("Log file not found: %s\n", logPath)

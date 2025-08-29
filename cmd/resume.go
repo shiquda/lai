@@ -49,7 +49,7 @@ func resumeProcess(manager *daemon.Manager, processID string) error {
 
 	// Save original log file, but keep process info intact
 	originalLogFile := info.LogFile
-	
+
 	// Mark process as resuming to prevent duplicate operations
 	info.Status = "resuming"
 	if err := manager.SaveProcessInfo(info); err != nil {
@@ -75,7 +75,7 @@ func resumeProcess(manager *daemon.Manager, processID string) error {
 	// Start daemon process
 	cmd := os.Args[0]
 	args := []string{cmd, "start", originalLogFile, "-d"}
-	
+
 	// Add the original process name if it was a custom name (no timestamp)
 	if !containsTimestamp(processID) {
 		args = append(args, "-n", processID)
@@ -97,7 +97,7 @@ func resumeProcess(manager *daemon.Manager, processID string) error {
 
 	// Process started successfully, update with new PID and status
 	info.PID = process.Pid
-	info.Status = "running" 
+	info.Status = "running"
 	info.StartTime = time.Now()
 	if err := manager.SaveProcessInfo(info); err != nil {
 		log.Printf("Warning: failed to update process info: %v", err)

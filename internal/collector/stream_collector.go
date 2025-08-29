@@ -19,14 +19,14 @@ type StreamCollector struct {
 	checkInterval time.Duration
 	onTrigger     func(newContent string) error
 	finalSummary  bool
-	
-	cmd           *exec.Cmd
-	lines         []string
-	lineMutex     sync.RWMutex
-	stopCh        chan struct{}
-	running       bool
-	runMutex      sync.RWMutex
-	startTime     time.Time
+
+	cmd       *exec.Cmd
+	lines     []string
+	lineMutex sync.RWMutex
+	stopCh    chan struct{}
+	running   bool
+	runMutex  sync.RWMutex
+	startTime time.Time
 }
 
 // NewStreamCollector creates a new stream collector for command output
@@ -66,7 +66,7 @@ func (sc *StreamCollector) Start() error {
 
 	// Start the command
 	sc.cmd = exec.Command(sc.command, sc.args...)
-	
+
 	stdout, err := sc.cmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("failed to create stdout pipe: %w", err)
@@ -85,7 +85,7 @@ func (sc *StreamCollector) Start() error {
 
 	// Create wait groups for goroutines
 	var wg sync.WaitGroup
-	
+
 	// Monitor stdout
 	wg.Add(1)
 	go func() {
@@ -149,7 +149,7 @@ func (sc *StreamCollector) Stop() {
 	sc.runMutex.RLock()
 	running := sc.running
 	sc.runMutex.RUnlock()
-	
+
 	if running {
 		select {
 		case <-sc.stopCh:
@@ -164,19 +164,19 @@ func (sc *StreamCollector) Stop() {
 func (sc *StreamCollector) monitorStream(stream io.ReadCloser, streamType string) {
 	scanner := bufio.NewScanner(stream)
 	defer stream.Close()
-	
+
 	for scanner.Scan() {
 		line := scanner.Text()
-		
+
 		sc.lineMutex.Lock()
 		sc.lines = append(sc.lines, fmt.Sprintf("[%s] %s", streamType, line))
 		sc.lineCount++
 		sc.lineMutex.Unlock()
-		
+
 		// Print to console for immediate feedback
 		fmt.Printf("[%s] %s\n", streamType, line)
 	}
-	
+
 	if err := scanner.Err(); err != nil {
 		fmt.Printf("Error reading from %s: %v\n", streamType, err)
 	}
@@ -186,9 +186,9 @@ func (sc *StreamCollector) monitorStream(stream io.ReadCloser, streamType string
 func (sc *StreamCollector) runThresholdChecker() {
 	ticker := time.NewTicker(sc.checkInterval)
 	defer ticker.Stop()
-	
+
 	lastProcessedCount := 0
-	
+
 	for {
 		select {
 		case <-sc.stopCh:
@@ -197,9 +197,9 @@ func (sc *StreamCollector) runThresholdChecker() {
 			sc.lineMutex.RLock()
 			currentCount := sc.lineCount
 			sc.lineMutex.RUnlock()
-			
+
 			newLines := currentCount - lastProcessedCount
-			
+
 			if newLines >= sc.lineThreshold {
 				// Get the new content
 				sc.lineMutex.RLock()
@@ -210,14 +210,14 @@ func (sc *StreamCollector) runThresholdChecker() {
 				}
 				contentStr := newContent.String()
 				sc.lineMutex.RUnlock()
-				
+
 				// Call the trigger handler
 				if sc.onTrigger != nil && contentStr != "" {
 					if err := sc.onTrigger(contentStr); err != nil {
 						fmt.Printf("Error in trigger handler: %v\n", err)
 					}
 				}
-				
+
 				lastProcessedCount = currentCount
 			}
 		}
@@ -235,7 +235,7 @@ func (sc *StreamCollector) GetLineCount() int {
 func (sc *StreamCollector) GetLines() []string {
 	sc.lineMutex.RLock()
 	defer sc.lineMutex.RUnlock()
-	
+
 	result := make([]string, len(sc.lines))
 	copy(result, sc.lines)
 	return result
@@ -250,20 +250,20 @@ func (sc *StreamCollector) sendFinalSummary(commandError error) {
 	sc.lineMutex.RUnlock()
 
 	duration := time.Since(sc.startTime)
-	
+
 	// Build final summary content
 	var summaryBuilder strings.Builder
 	summaryBuilder.WriteString("=== PROGRAM EXIT SUMMARY ===\n")
 	summaryBuilder.WriteString(fmt.Sprintf("Command: %s %s\n", sc.command, strings.Join(sc.args, " ")))
 	summaryBuilder.WriteString(fmt.Sprintf("Duration: %v\n", duration.Round(time.Second)))
 	summaryBuilder.WriteString(fmt.Sprintf("Total lines processed: %d\n", totalLines))
-	
+
 	if commandError != nil {
 		summaryBuilder.WriteString(fmt.Sprintf("Exit status: ERROR - %v\n", commandError))
 	} else {
 		summaryBuilder.WriteString("Exit status: SUCCESS\n")
 	}
-	
+
 	// Include recent log content (last 50 lines or all if less)
 	recentLineCount := 50
 	if totalLines > 0 {
@@ -273,7 +273,7 @@ func (sc *StreamCollector) sendFinalSummary(commandError error) {
 			startIdx = len(allLines) - recentLineCount
 			summaryBuilder.WriteString(fmt.Sprintf("... (showing last %d of %d lines)\n", recentLineCount, totalLines))
 		}
-		
+
 		for i := startIdx; i < len(allLines); i++ {
 			summaryBuilder.WriteString(allLines[i])
 			summaryBuilder.WriteString("\n")
@@ -283,7 +283,7 @@ func (sc *StreamCollector) sendFinalSummary(commandError error) {
 	}
 
 	finalContent := summaryBuilder.String()
-	
+
 	// Send the final summary
 	fmt.Printf("Generating final summary...\n")
 	if err := sc.onTrigger(finalContent); err != nil {

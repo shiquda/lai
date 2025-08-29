@@ -333,11 +333,11 @@ func (c *Config) Validate() error {
 	if c.LogFile == "" && c.Command == "" {
 		return fmt.Errorf("either log_file or command is required")
 	}
-	
+
 	if c.LogFile != "" && c.Command != "" {
 		return fmt.Errorf("cannot specify both log_file and command")
 	}
-	
+
 	if c.OpenAI.APIKey == "" {
 		return fmt.Errorf("openai.api_key is required")
 	}

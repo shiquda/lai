@@ -35,7 +35,7 @@ func TestNewManager(t *testing.T) {
 
 func TestGenerateProcessID(t *testing.T) {
 	manager := &Manager{}
-	
+
 	testCases := []struct {
 		logFile  string
 		expected string // We'll check if it starts with this
@@ -47,7 +47,7 @@ func TestGenerateProcessID(t *testing.T) {
 
 	for _, tc := range testCases {
 		id := manager.GenerateProcessID(tc.logFile)
-		
+
 		if len(id) == 0 {
 			t.Error("Generated ID should not be empty")
 		}
@@ -164,7 +164,7 @@ func TestListProcesses(t *testing.T) {
 		{
 			ID:        "test2_456",
 			PID:       67890,
-			LogFile:   "/test/log2.txt", 
+			LogFile:   "/test/log2.txt",
 			StartTime: time.Now(),
 			Status:    "stopped",
 		},
@@ -295,7 +295,7 @@ func TestCreatePidFile(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	pidFile := filepath.Join(tempDir, "test.pid")
-	
+
 	err = CreatePidFile(pidFile)
 	if err != nil {
 		t.Fatalf("CreatePidFile failed: %v", err)
@@ -321,7 +321,7 @@ func TestRemovePidFile(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	pidFile := filepath.Join(tempDir, "test.pid")
-	
+
 	// Create PID file
 	if err := CreatePidFile(pidFile); err != nil {
 		t.Fatalf("Failed to create PID file: %v", err)

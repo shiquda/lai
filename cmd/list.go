@@ -34,7 +34,7 @@ var listCmd = &cobra.Command{
 
 		for _, proc := range processes {
 			startTime := proc.StartTime.Format("2006-01-02 15:04:05")
-			fmt.Printf("%-20s %-8d %-10s %-20s %s\n", 
+			fmt.Printf("%-20s %-8d %-10s %-20s %s\n",
 				proc.ID, proc.PID, proc.Status, startTime, proc.LogFile)
 		}
 	},

@@ -91,7 +91,7 @@ func runMonitor(logFile string, lineThreshold *int, checkInterval *time.Duration
 	// Create service instances
 	openaiClient := summarizer.NewOpenAIClient(cfg.OpenAI.APIKey, cfg.OpenAI.BaseURL, cfg.OpenAI.Model)
 	telegramNotifier := notifier.NewTelegramNotifier(cfg.Telegram.BotToken, cfg.ChatID)
-	
+
 	// Create appropriate collector based on config
 	var logCollector collector.LogCollector
 	logCollector = collector.New(cfg.LogFile, cfg.LineThreshold, cfg.CheckInterval)
@@ -149,7 +149,7 @@ func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration,
 	// Generate process ID
 	var processID string
 	isResumeMode := os.Getenv("LAI_RESUME_MODE") == "1"
-	
+
 	if processName != "" {
 		processID = manager.GenerateProcessIDWithName(processName)
 		// Check if process name already exists (only in parent process and not in resume mode)
@@ -159,7 +159,7 @@ func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration,
 	} else {
 		processID = manager.GenerateProcessID(logFile)
 	}
-	
+
 	// Get log file path for daemon
 	daemonLogPath := manager.GetProcessLogPath(processID)
 
@@ -167,7 +167,7 @@ func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration,
 	if os.Getenv("LAI_DAEMON_MODE") != "1" {
 		// Parent process - start daemon
 		os.Setenv("LAI_DAEMON_MODE", "1")
-		
+
 		// Redirect output to log file
 		logFileHandle, err := os.OpenFile(daemonLogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if err != nil {
@@ -182,7 +182,7 @@ func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration,
 		}
 		cmd := execPath
 		args := append([]string{cmd}, os.Args[1:]...)
-		
+
 		procAttr := &os.ProcAttr{
 			Files: []*os.File{nil, logFileHandle, logFileHandle},
 			Env:   append(os.Environ(), "LAI_DAEMON_MODE=1"),
@@ -236,7 +236,7 @@ func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration,
 			log.Printf("Failed to save process info in child: %v", err)
 		}
 	}
-	
+
 	// Setup cleanup for daemon process
 	defer func() {
 		// Update process status to stopped instead of removing

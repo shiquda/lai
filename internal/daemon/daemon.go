@@ -133,7 +133,7 @@ func (m *Manager) ListProcesses() ([]*ProcessInfo, error) {
 
 		// Check if process is still running and update status
 		currentStatus := m.getProcessStatus(info.PID)
-		
+
 		// Only update file if status changed to avoid unnecessary writes
 		if info.Status != currentStatus {
 			info.Status = currentStatus

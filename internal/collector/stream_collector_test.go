@@ -50,10 +50,10 @@ func TestStreamCollectorSimpleCommand(t *testing.T) {
 
 	// Wait a bit for the command to execute and trigger
 	time.Sleep(500 * time.Millisecond)
-	
+
 	// Stop the collector
 	sc.Stop()
-	
+
 	// Wait for Start() to return
 	<-done
 
@@ -139,10 +139,10 @@ func TestStreamCollectorStop(t *testing.T) {
 
 	// Let it run for a bit
 	time.Sleep(200 * time.Millisecond)
-	
+
 	// Stop it
 	sc.Stop()
-	
+
 	// Should finish quickly after stop
 	select {
 	case <-done:
@@ -158,7 +158,7 @@ func TestStreamCollectorTriggerHandler(t *testing.T) {
 
 	triggerCalled := false
 	var receivedContent string
-	
+
 	sc.SetTriggerHandler(func(content string) error {
 		triggerCalled = true
 		receivedContent = content
@@ -185,11 +185,11 @@ func TestStreamCollectorTriggerHandler(t *testing.T) {
 	if !triggerCalled {
 		t.Error("Expected trigger handler to be called")
 	}
-	
+
 	if receivedContent == "" {
 		t.Error("Expected non-empty content in trigger handler")
 	}
-	
+
 	if !strings.Contains(receivedContent, "test content") {
 		t.Errorf("Expected content to contain 'test content', got: %s", receivedContent)
 	}
@@ -233,7 +233,7 @@ func TestStreamCollectorFinalSummary(t *testing.T) {
 
 	finalSummaryCalled := false
 	var finalContent string
-	
+
 	sc.SetTriggerHandler(func(content string) error {
 		finalSummaryCalled = true
 		finalContent = content
@@ -258,7 +258,7 @@ func TestStreamCollectorFinalSummary(t *testing.T) {
 	if !strings.Contains(finalContent, "PROGRAM EXIT SUMMARY") {
 		t.Errorf("Expected final summary content, got: %s", finalContent)
 	}
-	
+
 	if !strings.Contains(finalContent, "test final summary") {
 		t.Errorf("Expected final summary to contain command output, got: %s", finalContent)
 	}

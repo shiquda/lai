@@ -238,7 +238,7 @@ func TestRunDaemon_ParameterValidation(t *testing.T) {
 func TestRunDaemon_ProcessInfoStructure(t *testing.T) {
 	// Test the ProcessInfo structure used by runDaemon
 	now := time.Now()
-	
+
 	processInfo := &daemon.ProcessInfo{
 		ID:        "test_daemon_process",
 		PID:       os.Getpid(),
@@ -304,7 +304,7 @@ func TestRunMonitor_ParameterHandling(t *testing.T) {
 	// Test setting parameters
 	threshold := 10
 	lineThreshold = &threshold
-	
+
 	interval := time.Duration(30 * time.Second)
 	checkInterval = &interval
 

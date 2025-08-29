@@ -19,13 +19,13 @@ import (
 
 var execCmd = &cobra.Command{
 	Use:   "exec [command] [args...]",
-	Short: "Monitor command output", 
+	Short: "Monitor command output",
 	Long:  "Monitor the output of a command and send notifications when threshold is reached",
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		var command string
 		var commandArgs []string
-		
+
 		// If first arg contains spaces, treat it as "command args" and split it
 		if len(args) == 1 && strings.Contains(args[0], " ") {
 			parts := strings.Fields(args[0])
@@ -187,7 +187,7 @@ func runStreamDaemon(command string, commandArgs []string, lineThreshold *int, c
 	} else {
 		processID = manager.GenerateProcessID(commandStr)
 	}
-	
+
 	// Get log file path for daemon
 	daemonLogPath := manager.GetProcessLogPath(processID)
 
@@ -195,7 +195,7 @@ func runStreamDaemon(command string, commandArgs []string, lineThreshold *int, c
 	if os.Getenv("LAI_DAEMON_MODE") != "1" {
 		// Parent process - start daemon
 		os.Setenv("LAI_DAEMON_MODE", "1")
-		
+
 		// Redirect output to log file
 		logFileHandle, err := os.OpenFile(daemonLogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if err != nil {
@@ -210,7 +210,7 @@ func runStreamDaemon(command string, commandArgs []string, lineThreshold *int, c
 		}
 		cmd := execPath
 		args := append([]string{cmd}, os.Args[1:]...)
-		
+
 		procAttr := &os.ProcAttr{
 			Files: []*os.File{nil, logFileHandle, logFileHandle},
 			Env:   append(os.Environ(), "LAI_DAEMON_MODE=1"),

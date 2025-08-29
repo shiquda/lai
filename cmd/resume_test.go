@@ -73,9 +73,9 @@ func TestResumeProcess_AlreadyRunning(t *testing.T) {
 
 func TestContainsTimestamp(t *testing.T) {
 	tests := []struct {
-		name       string
-		processID  string
-		expected   bool
+		name      string
+		processID string
+		expected  bool
 	}{
 		{
 			name:      "Process ID with timestamp",
@@ -123,7 +123,7 @@ func TestContainsTimestamp(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := containsTimestamp(tt.processID)
 			if result != tt.expected {
-				t.Errorf("containsTimestamp(%s) = %v, expected %v", 
+				t.Errorf("containsTimestamp(%s) = %v, expected %v",
 					tt.processID, result, tt.expected)
 			}
 		})
@@ -231,9 +231,9 @@ func TestResumeProcess_ProcessInfoHandling(t *testing.T) {
 func TestResumeProcess_CustomNameDetection(t *testing.T) {
 	// Test the logic for detecting custom names vs timestamp-based IDs
 	tests := []struct {
-		processID      string
-		expectCustom   bool
-		description    string
+		processID    string
+		expectCustom bool
+		description  string
 	}{
 		{
 			processID:    "webapp",
@@ -256,9 +256,9 @@ func TestResumeProcess_CustomNameDetection(t *testing.T) {
 		t.Run(tt.description, func(t *testing.T) {
 			hasTimestamp := containsTimestamp(tt.processID)
 			isCustom := !hasTimestamp
-			
+
 			if isCustom != tt.expectCustom {
-				t.Errorf("Expected custom name detection %v for ID %s, got %v", 
+				t.Errorf("Expected custom name detection %v for ID %s, got %v",
 					tt.expectCustom, tt.processID, isCustom)
 			}
 		})
@@ -275,8 +275,8 @@ func createTestManagerForResume(tempDir string) (*daemon.Manager, error) {
 
 // Helper function to check if a string contains a substring
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || 
-		(len(s) > len(substr) && 
-		 (s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || 
-		  strings.Contains(s, substr))))
+	return len(s) >= len(substr) && (s == substr ||
+		(len(s) > len(substr) &&
+			(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
+				strings.Contains(s, substr))))
 }

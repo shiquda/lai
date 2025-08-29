@@ -39,9 +39,9 @@ func TestShowLastLines(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		numLines  int
-		expected  []string
+		name     string
+		numLines int
+		expected []string
 	}{
 		{
 			name:     "Last 3 lines",
@@ -278,7 +278,7 @@ func TestGetProcessLogPath_Format(t *testing.T) {
 	// Test log path format
 	processID := "webapp_12345"
 	logPath := testManager.GetProcessLogPath(processID)
-	
+
 	expectedPath := filepath.Join(tempDir, "logs", "webapp_12345.log")
 	if logPath != expectedPath {
 		t.Errorf("Expected log path %s, got %s", expectedPath, logPath)

@@ -22,7 +22,7 @@ func TestCleanSingleProcess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create test manager: %v", err)
 	}
-	
+
 	// Create a test process
 	testInfo := &daemon.ProcessInfo{
 		ID:        "test_clean",

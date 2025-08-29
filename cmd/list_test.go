@@ -204,6 +204,6 @@ func captureListOutput(t *testing.T, manager *daemon.Manager) string {
 // Helper function to format a line similar to the actual command
 func formatListLine(id string, pid int, status, startTime, logFile string) string {
 	// Simulate the same formatting as in list.go
-	return fmt.Sprintf("%-20s %-8d %-10s %-20s %s", 
+	return fmt.Sprintf("%-20s %-8d %-10s %-20s %s",
 		id, pid, status, startTime, logFile)
 }
