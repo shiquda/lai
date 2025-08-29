@@ -20,3 +20,17 @@ openai:
 telegram:
   bot_token: "your-telegram-bot-token"
   chat_id: "your-telegram-chat-id"
+  # Optional message templates (supports Go template syntax)
+  message_templates:
+    log_summary: |
+      🚨 *Log Summary Notification*
+      
+      📁 File: {{.FilePath}}
+      ⏰ Time: {{.Time}}
+      
+      📋 Summary:
+      {{.Summary}}
+
+# Default settings (optional)
+defaults:
+  language: "English"  # Language for AI responses (English, Chinese, Spanish, etc.)

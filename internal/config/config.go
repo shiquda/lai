@@ -29,6 +29,7 @@ type DefaultsConfig struct {
 	ChatID        string        `mapstructure:"chat_id" yaml:"chat_id"`
 	FinalSummary  bool          `mapstructure:"final_summary" yaml:"final_summary"`
 	ErrorOnlyMode bool          `mapstructure:"error_only_mode" yaml:"error_only_mode"`
+	Language      string        `mapstructure:"language" yaml:"language"`
 }
 
 // Config represents the runtime configuration (merged final configuration)
@@ -37,6 +38,7 @@ type Config struct {
 	LineThreshold int           `mapstructure:"line_threshold" yaml:"line_threshold"`
 	CheckInterval time.Duration `mapstructure:"check_interval" yaml:"check_interval"`
 	ChatID        string        `mapstructure:"chat_id" yaml:"chat_id"`
+	Language      string        `mapstructure:"language" yaml:"language"`
 
 	// Command execution parameters (for stream monitoring)
 	Command     string   `mapstructure:"command" yaml:"command"`
@@ -60,8 +62,14 @@ type OpenAIConfig struct {
 }
 
 type TelegramConfig struct {
-	BotToken string `mapstructure:"bot_token" yaml:"bot_token"`
-	ChatID   string `mapstructure:"chat_id" yaml:"chat_id"`
+	BotToken         string           `mapstructure:"bot_token" yaml:"bot_token"`
+	ChatID           string           `mapstructure:"chat_id" yaml:"chat_id"`
+	MessageTemplates MessageTemplates `mapstructure:"message_templates" yaml:"message_templates"`
+}
+
+// MessageTemplates contains customizable message templates
+type MessageTemplates struct {
+	LogSummary string `mapstructure:"log_summary" yaml:"log_summary"`
 }
 
 // GetGlobalConfigPath returns the path to the global configuration file
@@ -154,7 +162,8 @@ func getDefaultGlobalConfig() *GlobalConfig {
 		Defaults: DefaultsConfig{
 			LineThreshold: 10,
 			CheckInterval: 30 * time.Second,
-			FinalSummary:  true, // Default to sending final summary
+			FinalSummary:  true,      // Default to sending final summary
+			Language:      "English", // Default language for AI responses
 		},
 	}
 }
@@ -172,6 +181,9 @@ func applyGlobalDefaults(config *GlobalConfig) {
 	}
 	if config.Defaults.CheckInterval == 0 {
 		config.Defaults.CheckInterval = 30 * time.Second
+	}
+	if config.Defaults.Language == "" {
+		config.Defaults.Language = "English"
 	}
 	// Set FinalSummary to true by default
 	// Since boolean false is the zero-value, we need to check if config was loaded from file
@@ -261,6 +273,7 @@ func BuildRuntimeConfig(logFile string, lineThreshold *int, checkInterval *time.
 		LineThreshold: globalConfig.Defaults.LineThreshold,
 		CheckInterval: globalConfig.Defaults.CheckInterval,
 		ChatID:        globalConfig.Defaults.ChatID,
+		Language:      globalConfig.Defaults.Language,
 		ErrorOnlyMode: globalConfig.Defaults.ErrorOnlyMode,
 		OpenAI:        globalConfig.Notifications.OpenAI,
 		Telegram:      globalConfig.Notifications.Telegram,
@@ -309,6 +322,7 @@ func BuildStreamConfig(command string, args []string, lineThreshold *int, checkI
 		LineThreshold: globalConfig.Defaults.LineThreshold,
 		CheckInterval: globalConfig.Defaults.CheckInterval,
 		ChatID:        globalConfig.Defaults.ChatID,
+		Language:      globalConfig.Defaults.Language,
 		FinalSummary:  globalConfig.Defaults.FinalSummary,
 		ErrorOnlyMode: globalConfig.Defaults.ErrorOnlyMode,
 		OpenAI:        globalConfig.Notifications.OpenAI,
@@ -365,4 +379,13 @@ func (c *Config) Validate() error {
 // IsStreamMode returns true if this config is for stream monitoring
 func (c *Config) IsStreamMode() bool {
 	return c.Command != ""
+}
+
+// GetTemplateMap converts MessageTemplates struct to a map for notifier
+func (mt *MessageTemplates) GetTemplateMap() map[string]string {
+	templates := make(map[string]string)
+	if mt.LogSummary != "" {
+		templates["log_summary"] = mt.LogSummary
+	}
+	return templates
 }

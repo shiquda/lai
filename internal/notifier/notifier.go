@@ -6,13 +6,24 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"text/template"
 	"time"
 )
 
 type TelegramNotifier struct {
-	botToken string
-	chatID   string
-	client   *http.Client
+	botToken         string
+	chatID           string
+	client           *http.Client
+	messageTemplates map[string]string
+}
+
+// TemplateData represents the data available in message templates
+type TemplateData struct {
+	FilePath    string
+	Time        string
+	Summary     string
+	ProcessName string
+	LineCount   int
 }
 
 type TelegramMessage struct {
@@ -21,11 +32,15 @@ type TelegramMessage struct {
 	ParseMode string `json:"parse_mode,omitempty"`
 }
 
-func NewTelegramNotifier(botToken, chatID string) *TelegramNotifier {
+func NewTelegramNotifier(botToken, chatID string, templates map[string]string) *TelegramNotifier {
+	if templates == nil {
+		templates = getDefaultTemplates()
+	}
 	return &TelegramNotifier{
-		botToken: botToken,
-		chatID:   chatID,
-		client:   &http.Client{},
+		botToken:         botToken,
+		chatID:           chatID,
+		client:           &http.Client{},
+		messageTemplates: templates,
 	}
 }
 
@@ -71,14 +86,58 @@ func (t *TelegramNotifier) SendMessage(message string) error {
 	return nil
 }
 
-func (t *TelegramNotifier) SendLogSummary(filePath, summary string) error {
-	message := fmt.Sprintf(`🚨 *Log Summary Notification*
+// getDefaultTemplates returns the default message templates
+func getDefaultTemplates() map[string]string {
+	return map[string]string{
+		"log_summary": `🚨 *Log Summary Notification*
 
-📁 File: %s
-⏰ Time: %s
+📁 File: {{.FilePath}}
+⏰ Time: {{.Time}}
 
 📋 Summary:
-%s`, filePath, getCurrentTime(), summary)
+{{.Summary}}`,
+	}
+}
+
+// renderTemplate renders a message template with the given data
+func (t *TelegramNotifier) renderTemplate(templateName string, data TemplateData) (string, error) {
+	templateStr, exists := t.messageTemplates[templateName]
+	if !exists {
+		// Fall back to default template
+		defaultTemplates := getDefaultTemplates()
+		templateStr = defaultTemplates[templateName]
+	}
+
+	tmpl, err := template.New(templateName).Parse(templateStr)
+	if err != nil {
+		// Fall back to default template on parse error
+		defaultTemplates := getDefaultTemplates()
+		templateStr = defaultTemplates[templateName]
+		tmpl, err = template.New(templateName).Parse(templateStr)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse default template: %w", err)
+		}
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	return buf.String(), nil
+}
+
+func (t *TelegramNotifier) SendLogSummary(filePath, summary string) error {
+	data := TemplateData{
+		FilePath: filePath,
+		Time:     getCurrentTime(),
+		Summary:  summary,
+	}
+
+	message, err := t.renderTemplate("log_summary", data)
+	if err != nil {
+		return fmt.Errorf("failed to render log summary template: %w", err)
+	}
 
 	return t.SendMessage(message)
 }

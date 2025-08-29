@@ -26,7 +26,7 @@ func (s *NotifierTestSuite) SetupTest() {
 	botToken := "test-bot-token"
 	chatID := "-100123456789"
 
-	s.notifier = NewTelegramNotifier(botToken, chatID)
+	s.notifier = NewTelegramNotifier(botToken, chatID, nil)
 	s.notifier.client = s.server.Client()
 }
 
@@ -78,7 +78,7 @@ func TestNewTelegramNotifier(t *testing.T) {
 	botToken := "123456:ABC-DEF1234ghIKl-zyx57W2v1u123ew11"
 	chatID := "-100123456789"
 
-	notifier := NewTelegramNotifier(botToken, chatID)
+	notifier := NewTelegramNotifier(botToken, chatID, nil)
 
 	assert.NotNil(t, notifier)
 	assert.Equal(t, botToken, notifier.botToken)
@@ -158,7 +158,7 @@ func (s *NotifierTestSuite) TestSendLogSummary_MessageFormat() {
 	}))
 	defer server.Close()
 
-	notifier := NewTelegramNotifier("test-token", "-100123456789")
+	notifier := NewTelegramNotifier("test-token", "-100123456789", nil)
 	notifier.client = server.Client()
 
 	err := s.sendLogSummaryWithCustomURLAndNotifier(notifier, server.URL, testutils.GetTestLogPath("test.log"), "Test summary")

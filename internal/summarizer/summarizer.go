@@ -60,16 +60,20 @@ func (c *OpenAIClient) SetClient(client *http.Client) {
 	c.client = client
 }
 
-func (c *OpenAIClient) Summarize(logContent string) (string, error) {
-	prompt := fmt.Sprintf(`Please analyze the following log content and generate a summary:
+func (c *OpenAIClient) Summarize(logContent string, language string) (string, error) {
+	if language == "" {
+		language = "English"
+	}
+
+	prompt := fmt.Sprintf(`Please analyze the following log content and generate a summary in %s:
 
 1. Identify key events and errors
 2. Count important metrics
 3. Mark anomalies or issues that need attention
-4. Provide a concise summary in English
+4. Provide a concise summary in %s
 
 Log content:
-%s`, logContent)
+%s`, language, language, logContent)
 
 	req := ChatCompletionRequest{
 		Model: c.model,
@@ -117,14 +121,18 @@ Log content:
 }
 
 // AnalyzeForErrors analyzes log content to determine if it contains errors or exceptions
-func (c *OpenAIClient) AnalyzeForErrors(logContent string) (*ErrorAnalysisResult, error) {
+func (c *OpenAIClient) AnalyzeForErrors(logContent string, language string) (*ErrorAnalysisResult, error) {
+	if language == "" {
+		language = "English"
+	}
+
 	prompt := fmt.Sprintf(`Please analyze the following log content and determine if it contains errors, exceptions, or warnings that require attention.
 
 Respond with a valid JSON object in the following format:
 {
   "has_error": true/false,
   "severity": "error"/"warning"/"info",
-  "summary": "Brief description of the issue or 'No errors detected'"
+  "summary": "Brief description of the issue in %s or 'No errors detected'"
 }
 
 Guidelines:
@@ -137,10 +145,10 @@ Guidelines:
   - "error" for critical errors, exceptions, crashes
   - "warning" for warnings that need attention but don't break functionality
   - "info" for normal informational messages
-- Provide a concise summary in English
+- Provide a concise summary in %s
 
 Log content:
-%s`, logContent)
+%s`, language, language, logContent)
 
 	req := ChatCompletionRequest{
 		Model: c.model,

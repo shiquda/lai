@@ -97,7 +97,8 @@ func runMonitor(logFile string, lineThreshold *int, checkInterval *time.Duration
 
 	// Create service instances
 	openaiClient := summarizer.NewOpenAIClient(cfg.OpenAI.APIKey, cfg.OpenAI.BaseURL, cfg.OpenAI.Model)
-	telegramNotifier := notifier.NewTelegramNotifier(cfg.Telegram.BotToken, cfg.ChatID)
+	templates := cfg.Telegram.MessageTemplates.GetTemplateMap()
+	telegramNotifier := notifier.NewTelegramNotifier(cfg.Telegram.BotToken, cfg.ChatID, templates)
 
 	// Create appropriate collector based on config
 	var logCollector collector.LogCollector
@@ -109,7 +110,7 @@ func runMonitor(logFile string, lineThreshold *int, checkInterval *time.Duration
 
 		if cfg.ErrorOnlyMode {
 			// Error-only mode: first check if content contains errors
-			analysis, err := openaiClient.AnalyzeForErrors(newContent)
+			analysis, err := openaiClient.AnalyzeForErrors(newContent, cfg.Language)
 			if err != nil {
 				return fmt.Errorf("failed to analyze errors: %w", err)
 			}
@@ -126,7 +127,7 @@ func runMonitor(logFile string, lineThreshold *int, checkInterval *time.Duration
 		} else {
 			// Normal mode: generate summary and send notification
 			fmt.Printf("Generating summary...\n")
-			summary, err := openaiClient.Summarize(newContent)
+			summary, err := openaiClient.Summarize(newContent, cfg.Language)
 			if err != nil {
 				return fmt.Errorf("failed to generate summary: %w", err)
 			}

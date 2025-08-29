@@ -162,7 +162,7 @@ func (s *SummarizerTestSuite) TestSummarize_Success() {
 2024-01-15 10:30:01 INFO Database connection established
 2024-01-15 10:30:02 INFO Ready to serve requests`
 
-	summary, err := s.client.Summarize(logContent)
+	summary, err := s.client.Summarize(logContent, "English")
 
 	assert.NoError(s.T(), err)
 	assert.NotEmpty(s.T(), summary)
@@ -175,7 +175,7 @@ func (s *SummarizerTestSuite) TestSummarize_WithErrors() {
 2024-01-15 10:30:01 ERROR Failed to connect to database
 2024-01-15 10:30:02 INFO Retrying connection`
 
-	summary, err := s.client.Summarize(logContent)
+	summary, err := s.client.Summarize(logContent, "English")
 
 	assert.NoError(s.T(), err)
 	assert.NotEmpty(s.T(), summary)
@@ -187,7 +187,7 @@ func (s *SummarizerTestSuite) TestSummarize_UnauthorizedAPI() {
 	client := NewOpenAIClient("error-key", s.server.URL, "gpt-4o")
 	client.client = s.server.Client()
 
-	summary, err := client.Summarize("test log content")
+	summary, err := client.Summarize("test log content", "English")
 
 	assert.Error(s.T(), err)
 	assert.Contains(s.T(), err.Error(), "API request failed")
@@ -198,7 +198,7 @@ func (s *SummarizerTestSuite) TestSummarize_InvalidModel() {
 	client := NewOpenAIClient("test-api-key", s.server.URL, "error-model")
 	client.client = s.server.Client()
 
-	summary, err := client.Summarize("test log content")
+	summary, err := client.Summarize("test log content", "English")
 
 	assert.Error(s.T(), err)
 	assert.Contains(s.T(), err.Error(), "API request failed")
@@ -209,7 +209,7 @@ func (s *SummarizerTestSuite) TestSummarize_NetworkError() {
 	// Create client with invalid URL to simulate network error
 	client := NewOpenAIClient("test-api-key", "http://invalid-url-that-does-not-exist", "gpt-4o")
 
-	summary, err := client.Summarize("test log content")
+	summary, err := client.Summarize("test log content", "English")
 
 	assert.Error(s.T(), err)
 	assert.Contains(s.T(), err.Error(), "failed to send request")
@@ -275,7 +275,7 @@ func (s *SummarizerTestSuite) TestSummarize_EmptyResponse() {
 	client := NewOpenAIClient("test-api-key", server.URL, "gpt-4o")
 	client.client = server.Client()
 
-	summary, err := client.Summarize("test log content")
+	summary, err := client.Summarize("test log content", "English")
 
 	assert.Error(s.T(), err)
 	assert.Contains(s.T(), err.Error(), "no response choices returned")
@@ -308,7 +308,7 @@ func (s *SummarizerTestSuite) TestSummarize_PromptGeneration() {
 	client := NewOpenAIClient("test-api-key", server.URL, "gpt-4")
 	client.client = server.Client()
 
-	_, err := client.Summarize(logContent)
+	_, err := client.Summarize(logContent, "English")
 
 	assert.NoError(s.T(), err)
 	assert.Equal(s.T(), "gpt-4", capturedRequest.Model)
