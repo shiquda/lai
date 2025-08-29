@@ -2,6 +2,14 @@
 
 .PHONY: help build install test test-quick test-coverage clean fmt vet deps
 
+# Version information
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+BUILD_TIME ?= $(shell date -u '+%Y-%m-%d_%H:%M:%S')
+GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
+# Build flags
+LDFLAGS = -ldflags "-X github.com/shiquda/lai/cmd.Version=$(VERSION) -X github.com/shiquda/lai/cmd.BuildTime=$(BUILD_TIME) -X github.com/shiquda/lai/cmd.GitCommit=$(GIT_COMMIT)"
+
 # Default target
 help:
 	@echo "Available commands:"
@@ -18,13 +26,13 @@ help:
 # Build the application
 build:
 	@echo "🔨 Building lai..."
-	@go build -o lai
+	@go build $(LDFLAGS) -o lai
 	@echo "✅ Built successfully."
 
 # Install the application
 install:
 	@echo "📦 Installing lai..."
-	@go install .
+	@go install $(LDFLAGS) .
 	@echo "✅ Installed successfully to GOPATH/bin"
 
 # Quick test run (for development)
@@ -54,6 +62,7 @@ clean:
 fmt:
 	@echo "📐 Formatting code..."
 	@gofmt -w .
+	@echo "✅ Formatted."
 
 # Static analysis
 vet:
