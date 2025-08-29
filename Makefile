@@ -1,11 +1,12 @@
 # Makefile for Lai project
 
-.PHONY: help build test test-quick test-coverage clean fmt vet deps
+.PHONY: help build install test test-quick test-coverage clean fmt vet deps
 
 # Default target
 help:
 	@echo "Available commands:"
 	@echo "  build        - Build the application"
+	@echo "  install      - Install the application to GOPATH/bin"
 	@echo "  test         - Run all tests with coverage and quality checks"
 	@echo "  test-quick   - Run tests quickly (no coverage)"
 	@echo "  test-coverage- Run tests with coverage report only"
@@ -18,6 +19,13 @@ help:
 build:
 	@echo "🔨 Building lai..."
 	@go build -o lai
+	@echo "✅ Built successfully."
+
+# Install the application
+install:
+	@echo "📦 Installing lai..."
+	@go install .
+	@echo "✅ Installed successfully to GOPATH/bin"
 
 # Quick test run (for development)
 test-quick:

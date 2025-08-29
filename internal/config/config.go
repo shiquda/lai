@@ -27,6 +27,7 @@ type DefaultsConfig struct {
 	LineThreshold int           `mapstructure:"line_threshold" yaml:"line_threshold"`
 	CheckInterval time.Duration `mapstructure:"check_interval" yaml:"check_interval"`
 	ChatID        string        `mapstructure:"chat_id" yaml:"chat_id"`
+	FinalSummary  bool          `mapstructure:"final_summary" yaml:"final_summary"`
 }
 
 // Config represents the runtime configuration (merged final configuration)
@@ -35,6 +36,14 @@ type Config struct {
 	LineThreshold int           `mapstructure:"line_threshold" yaml:"line_threshold"`
 	CheckInterval time.Duration `mapstructure:"check_interval" yaml:"check_interval"`
 	ChatID        string        `mapstructure:"chat_id" yaml:"chat_id"`
+
+	// Command execution parameters (for stream monitoring)
+	Command     string   `mapstructure:"command" yaml:"command"`
+	CommandArgs []string `mapstructure:"command_args" yaml:"command_args"`
+	WorkingDir  string   `mapstructure:"working_dir" yaml:"working_dir"`
+
+	// Exit handling options
+	FinalSummary bool `mapstructure:"final_summary" yaml:"final_summary"`
 
 	OpenAI   OpenAIConfig   `mapstructure:"openai" yaml:"openai"`
 	Telegram TelegramConfig `mapstructure:"telegram" yaml:"telegram"`
@@ -141,6 +150,7 @@ func getDefaultGlobalConfig() *GlobalConfig {
 		Defaults: DefaultsConfig{
 			LineThreshold: 10,
 			CheckInterval: 30 * time.Second,
+			FinalSummary:  true, // Default to sending final summary
 		},
 	}
 }
@@ -158,6 +168,12 @@ func applyGlobalDefaults(config *GlobalConfig) {
 	}
 	if config.Defaults.CheckInterval == 0 {
 		config.Defaults.CheckInterval = 30 * time.Second
+	}
+	// Set FinalSummary to true by default
+	// Since boolean false is the zero-value, we need to check if config was loaded from file
+	// If no explicit setting exists, apply the default
+	if !config.Defaults.FinalSummary {
+		config.Defaults.FinalSummary = true
 	}
 }
 
@@ -264,10 +280,64 @@ func BuildRuntimeConfig(logFile string, lineThreshold *int, checkInterval *time.
 	return config, nil
 }
 
-func (c *Config) Validate() error {
-	if c.LogFile == "" {
-		return fmt.Errorf("log_file is required")
+// BuildStreamConfig builds runtime configuration for stream monitoring
+func BuildStreamConfig(command string, args []string, lineThreshold *int, checkInterval *time.Duration, chatID *string, workingDir string, finalSummary *bool) (*Config, error) {
+	// Ensure global config exists
+	if err := EnsureGlobalConfig(); err != nil {
+		return nil, fmt.Errorf("failed to ensure global config: %w", err)
 	}
+
+	// Load global configuration
+	globalConfig, err := LoadGlobalConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load global config: %w", err)
+	}
+
+	// Build runtime configuration for stream monitoring
+	config := &Config{
+		Command:       command,
+		CommandArgs:   args,
+		WorkingDir:    workingDir,
+		LineThreshold: globalConfig.Defaults.LineThreshold,
+		CheckInterval: globalConfig.Defaults.CheckInterval,
+		ChatID:        globalConfig.Defaults.ChatID,
+		FinalSummary:  globalConfig.Defaults.FinalSummary,
+		OpenAI:        globalConfig.Notifications.OpenAI,
+		Telegram:      globalConfig.Notifications.Telegram,
+	}
+
+	// Apply command line parameter overrides
+	if lineThreshold != nil {
+		config.LineThreshold = *lineThreshold
+	}
+	if checkInterval != nil {
+		config.CheckInterval = *checkInterval
+	}
+	if chatID != nil {
+		config.ChatID = *chatID
+	}
+	if finalSummary != nil {
+		config.FinalSummary = *finalSummary
+	}
+
+	// If no ChatID specified, use the default one
+	if config.ChatID == "" {
+		config.ChatID = config.Telegram.ChatID
+	}
+
+	return config, nil
+}
+
+func (c *Config) Validate() error {
+	// Check if it's file monitoring or stream monitoring
+	if c.LogFile == "" && c.Command == "" {
+		return fmt.Errorf("either log_file or command is required")
+	}
+	
+	if c.LogFile != "" && c.Command != "" {
+		return fmt.Errorf("cannot specify both log_file and command")
+	}
+	
 	if c.OpenAI.APIKey == "" {
 		return fmt.Errorf("openai.api_key is required")
 	}
@@ -278,4 +348,9 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("chat_id is required (set via --chat-id or defaults.chat_id in global config)")
 	}
 	return nil
+}
+
+// IsStreamMode returns true if this config is for stream monitoring
+func (c *Config) IsStreamMode() bool {
+	return c.Command != ""
 }

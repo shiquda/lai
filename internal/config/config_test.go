@@ -143,7 +143,7 @@ func (s *ConfigTestSuite) TestConfigValidate_MissingLogFile() {
 
 	err := config.Validate()
 	assert.Error(s.T(), err)
-	assert.Contains(s.T(), err.Error(), "log_file is required")
+	assert.Contains(s.T(), err.Error(), "either log_file or command is required")
 }
 
 func (s *ConfigTestSuite) TestConfigValidate_MissingOpenAIKey() {

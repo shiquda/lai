@@ -6,7 +6,10 @@ Lai is an AI-powered log monitoring tool that watches log files, generates intel
 
 - **Intelligent Log Analysis**: Uses OpenAI GPT models to analyze and summarize log content
 - **Real-time Monitoring**: Continuously monitors log files for changes
+- **Command Output Monitoring**: Monitor any command's stdout/stderr in real-time (Docker logs, application output, etc.)
+- **Program Exit Handling**: Configurable final summary on program termination
 - **Telegram Integration**: Sends formatted notifications directly to Telegram
+- **Daemon Process Management**: Run monitoring as background processes with full lifecycle management
 - **Configurable Thresholds**: Set custom line thresholds and check intervals
 - **Global Configuration**: Manage settings globally or per-project
 
@@ -14,6 +17,12 @@ Lai is an AI-powered log monitoring tool that watches log files, generates intel
 
 ```bash
 # Build from source
+make build
+
+# Install to GOPATH/bin
+make install
+
+# Or using Go directly
 go build -o lai
 
 # Or run directly
@@ -24,12 +33,66 @@ go run main.go
 
 ### Basic Usage
 
+#### File Monitoring
+
 ```bash
 # Start monitoring a log file
 ./lai start /path/to/logfile.log
 
 # With custom settings
 ./lai start /path/to/logfile.log --line-threshold 10 --interval 30s --chat-id "-100123456789"
+
+# Start as daemon process
+./lai start /path/to/logfile.log -d
+
+# Start daemon with custom name
+./lai start /path/to/logfile.log -d -n "webapp-logs"
+```
+
+#### Command Output Monitoring
+
+Monitor any command's stdout/stderr in real-time:
+
+```bash
+# Monitor Docker container logs
+./lai exec "docker logs container_name -f" --line-threshold 5 --interval 10s
+
+# Monitor application output
+./lai exec "python app.py" -l 3 -i 30s
+
+# Monitor with custom name in daemon mode
+./lai exec "docker logs webapp_container -f" -d -n "webapp-monitor"
+
+# Enable final summary on program exit (default enabled)
+./lai exec "npm run build" --final-summary
+
+# Disable final summary
+./lai exec "short-lived-command" --no-final-summary
+
+# Run in specific working directory
+./lai exec "make test" --workdir /path/to/project
+```
+
+### Daemon Process Management
+
+```bash
+# List running daemon processes
+./lai list
+
+# View daemon logs
+./lai logs webapp-logs
+
+# Follow daemon logs in real-time
+./lai logs webapp-logs -f
+
+# Stop a daemon process
+./lai stop webapp-logs
+
+# Resume a stopped daemon
+./lai resume webapp-logs
+
+# Clean up stopped daemon entries
+./lai clean
 ```
 
 ### Configuration
@@ -50,6 +113,7 @@ defaults:
   line_threshold: 10
   check_interval: "30s"
   chat_id: "your-default-chat-id"
+  final_summary: true  # Send final summary when programs exit
 ```
 
 ### Configuration Management
@@ -64,6 +128,9 @@ defaults:
 # Set default chat ID
 ./lai config set defaults.chat_id "-100123456789"
 
+# Set final summary default behavior
+./lai config set defaults.final_summary true
+
 # View current configuration
 ./lai config list
 
@@ -73,29 +140,56 @@ defaults:
 
 ## Development
 
+### Quick Start
+
+```bash
+# View all available commands
+make help
+
+# Build the application
+make build
+
+# Download dependencies
+make deps
+
+# Format code
+make fmt
+
+# Run static analysis
+make vet
+```
+
 ### Testing
 
-The project includes comprehensive tests covering all major components:
+The project includes comprehensive tests covering all major components with 46.4% overall test coverage:
 
 #### Quick Test Run
 ```bash
-# Run all tests
-./scripts/test-quick.sh
+# Run tests quickly (no coverage)
+make test-quick
 
 # Or manually
-go test ./...
+go test ./... -v
 ```
 
 #### Comprehensive Test Run
 ```bash
-# Run full test suite with coverage
-./scripts/test.sh
+# Run full test suite with coverage and quality checks
+make test
+```
+
+#### Generate Coverage Report
+```bash
+# Generate HTML coverage report
+make test-coverage
+# View coverage.html in browser
 ```
 
 #### Test Structure
 - **Unit Tests**: Located alongside source files (`*_test.go`)
 - **Integration Tests**: End-to-end workflow testing (`integration_test.go`)
-- **Test Coverage**: Aim for ≥80% coverage across all packages
+- **Test Coverage**: Current coverage is 46.4% across all packages
+- **Daemon Management Tests**: Complete test suites for all 5 daemon commands
 
 #### Individual Package Testing
 ```bash
@@ -104,6 +198,23 @@ go test ./internal/collector -v
 go test ./internal/config -v
 go test ./internal/notifier -v
 go test ./internal/summarizer -v
+go test ./internal/daemon -v
+```
+
+### Code Quality
+
+```bash
+# Clean build artifacts and test cache
+make clean
+
+# Format all code
+make fmt
+
+# Run static analysis
+make vet
+
+# Full quality check pipeline
+make clean fmt vet test
 ```
 
 ### Project Structure
@@ -111,10 +222,19 @@ go test ./internal/summarizer -v
 ```
 lai/
 ├── main.go                          # Application entry point
+├── Makefile                         # Development workflow commands
 ├── cmd/                            # CLI commands
+│   ├── start.go                    # Main start command with daemon support
+│   ├── exec.go                     # Execute and monitor commands
+│   ├── clean.go                    # Clean stopped daemon processes
+│   ├── list.go                     # List running daemon processes  
+│   ├── logs.go                     # View daemon process logs
+│   ├── resume.go                   # Resume stopped daemon processes
+│   └── stop.go                     # Stop running daemon processes
 ├── internal/                       # Internal packages
-│   ├── collector/                  # Log file monitoring
+│   ├── collector/                  # Log file and command output monitoring
 │   ├── config/                     # Configuration management
+│   ├── daemon/                     # Daemon process lifecycle management
 │   ├── notifier/                   # Telegram notifications
 │   ├── summarizer/                 # OpenAI integration
 │   └── testutils/                  # Shared testing utilities
@@ -128,24 +248,31 @@ lai/
 1. Fork the repository
 2. Create a feature branch
 3. Write tests for new functionality
-4. Ensure all tests pass: `./scripts/test.sh`
-5. Submit a pull request
+4. Ensure all tests pass: `make test`
+5. Run code quality checks: `make fmt vet`
+6. Submit a pull request
 
-### Development Commands
+### Development Workflow
 
 ```bash
-# Download dependencies
-go mod download
+# 1. Setup development environment
+make deps
 
-# Run tests with coverage
-go test -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out -o coverage.html
+# 2. Make your changes and format code
+make fmt
 
-# Format code
-gofmt -w .
+# 3. Run static analysis
+make vet
 
-# Run static analysis
-go vet ./...
+# 4. Run tests
+make test
+
+# 5. Build and test locally
+make build
+./lai --help
+
+# 6. Clean up when done
+make clean
 ```
 
 ## Requirements

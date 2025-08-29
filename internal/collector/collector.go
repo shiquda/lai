@@ -7,6 +7,13 @@ import (
 	"time"
 )
 
+// LogCollector is the interface that all collectors must implement
+type LogCollector interface {
+	SetTriggerHandler(handler func(newContent string) error)
+	Start() error
+}
+
+// Collector represents a file-based log collector
 type Collector struct {
 	filePath      string
 	lineThreshold int
