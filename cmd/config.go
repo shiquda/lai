@@ -26,12 +26,12 @@ var configSetCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		key := args[0]
 		value := args[1]
-		
+
 		if err := setConfigValue(key, value); err != nil {
 			fmt.Printf("Error setting config: %v\n", err)
 			os.Exit(1)
 		}
-		
+
 		fmt.Printf("Set %s = %s\n", key, value)
 	},
 }
@@ -43,13 +43,13 @@ var configGetCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		key := args[0]
-		
+
 		value, err := getConfigValue(key)
 		if err != nil {
 			fmt.Printf("Error getting config: %v\n", err)
 			os.Exit(1)
 		}
-		
+
 		fmt.Printf("%s = %s\n", key, value)
 	},
 }
@@ -75,14 +75,14 @@ var configResetCmd = &cobra.Command{
 			fmt.Printf("Error resetting config: %v\n", err)
 			os.Exit(1)
 		}
-		
+
 		fmt.Println("Configuration reset to defaults")
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(configCmd)
-	
+
 	configCmd.AddCommand(configSetCmd)
 	configCmd.AddCommand(configGetCmd)
 	configCmd.AddCommand(configListCmd)
@@ -95,17 +95,17 @@ func setConfigValue(key, value string) error {
 	if err != nil {
 		return fmt.Errorf("failed to load global config: %w", err)
 	}
-	
+
 	// Set the value using reflection
 	if err := setFieldByPath(cfg, key, value); err != nil {
 		return fmt.Errorf("failed to set config value: %w", err)
 	}
-	
+
 	// Save the updated config
 	if err := config.SaveGlobalConfig(cfg); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -115,13 +115,13 @@ func getConfigValue(key string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to load global config: %w", err)
 	}
-	
+
 	// Get the value using reflection
 	value, err := getFieldByPath(cfg, key)
 	if err != nil {
 		return "", fmt.Errorf("failed to get config value: %w", err)
 	}
-	
+
 	return value, nil
 }
 
@@ -131,7 +131,7 @@ func listConfigValues() error {
 	if err != nil {
 		return fmt.Errorf("failed to load global config: %w", err)
 	}
-	
+
 	// Print all config values
 	printConfig(cfg, "")
 	return nil
@@ -140,12 +140,12 @@ func listConfigValues() error {
 func resetConfigValues() error {
 	// Get default config
 	defaultConfig := getDefaultGlobalConfig()
-	
+
 	// Save default config
 	if err := config.SaveGlobalConfig(defaultConfig); err != nil {
 		return fmt.Errorf("failed to save default config: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -153,7 +153,7 @@ func resetConfigValues() error {
 func setFieldByPath(obj interface{}, path, value string) error {
 	parts := strings.Split(path, ".")
 	v := reflect.ValueOf(obj).Elem()
-	
+
 	for i, part := range parts {
 		if i == len(parts)-1 {
 			// Last part - set the value
@@ -164,7 +164,7 @@ func setFieldByPath(obj interface{}, path, value string) error {
 			if !field.CanSet() {
 				return fmt.Errorf("field %s cannot be set", part)
 			}
-			
+
 			// Convert string value to appropriate type
 			switch field.Kind() {
 			case reflect.String:
@@ -202,7 +202,7 @@ func setFieldByPath(obj interface{}, path, value string) error {
 			v = field
 		}
 	}
-	
+
 	return nil
 }
 
@@ -210,7 +210,7 @@ func setFieldByPath(obj interface{}, path, value string) error {
 func getFieldByPath(obj interface{}, path string) (string, error) {
 	parts := strings.Split(path, ".")
 	v := reflect.ValueOf(obj).Elem()
-	
+
 	for _, part := range parts {
 		field := v.FieldByName(toCamelCase(part))
 		if !field.IsValid() {
@@ -218,7 +218,7 @@ func getFieldByPath(obj interface{}, path string) (string, error) {
 		}
 		v = field
 	}
-	
+
 	return fmt.Sprintf("%v", v.Interface()), nil
 }
 
@@ -226,17 +226,17 @@ func getFieldByPath(obj interface{}, path string) (string, error) {
 func printConfig(obj interface{}, prefix string) {
 	v := reflect.ValueOf(obj).Elem()
 	t := reflect.TypeOf(obj).Elem()
-	
+
 	for i := 0; i < v.NumField(); i++ {
 		field := v.Field(i)
 		fieldType := t.Field(i)
 		fieldName := toSnakeCase(fieldType.Name)
-		
+
 		fullPath := fieldName
 		if prefix != "" {
 			fullPath = prefix + "." + fieldName
 		}
-		
+
 		if field.Kind() == reflect.Struct {
 			printConfig(field.Addr().Interface(), fullPath)
 		} else {
@@ -273,13 +273,13 @@ func toCamelCase(s string) string {
 func toSnakeCase(s string) string {
 	var result strings.Builder
 	runes := []rune(s)
-	
+
 	for i, r := range runes {
 		if i > 0 && r >= 'A' && r <= 'Z' {
 			// Check if this is part of an acronym (consecutive uppercase letters)
 			prevIsUpper := i > 0 && runes[i-1] >= 'A' && runes[i-1] <= 'Z'
 			nextIsLower := i < len(runes)-1 && runes[i+1] >= 'a' && runes[i+1] <= 'z'
-			
+
 			// Add underscore if:
 			// 1. Previous char is lowercase (normal CamelCase transition)
 			// 2. This is the last uppercase in an acronym followed by lowercase

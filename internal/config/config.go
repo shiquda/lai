@@ -35,7 +35,7 @@ type Config struct {
 	LineThreshold int           `mapstructure:"line_threshold" yaml:"line_threshold"`
 	CheckInterval time.Duration `mapstructure:"check_interval" yaml:"check_interval"`
 	ChatID        string        `mapstructure:"chat_id" yaml:"chat_id"`
-	
+
 	OpenAI   OpenAIConfig   `mapstructure:"openai" yaml:"openai"`
 	Telegram TelegramConfig `mapstructure:"telegram" yaml:"telegram"`
 }
@@ -94,7 +94,7 @@ func LoadGlobalConfig() (*GlobalConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create decoder: %w", err)
 	}
-	
+
 	if err := decoder.Decode(rawConfig); err != nil {
 		return nil, fmt.Errorf("failed to decode global config: %w", err)
 	}
@@ -185,7 +185,7 @@ func LoadConfig(path string) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create decoder: %w", err)
 	}
-	
+
 	if err := decoder.Decode(rawConfig); err != nil {
 		return nil, fmt.Errorf("failed to decode config: %w", err)
 	}

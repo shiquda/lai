@@ -22,12 +22,12 @@ var startCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		logFile := args[0]
-		
+
 		// Get command line parameters
 		lineThreshold, _ := cmd.Flags().GetInt("line-threshold")
 		intervalStr, _ := cmd.Flags().GetString("interval")
 		chatID, _ := cmd.Flags().GetString("chat-id")
-		
+
 		// Parse time interval
 		var checkInterval *time.Duration
 		if intervalStr != "" {
@@ -37,19 +37,19 @@ var startCmd = &cobra.Command{
 				checkInterval = &duration
 			}
 		}
-		
+
 		// Handle line-threshold parameter
 		var lineThresholdPtr *int
 		if cmd.Flags().Changed("line-threshold") {
 			lineThresholdPtr = &lineThreshold
 		}
-		
+
 		// Handle chat-id parameter
 		var chatIDPtr *string
 		if cmd.Flags().Changed("chat-id") {
 			chatIDPtr = &chatID
 		}
-		
+
 		if err := runMonitor(logFile, lineThresholdPtr, checkInterval, chatIDPtr); err != nil {
 			log.Fatalf("Monitor failed: %v", err)
 		}
@@ -58,7 +58,7 @@ var startCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(startCmd)
-	
+
 	// Add command line parameters
 	startCmd.Flags().IntP("line-threshold", "l", 0, "Number of lines to trigger summary (overrides global config)")
 	startCmd.Flags().StringP("interval", "i", "", "Check interval (e.g., 30s, 1m) (overrides global config)")

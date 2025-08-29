@@ -13,7 +13,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "lai",
 	Short: "A smart lightweight log monitoring and notification tool",
-	Long: `A smart lightweight log monitoring and notification tool`,
+	Long:  `A smart lightweight log monitoring and notification tool`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
@@ -31,5 +31,3 @@ func Execute() {
 func init() {
 
 }
-
-

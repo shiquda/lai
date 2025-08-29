@@ -48,6 +48,10 @@ func NewOpenAIClient(apiKey, baseURL, model string) *OpenAIClient {
 	}
 }
 
+func (c *OpenAIClient) SetClient(client *http.Client) {
+	c.client = client
+}
+
 func (c *OpenAIClient) Summarize(logContent string) (string, error) {
 	prompt := fmt.Sprintf(`Please analyze the following log content and generate a summary:
 

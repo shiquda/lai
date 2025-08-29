@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -26,6 +27,14 @@ func NewTelegramNotifier(botToken, chatID string) *TelegramNotifier {
 		chatID:   chatID,
 		client:   &http.Client{},
 	}
+}
+
+func (t *TelegramNotifier) SetClient(client *http.Client) {
+	t.client = client
+}
+
+func (t *TelegramNotifier) SetBaseURL(baseURL string) {
+	t.botToken = strings.Replace(t.botToken, "bot", "", 1) // Remove 'bot' prefix if present
 }
 
 func (t *TelegramNotifier) SendMessage(message string) error {

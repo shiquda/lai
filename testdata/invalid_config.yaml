@@ -1,0 +1,2 @@
+line_threshold: 5
+check_interval: "10s"

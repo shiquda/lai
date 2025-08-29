@@ -1,0 +1,13 @@
+notifications:
+  openai:
+    api_key: "sk-global-key-456"
+    base_url: "https://api.openai.com/v1"
+    model: "gpt-3.5-turbo"
+  telegram:
+    bot_token: "987654:XYZ-ABC9876fed54lIJk-abc21v9u876fd32"
+    chat_id: "-100987654321"
+
+defaults:
+  line_threshold: 15
+  check_interval: "60s"
+  chat_id: "-100987654321"
