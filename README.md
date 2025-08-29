@@ -1,306 +1,187 @@
-## Lai: AI Powered Log Monitoring and Notification Tool
+# Lai: AI-Powered Log Monitoring
 
-Lai is an AI-powered log monitoring tool that watches log files, generates intelligent summaries using OpenAI API when new content is detected, and sends notifications via Telegram.
+[![Go Version](https://img.shields.io/badge/Go-1.21+-blue.svg)](https://golang.org/doc/install)
+[![AI Powered](https://img.shields.io/badge/AI-Powered-brightgreen.svg)]()
+[![Telegram](https://img.shields.io/badge/Notifications-Telegram-blue.svg)](https://telegram.org/)
+[![License](https://img.shields.io/badge/License-AGPL--3.0-yellow.svg)](LICENSE)
 
-## Features
+Stop manually checking logs. Let AI watch, analyze, and notify you when something important happens.
 
-- **Intelligent Log Analysis**: Uses OpenAI GPT models to analyze and summarize log content
-- **Real-time Monitoring**: Continuously monitors log files for changes
-- **Command Output Monitoring**: Monitor any command's stdout/stderr in real-time (Docker logs, application output, etc.)
-- **Program Exit Handling**: Configurable final summary on program termination
-- **Telegram Integration**: Sends formatted notifications directly to Telegram
-- **Daemon Process Management**: Run monitoring as background processes with full lifecycle management
-- **Configurable Thresholds**: Set custom line thresholds and check intervals
-- **Global Configuration**: Manage settings globally or per-project
+> Note: This project is under active development. Any kind of contributions are welcome!
 
-## Installation
 
-```bash
-# Build from source
-make build
+## ✨ Core Features
 
-# Install to GOPATH/bin
-make install
+- **🤖 AI-Powered Analysis**: GPT automatically summarizes log changes and identifies critical issues
+- **📱 Instant Notifications**: Get smart alerts via Telegram when errors or important events occur
+- **🔄 Universal Monitoring**: Watch any log file or command output (Docker logs, application output, build processes)
+- **🔌 Hot-Pluggable**: No code changes required - works with any existing project or application
 
-# Or using Go directly
-go build -o lai
+## ⚡ Installation
 
-# Or run directly
-go run main.go
-```
-
-## Usage
-
-### Basic Usage
-
-#### File Monitoring
+### Option 1: Install from Release (Recommended)
 
 ```bash
-# Start monitoring a log file
-./lai start /path/to/logfile.log
+# Download latest release
+wget https://github.com/shiquda/lai/releases/latest/download/lai-linux-amd64.tar.gz
 
-# With custom settings
-./lai start /path/to/logfile.log --line-threshold 10 --interval 30s --chat-id "-100123456789"
+# Extract archive
+tar -xzf lai-linux-amd64.tar.gz
 
-# Start as daemon process
-./lai start /path/to/logfile.log -d
+# Create local bin directory and move binary (rename to lai)
+mkdir -p ~/.local/bin
+mv lai-linux-amd64 ~/.local/bin/lai
 
-# Start daemon with custom name
-./lai start /path/to/logfile.log -d -n "webapp-logs"
+# Make executable
+chmod +x ~/.local/bin/lai
+
+# Add to PATH if needed (add to ~/.bashrc or ~/.zshrc)
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+# Verify installation
+lai version
 ```
 
-> Example: Consider a project that stores its logs in a local file. You can leverage `lai start /path/to/logfile.log -d -n "your-project"` command to monitor these logs dynamically, without requiring any modifications to the existing codebase.
+### Option 2: Build from Source
 
-#### Command Output Monitoring
-
-Monitor any command's stdout/stderr in real-time:
-
+**Prerequisites:**
 ```bash
-# Monitor Docker container logs
-./lai exec "docker logs container_name -f" --line-threshold 5 --interval 10s
+# Install Go 1.21+ if not installed
+sudo apt update
+sudo apt install golang-go
 
-# Monitor application output
-./lai exec "python app.py" -l 3 -i 30s
-
-# Monitor with custom name in daemon mode
-./lai exec "docker logs webapp_container -f" -d -n "webapp-monitor"
-
-# Enable final summary on program exit (default enabled)
-./lai exec "npm run build" --final-summary
-
-# Disable final summary
-./lai exec "short-lived-command" --no-final-summary
-
-# Run in specific working directory
-./lai exec "make test" --workdir /path/to/project
+# Verify Go version
+go version  # Should be 1.21 or higher
 ```
 
-> Example: Suppose you are running a Python script and wish to receive notifications upon encountering errors or a concise summary upon completion. Simply execute:
->
-> ```bash
-> lai exec "python3 main.py" --final-summary
-> ```
->
-> This accomplishes the desired outcome seamlessly.
-
-### Daemon Process Management
-
+**Build and install:**
 ```bash
-# List running daemon processes
-./lai list
-
-# View daemon logs
-./lai logs webapp-logs
-
-# Follow daemon logs in real-time
-./lai logs webapp-logs -f
-
-# Stop a daemon process
-./lai stop webapp-logs
-
-# Resume a stopped daemon
-./lai resume webapp-logs
-
-# Clean up stopped daemon entries
-./lai clean
-```
-
-### Configuration
-
-Lai uses a global configuration file at `~/.lai/config.yaml`:
-
-```yaml
-notifications:
-  openai:
-    api_key: "your-openai-api-key"
-    base_url: "https://api.openai.com/v1"
-    model: "gpt-4o"
-  telegram:
-    bot_token: "your-telegram-bot-token"
-    chat_id: "your-default-chat-id"
-
-defaults:
-  line_threshold: 10
-  check_interval: "30s"
-  chat_id: "your-default-chat-id"
-  final_summary: true  # Send final summary when programs exit
-```
-
-### Configuration Management
-
-```bash
-# Set OpenAI API key
-./lai config set notifications.openai.api_key "sk-your-key"
-
-# Set Telegram bot token
-./lai config set notifications.telegram.bot_token "123456:ABC-DEF"
-
-# Set default chat ID
-./lai config set defaults.chat_id "-100123456789"
-
-# Set final summary default behavior
-./lai config set defaults.final_summary true
-
-# View current configuration
-./lai config list
-
-# Reset configuration to defaults
-./lai config reset
-```
-
-## Development
-
-### Quick Start
-
-```bash
-# View all available commands
-make help
+# Clone repository
+git clone https://github.com/shiquda/lai.git
+cd lai
 
 # Build the application
 make build
 
-# Download dependencies
-make deps
+# Install to ~/.local/bin
+mkdir -p ~/.local/bin
+cp lai ~/.local/bin/
 
-# Format code
-make fmt
+# Add to PATH if needed
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
 
-# Run static analysis
-make vet
+# Verify installation
+lai --help
 ```
 
-### Testing
+**Requirements**: Go 1.21+, OpenAI API key, Telegram bot token
 
-The project includes comprehensive tests covering all major components with 46.4% overall test coverage:
+## 🚀 Quick Start
 
-#### Quick Test Run
+# Monitor a log file with instant AI summaries
+
+```
+lai start /path/to/app.log
+```
+
+# Monitor Docker container logs
+```
+lai exec "docker logs webapp -f" -d
+```
+
+# Monitor build process with completion summary
+```
+lai exec "npm run build" --final-summary
+```
+
+**Real Example**: Monitor your production API logs and get notified when errors spike:
 ```bash
-# Run tests quickly (no coverage)
-make test-quick
-
-# Or manually
-go test ./... -v
+lai start /var/log/api/error.log -d -n "api-monitor"
 ```
 
-#### Comprehensive Test Run
+## 🛠️ Setup
+
+1. **Configure OpenAI**:
+   ```bash
+   lai config set notifications.openai.api_key "sk-your-key"
+   ```
+
+2. **Configure Telegram**:
+   ```bash
+   lai config set notifications.telegram.bot_token "123456:ABC-DEF"
+   lai config set defaults.chat_id "-100123456789"
+   ```
+
+3. **Start monitoring**:
+   ```bash
+   lai start /path/to/your.log
+   ```
+
+## 📖 Common Use Cases
+
+### Monitor Application Logs
 ```bash
-# Run full test suite with coverage and quality checks
-make test
+# Background monitoring with custom name
+lai start /var/log/nginx/error.log -d -n "nginx-errors"
+
+# View what's being monitored
+lai list
+
+# Check monitoring logs
+lai logs nginx-errors -f
 ```
 
-#### Generate Coverage Report
+### Monitor Docker Containers
 ```bash
-# Generate HTML coverage report
-make test-coverage
-# View coverage.html in browser
+# Monitor specific container
+lai exec "docker logs webapp -f" -d -n "webapp-monitor"
+
+# Monitor with custom thresholds
+lai exec "docker logs db -f" --line-threshold 5 --interval 10s
 ```
 
-#### Test Structure
-- **Unit Tests**: Located alongside source files (`*_test.go`)
-- **Integration Tests**: End-to-end workflow testing (`integration_test.go`)
-- **Test Coverage**: Current coverage is 46.4% across all packages
-- **Daemon Management Tests**: Complete test suites for all 5 daemon commands
-
-#### Individual Package Testing
+### Monitor Build/CI Processes
 ```bash
-# Test specific packages
-go test ./internal/collector -v
-go test ./internal/config -v
-go test ./internal/notifier -v
-go test ./internal/summarizer -v
-go test ./internal/daemon -v
+# Get summary when build completes
+lai exec "npm run build" --final-summary
+
+# Monitor tests with error detection
+lai exec "npm test" -l 3 -i 15s
 ```
 
-### Code Quality
+## 🔧 Process Management
 
 ```bash
-# Clean build artifacts and test cache
-make clean
-
-# Format all code
-make fmt
-
-# Run static analysis
-make vet
-
-# Full quality check pipeline
-make clean fmt vet test
+lai list           # Show all running monitors
+lai stop <name>    # Stop a monitor
+lai resume <name>  # Restart a stopped monitor
+lai clean          # Remove stopped entries
 ```
 
-### Project Structure
+## 📚 Documentation
 
-```
-lai/
-├── main.go                          # Application entry point
-├── Makefile                         # Development workflow commands
-├── cmd/                            # CLI commands
-│   ├── start.go                    # Main start command with daemon support
-│   ├── exec.go                     # Execute and monitor commands
-│   ├── clean.go                    # Clean stopped daemon processes
-│   ├── list.go                     # List running daemon processes  
-│   ├── logs.go                     # View daemon process logs
-│   ├── resume.go                   # Resume stopped daemon processes
-│   └── stop.go                     # Stop running daemon processes
-├── internal/                       # Internal packages
-│   ├── collector/                  # Log file and command output monitoring
-│   ├── config/                     # Configuration management
-│   ├── daemon/                     # Daemon process lifecycle management
-│   ├── notifier/                   # Telegram notifications
-│   ├── summarizer/                 # OpenAI integration
-│   └── testutils/                  # Shared testing utilities
-├── testdata/                       # Test data files
-├── scripts/                        # Build and test scripts
-└── integration_test.go             # Integration tests
-```
+- **[Development Guide](docs/DEVELOPMENT.md)** - Building, testing, and contributing
+- **[Configuration Reference](docs/CONFIGURATION.md)** - Complete configuration options
+- **[Architecture Overview](docs/ARCHITECTURE.md)** - Project structure and design
 
-### Contributing
+## 📋 Roadmap
+
+- [ ] Add more notification methods (email, Slack, Discord...)
+- [ ] Support more customized settings (notification format, prompts, languages)
+- [ ] Error-only notification mode (filter out normal logs, notify only on errors/exceptions)
+
+## 🤝 Contributing
+
+> Note: Development and usage on Windows platforms are not supported yet. Consider using WSL if you are on Windows.
 
 1. Fork the repository
 2. Create a feature branch
-3. Write tests for new functionality
+3. Write tests for new functionality  
 4. Ensure all tests pass: `make test`
-5. Run code quality checks: `make fmt vet`
-6. Submit a pull request
+5. Submit a pull request
 
-### Development Workflow
-
-```bash
-# 1. Setup development environment
-make deps
-
-# 2. Make your changes and format code
-make fmt
-
-# 3. Run static analysis
-make vet
-
-# 4. Run tests
-make test
-
-# 5. Build and test locally
-make build
-./lai --help
-
-# 6. Clean up when done
-make clean
-```
-
-## Requirements
-
-- Go 1.21.5 or later
-- OpenAI API access
-- Telegram bot token
-
-## To Do
-
-- [ ] Add more notification methods, e.g. email
-- [ ] Support more customized settings, e.g. notification format, prompts, languages etc.
-
-
-## License
+## 📄 License
 
 See LICENSE file for details.
-
----
-
-**Status**: Under active development
