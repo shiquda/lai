@@ -8,4 +8,8 @@ lai
 
 test.log
 
-CLAUDE.local.md
+CLAUDE.md
+
+# test coverage files
+coverage.out
+coverage.html
