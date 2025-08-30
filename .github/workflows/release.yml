@@ -18,6 +18,10 @@ jobs:
             goos: linux
             goarch: amd64
             suffix: linux-amd64
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            suffix: windows-amd64
           - os: macos-latest
             goos: darwin
             goarch: amd64
@@ -56,6 +60,7 @@ jobs:
 
       - name: Get version info
         id: version
+        shell: bash
         run: |
           echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           echo "BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')" >> $GITHUB_OUTPUT
@@ -69,6 +74,7 @@ jobs:
           VERSION: ${{ steps.version.outputs.VERSION }}
           BUILD_TIME: ${{ steps.version.outputs.BUILD_TIME }}
           GIT_COMMIT: ${{ steps.version.outputs.GIT_COMMIT }}
+        shell: bash
         run: |
           # Build using Makefile
           make build
@@ -82,6 +88,7 @@ jobs:
           mv lai "${BINARY_NAME}"
 
       - name: Create archive
+        shell: bash
         run: |
           BINARY_NAME="lai-${{ matrix.suffix }}"
           if [ "${{ matrix.goos }}" = "windows" ]; then
@@ -110,71 +117,20 @@ jobs:
 
       - name: Get version info
         id: version
+        shell: bash
         run: |
           echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: Generate release notes
-        id: release_notes
-        run: |
-          # Extract version without 'v' prefix for changelog lookup
-          VERSION_NUM=${GITHUB_REF#refs/tags/v}
-          
-          # Create release notes
-          cat > release_notes.md << 'EOF'
-          ## What's Changed
-          
-          ### Highlights
-          - AI-powered log monitoring and notification system
-          - Support for multiple notification channels (Telegram)
-          - Daemon process management for continuous monitoring
-          - Built-in log summarization using OpenAI API
-          
-          ### Installation
-          
-          Download the appropriate binary for your platform:
-          - **Linux (x64)**: `lai-linux-amd64.tar.gz`
-          - **macOS (Intel)**: `lai-darwin-amd64.tar.gz` 
-          - **macOS (Apple Silicon)**: `lai-darwin-arm64.tar.gz`
-          
-          Extract and run:
-          ```bash
-          tar -xzf lai-*.tar.gz
-          chmod +x lai-*
-          lai-* --help
-          ```
-          
-          ### Configuration
-          
-          Set up your configuration:
-          ```bash
-          # Set OpenAI API key
-          lai config set notifications.openai.api_key "your-api-key"
-          
-          # Set Telegram bot token
-          lai config set notifications.telegram.bot_token "your-bot-token"
-          
-          # Set default chat ID
-          lai config set defaults.chat_id "your-chat-id"
-          ```
-          
-          Then start monitoring:
-          ```bash
-          lai start /path/to/your/logfile.log -d
-          ```
-          
-          **Full Changelog**: https://github.com/shiquda/lai/compare/${{ steps.version.outputs.VERSION }}
-          EOF
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             artifacts/lai-linux-amd64/*.tar.gz
+            artifacts/lai-windows-amd64/*.tar.gz
             artifacts/lai-darwin-amd64/*.tar.gz
             artifacts/lai-darwin-arm64/*.tar.gz
-          body_path: release_notes.md
           draft: false
           prerelease: false
-          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
