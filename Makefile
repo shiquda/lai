@@ -1,6 +1,6 @@
 # Makefile for Lai project
 
-.PHONY: help build install test test-quick test-coverage clean fmt vet deps
+.PHONY: help build install test test-quick test-coverage clean fmt vet deps act-test act-test-build
 
 # Version information
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -22,6 +22,8 @@ help:
 	@echo "  fmt          - Format all Go code"
 	@echo "  vet          - Run go vet static analysis"
 	@echo "  deps         - Download and verify dependencies"
+	@echo "  act-test     - Test GitHub Actions locally with act"
+	@echo "  act-test-build - Test only the build job with act"
 
 # Build the application
 build:
@@ -74,3 +76,15 @@ deps:
 	@echo "📦 Downloading dependencies..."
 	@go mod download
 	@go mod verify
+
+# Test GitHub Actions with act
+act-test:
+	@echo "🎭 Testing GitHub Actions with act..."
+	@echo "Note: This will test the full workflow with mock release tag"
+	@act push -e .github/act_push_event.json --artifact-server-path /tmp/artifacts
+
+# Test only build job with act  
+act-test-build:
+	@echo "🎭 Testing build job with act..."
+	@echo "Note: This tests only the build matrix without creating release"
+	@act push -j build -e .github/act_push_event.json --artifact-server-path /tmp/artifacts
