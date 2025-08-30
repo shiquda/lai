@@ -169,6 +169,12 @@ func setFieldByPath(obj interface{}, path, value string) error {
 			switch field.Kind() {
 			case reflect.String:
 				field.SetString(value)
+			case reflect.Bool:
+				if boolVal, err := strconv.ParseBool(value); err == nil {
+					field.SetBool(boolVal)
+				} else {
+					return fmt.Errorf("invalid bool value: %s", value)
+				}
 			case reflect.Int:
 				if intVal, err := strconv.Atoi(value); err == nil {
 					field.SetInt(int64(intVal))
@@ -247,6 +253,14 @@ func printConfig(obj interface{}, prefix string) {
 
 // toCamelCase converts snake_case to CamelCase (with special handling for common acronyms)
 func toCamelCase(s string) string {
+	// Handle special compound words first
+	switch s {
+	case "open_ai":
+		return "OpenAI"
+	case "openai": // Also support the simplified form
+		return "OpenAI"
+	}
+
 	parts := strings.Split(s, "_")
 	for i := range parts {
 		if len(parts[i]) > 0 {
@@ -271,6 +285,12 @@ func toCamelCase(s string) string {
 
 // toSnakeCase converts CamelCase to snake_case (with proper handling of consecutive uppercase)
 func toSnakeCase(s string) string {
+	// Handle special compound words first
+	switch s {
+	case "OpenAI":
+		return "openai"
+	}
+
 	var result strings.Builder
 	runes := []rune(s)
 

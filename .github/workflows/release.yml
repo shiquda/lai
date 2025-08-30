@@ -140,7 +140,7 @@ jobs:
           ```bash
           tar -xzf lai-*.tar.gz
           chmod +x lai-*
-          ./lai-* --help
+          lai-* --help
           ```
           
           ### Configuration
@@ -148,18 +148,18 @@ jobs:
           Set up your configuration:
           ```bash
           # Set OpenAI API key
-          ./lai config set notifications.openai.api_key "your-api-key"
+          lai config set notifications.openai.api_key "your-api-key"
           
           # Set Telegram bot token
-          ./lai config set notifications.telegram.bot_token "your-bot-token"
+          lai config set notifications.telegram.bot_token "your-bot-token"
           
           # Set default chat ID
-          ./lai config set defaults.chat_id "your-chat-id"
+          lai config set defaults.chat_id "your-chat-id"
           ```
           
           Then start monitoring:
           ```bash
-          ./lai start /path/to/your/logfile.log -d
+          lai start /path/to/your/logfile.log -d
           ```
           
           **Full Changelog**: https://github.com/shiquda/lai/compare/${{ steps.version.outputs.VERSION }}

@@ -283,7 +283,7 @@ defaults:
 	testutils.CreateFileWithContent(s.T(), filepath.Dir(globalConfigPath), "config.yaml", globalConfigContent)
 
 	testLogPath := testutils.GetTestLogPath("test.log")
-	config, err := BuildRuntimeConfig(testLogPath, nil, nil, nil)
+	config, err := BuildRuntimeConfig(testLogPath, nil, nil, nil, nil)
 
 	assert.NoError(s.T(), err)
 	assert.Equal(s.T(), testLogPath, config.LogFile)
@@ -318,7 +318,7 @@ defaults:
 	chatID := "-100override"
 	testLogPath := testutils.GetTestLogPath("test.log")
 
-	config, err := BuildRuntimeConfig(testLogPath, &lineThreshold, &checkInterval, &chatID)
+	config, err := BuildRuntimeConfig(testLogPath, &lineThreshold, &checkInterval, &chatID, nil)
 
 	assert.NoError(s.T(), err)
 	assert.Equal(s.T(), 25, config.LineThreshold)
