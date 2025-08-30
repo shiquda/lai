@@ -3,8 +3,22 @@ package testutils
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
+
+// GetTestLogPath returns a platform-appropriate test log file path
+func GetTestLogPath(filename string) string {
+	if runtime.GOOS == "windows" {
+		return filepath.FromSlash("C:/temp/" + filename)
+	}
+	return filepath.Join("/tmp", filename)
+}
+
+// GetTestLogPathInTempDir returns a test log path within a temporary directory
+func GetTestLogPathInTempDir(tempDir, filename string) string {
+	return filepath.Join(tempDir, filename)
+}
 
 func CreateTempFile(t *testing.T, content string) (string, func()) {
 	t.Helper()

@@ -12,6 +12,28 @@ Lai is an AI-powered log monitoring tool that watches log files, generates intel
 - **Daemon Process Management**: Run monitoring as background processes with full lifecycle management
 - **Configurable Thresholds**: Set custom line thresholds and check intervals
 - **Global Configuration**: Manage settings globally or per-project
+- **Cross-Platform Support**: Native support for Windows, Linux, and macOS
+
+## Platform Support
+
+Lai runs natively on:
+- **Windows** (amd64, arm64) - Full daemon process support
+- **Linux** (amd64, arm64, 386) - Full Unix process management
+- **macOS** (amd64, arm64) - Full Unix process management
+
+### Platform-Specific Notes
+
+#### Windows
+- Daemon processes run as detached background processes
+- Configuration files stored in `%USERPROFILE%\.lai\`
+- Log paths use Windows format: `C:\path\to\logs\app.log`
+- Process termination uses Windows-specific APIs
+
+#### Unix/Linux/macOS
+- Daemon processes use Unix fork/exec with session management
+- Configuration files stored in `~/.lai/`
+- Log paths use Unix format: `/path/to/logs/app.log`
+- Process management uses Unix signals (SIGTERM, SIGKILL)
 
 ## Installation
 
@@ -36,8 +58,14 @@ go run main.go
 #### File Monitoring
 
 ```bash
-# Start monitoring a log file
+# Unix/Linux/macOS
 ./lai start /path/to/logfile.log
+
+# Windows (Command Prompt)
+.\lai.exe start "C:\logs\app.log"
+
+# Windows (PowerShell) 
+.\lai.exe start "C:\logs\app.log"
 
 # With custom settings
 ./lai start /path/to/logfile.log --line-threshold 10 --interval 30s --chat-id "-100123456789"

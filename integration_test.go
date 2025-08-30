@@ -55,8 +55,9 @@ func TestCollectorWorkflow(t *testing.T) {
 
 func TestConfigValidation(t *testing.T) {
 	// Test valid config
+	testLogPath := testutils.GetTestLogPath("test.log")
 	validConfig := &config.Config{
-		LogFile: "/tmp/test.log",
+		LogFile: testLogPath,
 		OpenAI: config.OpenAIConfig{
 			APIKey: "sk-test-123",
 		},
@@ -71,7 +72,7 @@ func TestConfigValidation(t *testing.T) {
 
 	// Test invalid config - missing API key
 	invalidConfig := &config.Config{
-		LogFile: "/tmp/test.log",
+		LogFile: testLogPath,
 		OpenAI: config.OpenAIConfig{
 			APIKey: "", // Missing
 		},
@@ -123,11 +124,12 @@ func TestConfigMerging(t *testing.T) {
 	lineThreshold := 25
 	checkInterval := 30 * time.Second
 	chatID := "-100override"
+	testLogPath := testutils.GetTestLogPath("test.log")
 
-	runtimeConfig, err := config.BuildRuntimeConfig("/tmp/test.log", &lineThreshold, &checkInterval, &chatID)
+	runtimeConfig, err := config.BuildRuntimeConfig(testLogPath, &lineThreshold, &checkInterval, &chatID)
 
 	assert.NoError(t, err)
-	assert.Equal(t, "/tmp/test.log", runtimeConfig.LogFile)
+	assert.Equal(t, testLogPath, runtimeConfig.LogFile)
 	assert.Equal(t, 25, runtimeConfig.LineThreshold)             // Overridden
 	assert.Equal(t, 30*time.Second, runtimeConfig.CheckInterval) // Overridden
 	assert.Equal(t, "-100override", runtimeConfig.ChatID)        // Overridden

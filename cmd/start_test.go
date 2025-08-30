@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/shiquda/lai/internal/daemon"
+	"github.com/shiquda/lai/internal/testutils"
 )
 
 func TestRunDaemon_ManagerCreation(t *testing.T) {
@@ -179,14 +180,14 @@ func TestRunDaemon_ParameterValidation(t *testing.T) {
 	}{
 		{
 			name:        "Valid parameters",
-			logFile:     "/tmp/test.log",
+			logFile:     testutils.GetTestLogPath("test.log"),
 			processName: "webapp",
 			expectError: false,
 			description: "Should accept valid log file and process name",
 		},
 		{
 			name:        "Empty process name",
-			logFile:     "/tmp/test.log",
+			logFile:     testutils.GetTestLogPath("test.log"),
 			processName: "",
 			expectError: false,
 			description: "Should accept empty process name (auto-generate)",
