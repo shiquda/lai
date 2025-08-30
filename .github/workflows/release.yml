@@ -10,27 +10,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            goos: linux
-            goarch: amd64
-            suffix: linux-amd64
-          - os: windows-latest
-            goos: windows
-            goarch: amd64
-            suffix: windows-amd64
-          - os: macos-latest
-            goos: darwin
-            goarch: amd64
-            suffix: darwin-amd64
-          - os: macos-latest
-            goos: darwin
-            goarch: arm64
-            suffix: darwin-arm64
-
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -66,42 +46,37 @@ jobs:
           echo "BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')" >> $GITHUB_OUTPUT
           echo "GIT_COMMIT=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
-      - name: Build binary
+      - name: Build cross-platform binaries
         env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
           VERSION: ${{ steps.version.outputs.VERSION }}
           BUILD_TIME: ${{ steps.version.outputs.BUILD_TIME }}
           GIT_COMMIT: ${{ steps.version.outputs.GIT_COMMIT }}
-        shell: bash
         run: |
-          # Build using Makefile
-          make build
+          # Build flags
+          LDFLAGS="-X github.com/shiquda/lai/cmd.Version=${VERSION} -X github.com/shiquda/lai/cmd.BuildTime=${BUILD_TIME} -X github.com/shiquda/lai/cmd.GitCommit=${GIT_COMMIT}"
           
-          # Rename binary to platform-specific name
-          BINARY_NAME="lai-${{ matrix.suffix }}"
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            BINARY_NAME="${BINARY_NAME}.exe"
-          fi
+          # Linux AMD64
+          GOOS=linux GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o lai-${VERSION}-linux-amd64
           
-          mv lai "${BINARY_NAME}"
+          # Windows AMD64
+          GOOS=windows GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o lai-${VERSION}-windows-amd64.exe
+          
+          # macOS AMD64
+          GOOS=darwin GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o lai-${VERSION}-darwin-amd64
+          
+          # macOS ARM64
+          GOOS=darwin GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o lai-${VERSION}-darwin-arm64
 
-      - name: Create archive
-        shell: bash
-        run: |
-          BINARY_NAME="lai-${{ matrix.suffix }}"
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            BINARY_NAME="${BINARY_NAME}.exe"
-          fi
-          
-          tar -czf "lai-${{ matrix.suffix }}.tar.gz" "${BINARY_NAME}" README.md LICENSE
-
-      - name: Upload artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: lai-${{ matrix.suffix }}
-          path: lai-${{ matrix.suffix }}.tar.gz
+          name: release-binaries
+          path: |
+            lai-*-linux-amd64
+            lai-*-windows-amd64.exe
+            lai-*-darwin-amd64
+            lai-*-darwin-arm64
 
   release:
     needs: build
@@ -113,6 +88,7 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
+          name: release-binaries
           path: artifacts
 
       - name: Get version info
@@ -126,10 +102,10 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            artifacts/lai-linux-amd64/*.tar.gz
-            artifacts/lai-windows-amd64/*.tar.gz
-            artifacts/lai-darwin-amd64/*.tar.gz
-            artifacts/lai-darwin-arm64/*.tar.gz
+            artifacts/lai-*-linux-amd64
+            artifacts/lai-*-windows-amd64.exe
+            artifacts/lai-*-darwin-amd64
+            artifacts/lai-*-darwin-arm64
           draft: false
           prerelease: false
         env:

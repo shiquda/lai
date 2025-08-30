@@ -1,0 +1,11 @@
+{
+  "ref": "refs/tags/v1.0.0-test",
+  "repository": {
+    "full_name": "shiquda/lai",
+    "clone_url": "https://github.com/shiquda/lai.git"
+  },
+  "head_commit": {
+    "id": "1234567890abcdef",
+    "message": "Test release for act"
+  }
+}

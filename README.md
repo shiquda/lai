@@ -21,15 +21,17 @@ Stop manually checking logs. Let AI watch, analyze, and notify you when somethin
 ### Option 1: Install from Release (Recommended)
 
 ```bash
-# Download latest release
-wget https://github.com/shiquda/lai/releases/latest/download/lai-linux-amd64.tar.gz
+# Download latest release for your platform
+# For Linux:
+wget https://github.com/shiquda/lai/releases/latest/download/lai-v*-linux-amd64
+# For macOS Intel:
+# wget https://github.com/shiquda/lai/releases/latest/download/lai-v*-darwin-amd64
+# For macOS Apple Silicon:
+# wget https://github.com/shiquda/lai/releases/latest/download/lai-v*-darwin-arm64
 
-# Extract archive
-tar -xzf lai-linux-amd64.tar.gz
-
-# Create local bin directory and move binary (rename to lai)
+# Create local bin directory and rename binary
 mkdir -p ~/.local/bin
-mv lai-linux-amd64 ~/.local/bin/lai
+mv lai-v*-linux-amd64 ~/.local/bin/lai
 
 # Make executable
 chmod +x ~/.local/bin/lai
