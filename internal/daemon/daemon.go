@@ -6,8 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"syscall"
 	"time"
+
+	"github.com/shiquda/lai/internal/platform"
 )
 
 // ProcessInfo represents information about a running daemon process
@@ -23,6 +24,7 @@ type ProcessInfo struct {
 type Manager struct {
 	processDir string
 	logDir     string
+	platform   *platform.Platform
 }
 
 // NewManager creates a new daemon manager
@@ -46,6 +48,7 @@ func NewManager() (*Manager, error) {
 	return &Manager{
 		processDir: processDir,
 		logDir:     logDir,
+		platform:   platform.New(),
 	}, nil
 }
 
@@ -62,6 +65,7 @@ func NewManagerWithDirs(processDir, logDir string) (*Manager, error) {
 	return &Manager{
 		processDir: processDir,
 		logDir:     logDir,
+		platform:   platform.New(),
 	}, nil
 }
 
@@ -178,26 +182,12 @@ func (m *Manager) StopProcess(processID string) error {
 		return m.SaveProcessInfo(info)
 	}
 
-	// Send SIGTERM to the process
-	process, err := os.FindProcess(info.PID)
-	if err != nil {
-		return fmt.Errorf("failed to find process %d: %w", info.PID, err)
-	}
-
-	if err := process.Signal(syscall.SIGTERM); err != nil {
-		return fmt.Errorf("failed to send SIGTERM to process %d: %w", info.PID, err)
-	}
-
-	// Wait a bit and check if process stopped
-	time.Sleep(2 * time.Second)
-	if !m.isProcessRunning(info.PID) {
-		info.Status = "stopped"
-		return m.SaveProcessInfo(info)
-	}
-
-	// If still running, force kill
-	if err := process.Signal(syscall.SIGKILL); err != nil {
-		return fmt.Errorf("failed to send SIGKILL to process %d: %w", info.PID, err)
+	// Try graceful termination first
+	if err := m.platform.Process.TerminateProcess(info.PID); err != nil {
+		// If graceful termination fails, try force kill
+		if killErr := m.platform.Process.KillProcess(info.PID); killErr != nil {
+			return fmt.Errorf("failed to terminate process %d: %w (also failed to force kill: %v)", info.PID, err, killErr)
+		}
 	}
 
 	// Update status to stopped
@@ -233,14 +223,7 @@ func (m *Manager) IsProcessRunning(pid int) bool {
 
 // isProcessRunning checks if a process is still running
 func (m *Manager) isProcessRunning(pid int) bool {
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-
-	// Send signal 0 to check if process exists
-	err = process.Signal(syscall.Signal(0))
-	return err == nil
+	return m.platform.Process.IsProcessRunning(pid)
 }
 
 // getProcessStatus returns the status of a process
@@ -251,26 +234,7 @@ func (m *Manager) getProcessStatus(pid int) string {
 	return "stopped"
 }
 
-// Daemonize creates a daemon process
-func Daemonize() error {
-	// Fork the process
-	pid, err := syscall.ForkExec(os.Args[0], os.Args, &syscall.ProcAttr{
-		Env:   os.Environ(),
-		Files: []uintptr{0, 1, 2}, // stdin, stdout, stderr
-		Sys:   &syscall.SysProcAttr{Setsid: true},
-	})
-
-	if err != nil {
-		return fmt.Errorf("failed to fork process: %w", err)
-	}
-
-	// Parent process exits
-	fmt.Printf("Daemon started with PID: %d\n", pid)
-	os.Exit(0)
-
-	// This code won't be reached by the parent process
-	return nil
-}
+// Daemonize function is removed - use platform-specific process management instead
 
 // CreatePidFile creates a PID file for the daemon
 func CreatePidFile(pidFile string) error {

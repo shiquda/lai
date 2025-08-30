@@ -1,6 +1,8 @@
 # Test configuration files
 
 ## config.yaml - Valid configuration
+# Windows example: log_file: "C:\\temp\\test.log"  
+# Unix example: log_file: "/tmp/test.log"
 log_file: "/tmp/test.log"
 line_threshold: 5
 check_interval: "10s"

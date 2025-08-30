@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shiquda/lai/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -112,7 +113,7 @@ func (s *NotifierTestSuite) TestSendMessage_InvalidJSON() {
 }
 
 func (s *NotifierTestSuite) TestSendLogSummary() {
-	filePath := "/tmp/test.log"
+	filePath := testutils.GetTestLogPath("test.log")
 	summary := "Test log summary with important information"
 
 	err := s.sendLogSummaryWithCustomURL(filePath, summary)
@@ -148,7 +149,7 @@ func (s *NotifierTestSuite) TestSendLogSummary_MessageFormat() {
 		assert.Contains(s.T(), telegramMsg.Text, "📁 File:")
 		assert.Contains(s.T(), telegramMsg.Text, "⏰ Time:")
 		assert.Contains(s.T(), telegramMsg.Text, "📋 Summary:")
-		assert.Contains(s.T(), telegramMsg.Text, "/tmp/test.log")
+		assert.Contains(s.T(), telegramMsg.Text, testutils.GetTestLogPath("test.log"))
 		assert.Contains(s.T(), telegramMsg.Text, "Test summary")
 		assert.Equal(s.T(), "Markdown", telegramMsg.ParseMode)
 
@@ -160,7 +161,7 @@ func (s *NotifierTestSuite) TestSendLogSummary_MessageFormat() {
 	notifier := NewTelegramNotifier("test-token", "-100123456789")
 	notifier.client = server.Client()
 
-	err := s.sendLogSummaryWithCustomURLAndNotifier(notifier, server.URL, "/tmp/test.log", "Test summary")
+	err := s.sendLogSummaryWithCustomURLAndNotifier(notifier, server.URL, testutils.GetTestLogPath("test.log"), "Test summary")
 	assert.NoError(s.T(), err)
 }
 

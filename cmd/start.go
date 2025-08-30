@@ -4,14 +4,13 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/shiquda/lai/internal/collector"
 	"github.com/shiquda/lai/internal/config"
 	"github.com/shiquda/lai/internal/daemon"
 	"github.com/shiquda/lai/internal/notifier"
+	"github.com/shiquda/lai/internal/platform"
 	"github.com/shiquda/lai/internal/summarizer"
 	"github.com/spf13/cobra"
 )
@@ -120,8 +119,8 @@ func runMonitor(logFile string, lineThreshold *int, checkInterval *time.Duration
 	fmt.Printf("Chat ID: %s\n", cfg.ChatID)
 
 	// Setup signal handling
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	p := platform.New()
+	sigChan := p.Signal.SetupShutdownSignals()
 
 	// Run collector in goroutine
 	errChan := make(chan error, 1)
@@ -183,13 +182,9 @@ func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration,
 		cmd := execPath
 		args := append([]string{cmd}, os.Args[1:]...)
 
-		procAttr := &os.ProcAttr{
-			Files: []*os.File{nil, logFileHandle, logFileHandle},
-			Env:   append(os.Environ(), "LAI_DAEMON_MODE=1"),
-			Sys:   &syscall.SysProcAttr{Setsid: true},
-		}
-
-		process, err := os.StartProcess(cmd, args, procAttr)
+		// Use platform-specific daemon process creation
+		p := platform.New()
+		process, err := p.Process.StartDaemonProcess(cmd, args, logFileHandle, append(os.Environ(), "LAI_DAEMON_MODE=1"))
 		if err != nil {
 			return fmt.Errorf("failed to start daemon process: %w", err)
 		}

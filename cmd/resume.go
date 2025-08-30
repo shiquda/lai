@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"syscall"
 	"time"
 
 	"github.com/shiquda/lai/internal/daemon"
+	"github.com/shiquda/lai/internal/platform"
 	"github.com/spf13/cobra"
 )
 
@@ -81,13 +81,9 @@ func resumeProcess(manager *daemon.Manager, processID string) error {
 		args = append(args, "-n", processID)
 	}
 
-	procAttr := &os.ProcAttr{
-		Files: []*os.File{nil, logFileHandle, logFileHandle},
-		Env:   append(os.Environ(), "LAI_DAEMON_MODE=1", "LAI_RESUME_MODE=1"),
-		Sys:   &syscall.SysProcAttr{Setsid: true},
-	}
-
-	process, err := os.StartProcess(cmd, args, procAttr)
+	// Use platform-specific daemon process creation
+	p := platform.New()
+	process, err := p.Process.StartDaemonProcess(cmd, args, logFileHandle, append(os.Environ(), "LAI_DAEMON_MODE=1", "LAI_RESUME_MODE=1"))
 	if err != nil {
 		// Restore status on error
 		info.Status = "stopped"

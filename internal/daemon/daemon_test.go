@@ -66,14 +66,10 @@ func TestSaveAndLoadProcessInfo(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	manager := &Manager{
-		processDir: filepath.Join(tempDir, "processes"),
-		logDir:     filepath.Join(tempDir, "logs"),
+	manager, err := NewManagerWithDirs(filepath.Join(tempDir, "processes"), filepath.Join(tempDir, "logs"))
+	if err != nil {
+		t.Fatalf("Failed to create manager: %v", err)
 	}
-
-	// Ensure directories exist
-	os.MkdirAll(manager.processDir, 0755)
-	os.MkdirAll(manager.logDir, 0755)
 
 	// Test data
 	testInfo := &ProcessInfo{
@@ -145,12 +141,10 @@ func TestListProcesses(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	manager := &Manager{
-		processDir: filepath.Join(tempDir, "processes"),
-		logDir:     filepath.Join(tempDir, "logs"),
+	manager, err := NewManagerWithDirs(filepath.Join(tempDir, "processes"), filepath.Join(tempDir, "logs"))
+	if err != nil {
+		t.Fatalf("Failed to create manager: %v", err)
 	}
-	os.MkdirAll(manager.processDir, 0755)
-	os.MkdirAll(manager.logDir, 0755)
 
 	// Create test process info files
 	testProcesses := []*ProcessInfo{
@@ -243,12 +237,20 @@ func TestRemoveProcessInfo(t *testing.T) {
 }
 
 func TestGetProcessLogPath(t *testing.T) {
-	manager := &Manager{
-		logDir: "/test/logs",
+	tempDir, err := os.MkdirTemp("", "lai_test_")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+	
+	logDir := filepath.Join(tempDir, "logs")
+	manager, err := NewManagerWithDirs(filepath.Join(tempDir, "processes"), logDir)
+	if err != nil {
+		t.Fatalf("Failed to create manager: %v", err)
 	}
 
 	logPath := manager.GetProcessLogPath("test_123")
-	expected := "/test/logs/test_123.log"
+	expected := filepath.Join(logDir, "test_123.log")
 
 	if logPath != expected {
 		t.Errorf("Expected log path %s, got %s", expected, logPath)
@@ -256,7 +258,16 @@ func TestGetProcessLogPath(t *testing.T) {
 }
 
 func TestGetProcessStatus(t *testing.T) {
-	manager := &Manager{}
+	tempDir, err := os.MkdirTemp("", "lai_test_")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+	
+	manager, err := NewManagerWithDirs(filepath.Join(tempDir, "processes"), filepath.Join(tempDir, "logs"))
+	if err != nil {
+		t.Fatalf("Failed to create manager: %v", err)
+	}
 
 	// Test with current process (should be running)
 	currentPID := os.Getpid()
@@ -273,7 +284,16 @@ func TestGetProcessStatus(t *testing.T) {
 }
 
 func TestIsProcessRunning(t *testing.T) {
-	manager := &Manager{}
+	tempDir, err := os.MkdirTemp("", "lai_test_")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+	
+	manager, err := NewManagerWithDirs(filepath.Join(tempDir, "processes"), filepath.Join(tempDir, "logs"))
+	if err != nil {
+		t.Fatalf("Failed to create manager: %v", err)
+	}
 
 	// Test with current process
 	currentPID := os.Getpid()

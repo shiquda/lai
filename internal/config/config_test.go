@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,9 +14,10 @@ import (
 
 type ConfigTestSuite struct {
 	suite.Suite
-	tempDir      string
-	cleanup      func()
-	originalHome string
+	tempDir             string
+	cleanup             func()
+	originalHome        string
+	originalUserProfile string
 }
 
 func (s *ConfigTestSuite) SetupSuite() {
@@ -24,7 +26,11 @@ func (s *ConfigTestSuite) SetupSuite() {
 	s.cleanup = cleanup
 
 	s.originalHome = os.Getenv("HOME")
+	s.originalUserProfile = os.Getenv("USERPROFILE")
+	
+	// Set both HOME and USERPROFILE for cross-platform compatibility
 	os.Setenv("HOME", s.tempDir)
+	os.Setenv("USERPROFILE", s.tempDir)
 }
 
 func (s *ConfigTestSuite) TearDownSuite() {
@@ -32,6 +38,11 @@ func (s *ConfigTestSuite) TearDownSuite() {
 		s.cleanup()
 	}
 	os.Setenv("HOME", s.originalHome)
+	if s.originalUserProfile != "" {
+		os.Setenv("USERPROFILE", s.originalUserProfile)
+	} else {
+		os.Unsetenv("USERPROFILE")
+	}
 }
 
 func TestConfigSuite(t *testing.T) {
@@ -47,8 +58,11 @@ func (s *ConfigTestSuite) TestGetGlobalConfigPath() {
 }
 
 func (s *ConfigTestSuite) TestLoadConfig_Valid() {
+	testLogPath := testutils.GetTestLogPath("test.log")
+	// For YAML content, escape backslashes for Windows paths
+	yamlLogPath := strings.ReplaceAll(testLogPath, "\\", "\\\\")
 	configPath := testutils.CreateFileWithContent(s.T(), s.tempDir, "config.yaml", `
-log_file: "/tmp/test.log"
+log_file: "`+yamlLogPath+`"
 line_threshold: 15
 check_interval: "45s"
 
@@ -65,7 +79,7 @@ telegram:
 	config, err := LoadConfig(configPath)
 
 	assert.NoError(s.T(), err)
-	assert.Equal(s.T(), "/tmp/test.log", config.LogFile)
+	assert.Equal(s.T(), testLogPath, config.LogFile)
 	assert.Equal(s.T(), 15, config.LineThreshold)
 	assert.Equal(s.T(), 45*time.Second, config.CheckInterval)
 	assert.Equal(s.T(), "sk-test-123", config.OpenAI.APIKey)
@@ -77,7 +91,7 @@ telegram:
 
 func (s *ConfigTestSuite) TestLoadConfig_WithDefaults() {
 	configPath := testutils.CreateFileWithContent(s.T(), s.tempDir, "minimal_config.yaml", `
-log_file: "/tmp/test.log"
+log_file: "`+testutils.GetTestLogPath("test.log")+`"
 
 openai:
   api_key: "sk-test-123"
@@ -96,7 +110,7 @@ telegram:
 
 func (s *ConfigTestSuite) TestLoadConfig_InvalidYAML() {
 	configPath := testutils.CreateFileWithContent(s.T(), s.tempDir, "invalid.yaml", `
-log_file: "/tmp/test.log"
+log_file: "`+testutils.GetTestLogPath("test.log")+`"
 invalid_yaml: [unclosed
 `)
 
@@ -116,7 +130,7 @@ func (s *ConfigTestSuite) TestLoadConfig_FileNotExists() {
 
 func (s *ConfigTestSuite) TestConfigValidate_Valid() {
 	config := &Config{
-		LogFile: "/tmp/test.log",
+		LogFile: testutils.GetTestLogPath("test.log"),
 		OpenAI: OpenAIConfig{
 			APIKey: "sk-test-123",
 		},
@@ -148,7 +162,7 @@ func (s *ConfigTestSuite) TestConfigValidate_MissingLogFile() {
 
 func (s *ConfigTestSuite) TestConfigValidate_MissingOpenAIKey() {
 	config := &Config{
-		LogFile: "/tmp/test.log",
+		LogFile: testutils.GetTestLogPath("test.log"),
 		Telegram: TelegramConfig{
 			BotToken: "123:token",
 		},
@@ -162,7 +176,7 @@ func (s *ConfigTestSuite) TestConfigValidate_MissingOpenAIKey() {
 
 func (s *ConfigTestSuite) TestConfigValidate_MissingTelegramToken() {
 	config := &Config{
-		LogFile: "/tmp/test.log",
+		LogFile: testutils.GetTestLogPath("test.log"),
 		OpenAI: OpenAIConfig{
 			APIKey: "sk-test-123",
 		},
@@ -176,7 +190,7 @@ func (s *ConfigTestSuite) TestConfigValidate_MissingTelegramToken() {
 
 func (s *ConfigTestSuite) TestConfigValidate_MissingChatID() {
 	config := &Config{
-		LogFile: "/tmp/test.log",
+		LogFile: testutils.GetTestLogPath("test.log"),
 		OpenAI: OpenAIConfig{
 			APIKey: "sk-test-123",
 		},
@@ -268,10 +282,11 @@ defaults:
 `
 	testutils.CreateFileWithContent(s.T(), filepath.Dir(globalConfigPath), "config.yaml", globalConfigContent)
 
-	config, err := BuildRuntimeConfig("/tmp/test.log", nil, nil, nil)
+	testLogPath := testutils.GetTestLogPath("test.log")
+	config, err := BuildRuntimeConfig(testLogPath, nil, nil, nil)
 
 	assert.NoError(s.T(), err)
-	assert.Equal(s.T(), "/tmp/test.log", config.LogFile)
+	assert.Equal(s.T(), testLogPath, config.LogFile)
 	assert.Equal(s.T(), 15, config.LineThreshold)
 	assert.Equal(s.T(), 45*time.Second, config.CheckInterval)
 	assert.Equal(s.T(), "-100global", config.ChatID)
@@ -301,8 +316,9 @@ defaults:
 	lineThreshold := 25
 	checkInterval := 120 * time.Second
 	chatID := "-100override"
+	testLogPath := testutils.GetTestLogPath("test.log")
 
-	config, err := BuildRuntimeConfig("/tmp/test.log", &lineThreshold, &checkInterval, &chatID)
+	config, err := BuildRuntimeConfig(testLogPath, &lineThreshold, &checkInterval, &chatID)
 
 	assert.NoError(s.T(), err)
 	assert.Equal(s.T(), 25, config.LineThreshold)
