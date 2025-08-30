@@ -354,6 +354,15 @@ func BuildStreamConfig(command string, args []string, lineThreshold *int, checkI
 	return config, nil
 }
 
+// GetTemplateMap converts MessageTemplates struct to a map for notifier
+func (mt *MessageTemplates) GetTemplateMap() map[string]string {
+	templates := make(map[string]string)
+	if mt.LogSummary != "" {
+		templates["log_summary"] = mt.LogSummary
+	}
+	return templates
+}
+
 func (c *Config) Validate() error {
 	// Check if it's file monitoring or stream monitoring
 	if c.LogFile == "" && c.Command == "" {
@@ -379,13 +388,4 @@ func (c *Config) Validate() error {
 // IsStreamMode returns true if this config is for stream monitoring
 func (c *Config) IsStreamMode() bool {
 	return c.Command != ""
-}
-
-// GetTemplateMap converts MessageTemplates struct to a map for notifier
-func (mt *MessageTemplates) GetTemplateMap() map[string]string {
-	templates := make(map[string]string)
-	if mt.LogSummary != "" {
-		templates["log_summary"] = mt.LogSummary
-	}
-	return templates
 }
