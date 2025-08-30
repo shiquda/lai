@@ -28,6 +28,7 @@ type DefaultsConfig struct {
 	CheckInterval time.Duration `mapstructure:"check_interval" yaml:"check_interval"`
 	ChatID        string        `mapstructure:"chat_id" yaml:"chat_id"`
 	FinalSummary  bool          `mapstructure:"final_summary" yaml:"final_summary"`
+	ErrorOnlyMode bool          `mapstructure:"error_only_mode" yaml:"error_only_mode"`
 }
 
 // Config represents the runtime configuration (merged final configuration)
@@ -44,6 +45,9 @@ type Config struct {
 
 	// Exit handling options
 	FinalSummary bool `mapstructure:"final_summary" yaml:"final_summary"`
+
+	// Error detection options
+	ErrorOnlyMode bool `mapstructure:"error_only_mode" yaml:"error_only_mode"`
 
 	OpenAI   OpenAIConfig   `mapstructure:"openai" yaml:"openai"`
 	Telegram TelegramConfig `mapstructure:"telegram" yaml:"telegram"`
@@ -239,7 +243,7 @@ func EnsureGlobalConfig() error {
 }
 
 // BuildRuntimeConfig builds runtime configuration by merging global config and command line arguments
-func BuildRuntimeConfig(logFile string, lineThreshold *int, checkInterval *time.Duration, chatID *string) (*Config, error) {
+func BuildRuntimeConfig(logFile string, lineThreshold *int, checkInterval *time.Duration, chatID *string, errorOnlyMode *bool) (*Config, error) {
 	// Ensure global config exists
 	if err := EnsureGlobalConfig(); err != nil {
 		return nil, fmt.Errorf("failed to ensure global config: %w", err)
@@ -257,6 +261,7 @@ func BuildRuntimeConfig(logFile string, lineThreshold *int, checkInterval *time.
 		LineThreshold: globalConfig.Defaults.LineThreshold,
 		CheckInterval: globalConfig.Defaults.CheckInterval,
 		ChatID:        globalConfig.Defaults.ChatID,
+		ErrorOnlyMode: globalConfig.Defaults.ErrorOnlyMode,
 		OpenAI:        globalConfig.Notifications.OpenAI,
 		Telegram:      globalConfig.Notifications.Telegram,
 	}
@@ -271,6 +276,9 @@ func BuildRuntimeConfig(logFile string, lineThreshold *int, checkInterval *time.
 	if chatID != nil {
 		config.ChatID = *chatID
 	}
+	if errorOnlyMode != nil {
+		config.ErrorOnlyMode = *errorOnlyMode
+	}
 
 	// If no ChatID specified, use the default one
 	if config.ChatID == "" {
@@ -281,7 +289,7 @@ func BuildRuntimeConfig(logFile string, lineThreshold *int, checkInterval *time.
 }
 
 // BuildStreamConfig builds runtime configuration for stream monitoring
-func BuildStreamConfig(command string, args []string, lineThreshold *int, checkInterval *time.Duration, chatID *string, workingDir string, finalSummary *bool) (*Config, error) {
+func BuildStreamConfig(command string, args []string, lineThreshold *int, checkInterval *time.Duration, chatID *string, workingDir string, finalSummary *bool, errorOnlyMode *bool) (*Config, error) {
 	// Ensure global config exists
 	if err := EnsureGlobalConfig(); err != nil {
 		return nil, fmt.Errorf("failed to ensure global config: %w", err)
@@ -302,6 +310,7 @@ func BuildStreamConfig(command string, args []string, lineThreshold *int, checkI
 		CheckInterval: globalConfig.Defaults.CheckInterval,
 		ChatID:        globalConfig.Defaults.ChatID,
 		FinalSummary:  globalConfig.Defaults.FinalSummary,
+		ErrorOnlyMode: globalConfig.Defaults.ErrorOnlyMode,
 		OpenAI:        globalConfig.Notifications.OpenAI,
 		Telegram:      globalConfig.Notifications.Telegram,
 	}
@@ -318,6 +327,9 @@ func BuildStreamConfig(command string, args []string, lineThreshold *int, checkI
 	}
 	if finalSummary != nil {
 		config.FinalSummary = *finalSummary
+	}
+	if errorOnlyMode != nil {
+		config.ErrorOnlyMode = *errorOnlyMode
 	}
 
 	// If no ChatID specified, use the default one

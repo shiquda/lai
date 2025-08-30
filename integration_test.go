@@ -126,7 +126,7 @@ func TestConfigMerging(t *testing.T) {
 	chatID := "-100override"
 	testLogPath := testutils.GetTestLogPath("test.log")
 
-	runtimeConfig, err := config.BuildRuntimeConfig(testLogPath, &lineThreshold, &checkInterval, &chatID)
+	runtimeConfig, err := config.BuildRuntimeConfig(testLogPath, &lineThreshold, &checkInterval, &chatID, nil)
 
 	assert.NoError(t, err)
 	assert.Equal(t, testLogPath, runtimeConfig.LogFile)
