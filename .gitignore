@@ -3,8 +3,7 @@ config.yaml
 .claude/
 
 # executable
-lai.exe
-lai
+lai*
 
 test.log
 
