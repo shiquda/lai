@@ -45,6 +45,7 @@ var execCmd = &cobra.Command{
 		errorOnlyMode, _ := cmd.Flags().GetBool("error-only")
 		finalSummary, _ := cmd.Flags().GetBool("final-summary")
 		noFinalSummary, _ := cmd.Flags().GetBool("no-final-summary")
+		finalSummaryOnly, _ := cmd.Flags().GetBool("final-summary-only")
 
 		// Parse time interval
 		var checkInterval *time.Duration
@@ -83,12 +84,26 @@ var execCmd = &cobra.Command{
 			finalSummaryPtr = &noFinalSummaryValue
 		}
 
+		// Handle final-summary-only parameter
+		var finalSummaryOnlyPtr *bool
+		if cmd.Flags().Changed("final-summary-only") {
+			finalSummaryOnlyPtr = &finalSummaryOnly
+		}
+
+		// Logic: if final-summary-only is enabled, also enable final-summary
+		if finalSummaryOnly {
+			finalSummary = true
+			finalSummaryPtr = &finalSummary
+		}
+
+
+
 		if daemonMode {
-			if err := runStreamDaemon(command, commandArgs, lineThresholdPtr, checkInterval, chatIDPtr, processName, workingDir, finalSummaryPtr, errorOnlyModePtr); err != nil {
+			if err := runStreamDaemon(command, commandArgs, lineThresholdPtr, checkInterval, chatIDPtr, processName, workingDir, finalSummaryPtr, errorOnlyModePtr, finalSummaryOnlyPtr); err != nil {
 				log.Fatalf("Stream daemon startup failed: %v", err)
 			}
 		} else {
-			if err := runStreamMonitor(command, commandArgs, lineThresholdPtr, checkInterval, chatIDPtr, workingDir, finalSummaryPtr, errorOnlyModePtr); err != nil {
+			if err := runStreamMonitor(command, commandArgs, lineThresholdPtr, checkInterval, chatIDPtr, workingDir, finalSummaryPtr, errorOnlyModePtr, finalSummaryOnlyPtr); err != nil {
 				log.Fatalf("Stream monitor failed: %v", err)
 			}
 		}
@@ -108,11 +123,12 @@ func init() {
 	execCmd.Flags().Bool("final-summary", false, "Enable final summary on program exit (overrides global config)")
 	execCmd.Flags().Bool("no-final-summary", false, "Disable final summary on program exit")
 	execCmd.Flags().BoolP("error-only", "E", false, "Only send notifications for errors and exceptions")
+	execCmd.Flags().BoolP("final-summary-only", "F", false, "Only send notifications for final summary")
 }
 
-func runStreamMonitor(command string, commandArgs []string, lineThreshold *int, checkInterval *time.Duration, chatID *string, workingDir string, finalSummary *bool, errorOnlyMode *bool) error {
+func runStreamMonitor(command string, commandArgs []string, lineThreshold *int, checkInterval *time.Duration, chatID *string, workingDir string, finalSummary *bool, errorOnlyMode *bool, finalSummaryOnly *bool) error {
 	// Build runtime configuration for stream monitoring
-	cfg, err := config.BuildStreamConfig(command, commandArgs, lineThreshold, checkInterval, chatID, workingDir, finalSummary, errorOnlyMode)
+	cfg, err := config.BuildStreamConfig(command, commandArgs, lineThreshold, checkInterval, chatID, workingDir, finalSummary, errorOnlyMode, finalSummaryOnly)
 	if err != nil {
 		return fmt.Errorf("failed to build config: %w", err)
 	}
@@ -130,6 +146,12 @@ func runStreamMonitor(command string, commandArgs []string, lineThreshold *int, 
 
 	// Set trigger handler
 	streamCollector.SetTriggerHandler(func(newContent string) error {
+		// If FinalSummaryOnly mode is enabled, skip intermediate notifications
+		if cfg.FinalSummaryOnly {
+			fmt.Printf("Command output changes detected, but skipping intermediate notification (final-summary-only mode)\n")
+			return nil
+		}
+
 		fmt.Printf("Command output changes detected, generating summary...\n")
 
 		summary, err := openaiClient.Summarize(newContent, cfg.Language)
@@ -176,7 +198,7 @@ func runStreamMonitor(command string, commandArgs []string, lineThreshold *int, 
 	}
 }
 
-func runStreamDaemon(command string, commandArgs []string, lineThreshold *int, checkInterval *time.Duration, chatID *string, processName string, workingDir string, finalSummary *bool, errorOnlyMode *bool) error {
+func runStreamDaemon(command string, commandArgs []string, lineThreshold *int, checkInterval *time.Duration, chatID *string, processName string, workingDir string, finalSummary *bool, errorOnlyMode *bool, finalSummaryOnly *bool) error {
 	// Create daemon manager
 	manager, err := daemon.NewManager()
 	if err != nil {
@@ -262,5 +284,5 @@ func runStreamDaemon(command string, commandArgs []string, lineThreshold *int, c
 	}()
 
 	// Run the actual stream monitoring
-	return runStreamMonitor(command, commandArgs, lineThreshold, checkInterval, chatID, workingDir, finalSummary, errorOnlyMode)
+	return runStreamMonitor(command, commandArgs, lineThreshold, checkInterval, chatID, workingDir, finalSummary, errorOnlyMode, finalSummaryOnly)
 }

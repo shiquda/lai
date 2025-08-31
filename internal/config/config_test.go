@@ -345,4 +345,7 @@ func (s *ConfigTestSuite) TestGetDefaultGlobalConfig() {
 	assert.Equal(s.T(), "gpt-3.5-turbo", config.Notifications.OpenAI.Model)
 	assert.Equal(s.T(), 10, config.Defaults.LineThreshold)
 	assert.Equal(s.T(), 30*time.Second, config.Defaults.CheckInterval)
+	assert.Equal(s.T(), true, config.Defaults.FinalSummary)
+	assert.Equal(s.T(), false, config.Defaults.FinalSummaryOnly)
+	assert.Equal(s.T(), "English", config.Defaults.Language)
 }
