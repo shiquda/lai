@@ -24,12 +24,13 @@ type NotificationsConfig struct {
 
 // DefaultsConfig contains default configuration values
 type DefaultsConfig struct {
-	LineThreshold int           `mapstructure:"line_threshold" yaml:"line_threshold"`
-	CheckInterval time.Duration `mapstructure:"check_interval" yaml:"check_interval"`
-	ChatID        string        `mapstructure:"chat_id" yaml:"chat_id"`
-	FinalSummary  bool          `mapstructure:"final_summary" yaml:"final_summary"`
-	ErrorOnlyMode bool          `mapstructure:"error_only_mode" yaml:"error_only_mode"`
-	Language      string        `mapstructure:"language" yaml:"language"`
+	LineThreshold    int           `mapstructure:"line_threshold" yaml:"line_threshold"`
+	CheckInterval    time.Duration `mapstructure:"check_interval" yaml:"check_interval"`
+	ChatID           string        `mapstructure:"chat_id" yaml:"chat_id"`
+	FinalSummary     bool          `mapstructure:"final_summary" yaml:"final_summary"`
+	FinalSummaryOnly bool          `mapstructure:"final_summary_only" yaml:"final_summary_only"`
+	ErrorOnlyMode    bool          `mapstructure:"error_only_mode" yaml:"error_only_mode"`
+	Language         string        `mapstructure:"language" yaml:"language"`
 }
 
 // Config represents the runtime configuration (merged final configuration)
@@ -46,7 +47,8 @@ type Config struct {
 	WorkingDir  string   `mapstructure:"working_dir" yaml:"working_dir"`
 
 	// Exit handling options
-	FinalSummary bool `mapstructure:"final_summary" yaml:"final_summary"`
+	FinalSummary     bool `mapstructure:"final_summary" yaml:"final_summary"`
+	FinalSummaryOnly bool `mapstructure:"final_summary_only" yaml:"final_summary_only"`
 
 	// Error detection options
 	ErrorOnlyMode bool `mapstructure:"error_only_mode" yaml:"error_only_mode"`
@@ -302,7 +304,7 @@ func BuildRuntimeConfig(logFile string, lineThreshold *int, checkInterval *time.
 }
 
 // BuildStreamConfig builds runtime configuration for stream monitoring
-func BuildStreamConfig(command string, args []string, lineThreshold *int, checkInterval *time.Duration, chatID *string, workingDir string, finalSummary *bool, errorOnlyMode *bool) (*Config, error) {
+func BuildStreamConfig(command string, args []string, lineThreshold *int, checkInterval *time.Duration, chatID *string, workingDir string, finalSummary *bool, errorOnlyMode *bool, finalSummaryOnly *bool) (*Config, error) {
 	// Ensure global config exists
 	if err := EnsureGlobalConfig(); err != nil {
 		return nil, fmt.Errorf("failed to ensure global config: %w", err)
@@ -316,17 +318,18 @@ func BuildStreamConfig(command string, args []string, lineThreshold *int, checkI
 
 	// Build runtime configuration for stream monitoring
 	config := &Config{
-		Command:       command,
-		CommandArgs:   args,
-		WorkingDir:    workingDir,
-		LineThreshold: globalConfig.Defaults.LineThreshold,
-		CheckInterval: globalConfig.Defaults.CheckInterval,
-		ChatID:        globalConfig.Defaults.ChatID,
-		Language:      globalConfig.Defaults.Language,
-		FinalSummary:  globalConfig.Defaults.FinalSummary,
-		ErrorOnlyMode: globalConfig.Defaults.ErrorOnlyMode,
-		OpenAI:        globalConfig.Notifications.OpenAI,
-		Telegram:      globalConfig.Notifications.Telegram,
+		Command:          command,
+		CommandArgs:      args,
+		WorkingDir:       workingDir,
+		LineThreshold:    globalConfig.Defaults.LineThreshold,
+		CheckInterval:    globalConfig.Defaults.CheckInterval,
+		ChatID:           globalConfig.Defaults.ChatID,
+		Language:         globalConfig.Defaults.Language,
+		FinalSummary:     globalConfig.Defaults.FinalSummary,
+		FinalSummaryOnly: globalConfig.Defaults.FinalSummaryOnly,
+		ErrorOnlyMode:    globalConfig.Defaults.ErrorOnlyMode,
+		OpenAI:           globalConfig.Notifications.OpenAI,
+		Telegram:         globalConfig.Notifications.Telegram,
 	}
 
 	// Apply command line parameter overrides
@@ -341,6 +344,9 @@ func BuildStreamConfig(command string, args []string, lineThreshold *int, checkI
 	}
 	if finalSummary != nil {
 		config.FinalSummary = *finalSummary
+	}
+	if finalSummaryOnly != nil {
+		config.FinalSummaryOnly = *finalSummaryOnly
 	}
 	if errorOnlyMode != nil {
 		config.ErrorOnlyMode = *errorOnlyMode
