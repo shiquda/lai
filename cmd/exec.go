@@ -38,7 +38,6 @@ var execCmd = &cobra.Command{
 		// Get command line parameters
 		lineThreshold, _ := cmd.Flags().GetInt("line-threshold")
 		intervalStr, _ := cmd.Flags().GetString("interval")
-		chatID, _ := cmd.Flags().GetString("chat-id")
 		daemonMode, _ := cmd.Flags().GetBool("daemon")
 		processName, _ := cmd.Flags().GetString("name")
 		workingDir, _ := cmd.Flags().GetString("workdir")
@@ -62,12 +61,6 @@ var execCmd = &cobra.Command{
 		var lineThresholdPtr *int
 		if cmd.Flags().Changed("line-threshold") {
 			lineThresholdPtr = &lineThreshold
-		}
-
-		// Handle chat-id parameter
-		var chatIDPtr *string
-		if cmd.Flags().Changed("chat-id") {
-			chatIDPtr = &chatID
 		}
 
 		// Handle error-only parameter
@@ -98,11 +91,11 @@ var execCmd = &cobra.Command{
 		}
 
 		if daemonMode {
-			if err := runStreamDaemon(command, commandArgs, lineThresholdPtr, checkInterval, chatIDPtr, processName, workingDir, finalSummaryPtr, errorOnlyModePtr, finalSummaryOnlyPtr, enabledNotifiers); err != nil {
+			if err := runStreamDaemon(command, commandArgs, lineThresholdPtr, checkInterval, processName, workingDir, finalSummaryPtr, errorOnlyModePtr, finalSummaryOnlyPtr, enabledNotifiers); err != nil {
 				log.Fatalf("Stream daemon startup failed: %v", err)
 			}
 		} else {
-			if err := runStreamMonitor(command, commandArgs, lineThresholdPtr, checkInterval, chatIDPtr, workingDir, finalSummaryPtr, errorOnlyModePtr, finalSummaryOnlyPtr, enabledNotifiers); err != nil {
+			if err := runStreamMonitor(command, commandArgs, lineThresholdPtr, checkInterval, workingDir, finalSummaryPtr, errorOnlyModePtr, finalSummaryOnlyPtr, enabledNotifiers); err != nil {
 				log.Fatalf("Stream monitor failed: %v", err)
 			}
 		}
@@ -115,7 +108,6 @@ func init() {
 	// Add command line parameters (same as start command)
 	execCmd.Flags().IntP("line-threshold", "l", 0, "Number of lines to trigger summary (overrides global config)")
 	execCmd.Flags().StringP("interval", "i", "", "Check interval (e.g., 30s, 1m) (overrides global config)")
-	execCmd.Flags().StringP("chat-id", "c", "", "Telegram chat ID (overrides global config)")
 	execCmd.Flags().BoolP("daemon", "d", false, "Run in daemon mode (background)")
 	execCmd.Flags().StringP("name", "n", "", "Custom process name (used in daemon mode)")
 	execCmd.Flags().StringP("workdir", "w", "", "Working directory for command execution")
@@ -126,9 +118,9 @@ func init() {
 	execCmd.Flags().StringSlice("notifiers", []string{}, "Enable specific notifiers (comma-separated: telegram,email)")
 }
 
-func runStreamMonitor(command string, commandArgs []string, lineThreshold *int, checkInterval *time.Duration, chatID *string, workingDir string, finalSummary *bool, errorOnlyMode *bool, finalSummaryOnly *bool, enabledNotifiers []string) error {
+func runStreamMonitor(command string, commandArgs []string, lineThreshold *int, checkInterval *time.Duration, workingDir string, finalSummary *bool, errorOnlyMode *bool, finalSummaryOnly *bool, enabledNotifiers []string) error {
 	// Build runtime configuration for stream monitoring
-	cfg, err := config.BuildStreamConfig(command, commandArgs, lineThreshold, checkInterval, chatID, workingDir, finalSummary, errorOnlyMode, finalSummaryOnly)
+	cfg, err := config.BuildStreamConfig(command, commandArgs, lineThreshold, checkInterval, workingDir, finalSummary, errorOnlyMode, finalSummaryOnly)
 	if err != nil {
 		return fmt.Errorf("failed to build config: %w", err)
 	}
@@ -204,7 +196,7 @@ func runStreamMonitor(command string, commandArgs []string, lineThreshold *int, 
 	}
 }
 
-func runStreamDaemon(command string, commandArgs []string, lineThreshold *int, checkInterval *time.Duration, chatID *string, processName string, workingDir string, finalSummary *bool, errorOnlyMode *bool, finalSummaryOnly *bool, enabledNotifiers []string) error {
+func runStreamDaemon(command string, commandArgs []string, lineThreshold *int, checkInterval *time.Duration, processName string, workingDir string, finalSummary *bool, errorOnlyMode *bool, finalSummaryOnly *bool, enabledNotifiers []string) error {
 	// Create daemon manager
 	manager, err := daemon.NewManager()
 	if err != nil {
@@ -290,7 +282,7 @@ func runStreamDaemon(command string, commandArgs []string, lineThreshold *int, c
 	}()
 
 	// Run the actual stream monitoring
-	return runStreamMonitor(command, commandArgs, lineThreshold, checkInterval, chatID, workingDir, finalSummary, errorOnlyMode, finalSummaryOnly, enabledNotifiers)
+	return runStreamMonitor(command, commandArgs, lineThreshold, checkInterval, workingDir, finalSummary, errorOnlyMode, finalSummaryOnly, enabledNotifiers)
 }
 
 // sendToAllNotifiersForExec sends a log summary to all configured notifiers for exec command

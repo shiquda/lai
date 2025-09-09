@@ -122,7 +122,7 @@ lai start /var/log/api/error.log -d -n "api-monitor"
    **Telegram Notifications**:
    ```bash
    lai config set notifications.telegram.bot_token "123456:ABC-DEF"
-   lai config set defaults.chat_id "-100123456789"
+   lai config set notifications.telegram.chat_id "-100123456789"
    ```
 
    **Email Notifications**:

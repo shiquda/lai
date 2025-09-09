@@ -27,7 +27,6 @@ type NotificationsConfig struct {
 type DefaultsConfig struct {
 	LineThreshold    int           `mapstructure:"line_threshold" yaml:"line_threshold"`
 	CheckInterval    time.Duration `mapstructure:"check_interval" yaml:"check_interval"`
-	ChatID           string        `mapstructure:"chat_id" yaml:"chat_id"`
 	FinalSummary     bool          `mapstructure:"final_summary" yaml:"final_summary"`
 	FinalSummaryOnly bool          `mapstructure:"final_summary_only" yaml:"final_summary_only"`
 	ErrorOnlyMode    bool          `mapstructure:"error_only_mode" yaml:"error_only_mode"`
@@ -276,7 +275,7 @@ func EnsureGlobalConfig() error {
 }
 
 // BuildRuntimeConfig builds runtime configuration by merging global config and command line arguments
-func BuildRuntimeConfig(logFile string, lineThreshold *int, checkInterval *time.Duration, chatID *string, errorOnlyMode *bool) (*Config, error) {
+func BuildRuntimeConfig(logFile string, lineThreshold *int, checkInterval *time.Duration, errorOnlyMode *bool) (*Config, error) {
 	// Ensure global config exists
 	if err := EnsureGlobalConfig(); err != nil {
 		return nil, fmt.Errorf("failed to ensure global config: %w", err)
@@ -293,7 +292,7 @@ func BuildRuntimeConfig(logFile string, lineThreshold *int, checkInterval *time.
 		LogFile:          logFile,
 		LineThreshold:    globalConfig.Defaults.LineThreshold,
 		CheckInterval:    globalConfig.Defaults.CheckInterval,
-		ChatID:           globalConfig.Defaults.ChatID,
+		ChatID:           globalConfig.Notifications.Telegram.ChatID,
 		Language:         globalConfig.Defaults.Language,
 		ErrorOnlyMode:    globalConfig.Defaults.ErrorOnlyMode,
 		EnabledNotifiers: globalConfig.Defaults.EnabledNotifiers,
@@ -309,23 +308,15 @@ func BuildRuntimeConfig(logFile string, lineThreshold *int, checkInterval *time.
 	if checkInterval != nil {
 		config.CheckInterval = *checkInterval
 	}
-	if chatID != nil {
-		config.ChatID = *chatID
-	}
 	if errorOnlyMode != nil {
 		config.ErrorOnlyMode = *errorOnlyMode
-	}
-
-	// If no ChatID specified, use the default one
-	if config.ChatID == "" {
-		config.ChatID = config.Telegram.ChatID
 	}
 
 	return config, nil
 }
 
 // BuildStreamConfig builds runtime configuration for stream monitoring
-func BuildStreamConfig(command string, args []string, lineThreshold *int, checkInterval *time.Duration, chatID *string, workingDir string, finalSummary *bool, errorOnlyMode *bool, finalSummaryOnly *bool) (*Config, error) {
+func BuildStreamConfig(command string, args []string, lineThreshold *int, checkInterval *time.Duration, workingDir string, finalSummary *bool, errorOnlyMode *bool, finalSummaryOnly *bool) (*Config, error) {
 	// Ensure global config exists
 	if err := EnsureGlobalConfig(); err != nil {
 		return nil, fmt.Errorf("failed to ensure global config: %w", err)
@@ -344,7 +335,7 @@ func BuildStreamConfig(command string, args []string, lineThreshold *int, checkI
 		WorkingDir:       workingDir,
 		LineThreshold:    globalConfig.Defaults.LineThreshold,
 		CheckInterval:    globalConfig.Defaults.CheckInterval,
-		ChatID:           globalConfig.Defaults.ChatID,
+		ChatID:           globalConfig.Notifications.Telegram.ChatID,
 		Language:         globalConfig.Defaults.Language,
 		EnabledNotifiers: globalConfig.Defaults.EnabledNotifiers,
 		FinalSummary:     globalConfig.Defaults.FinalSummary,
@@ -362,9 +353,6 @@ func BuildStreamConfig(command string, args []string, lineThreshold *int, checkI
 	if checkInterval != nil {
 		config.CheckInterval = *checkInterval
 	}
-	if chatID != nil {
-		config.ChatID = *chatID
-	}
 	if finalSummary != nil {
 		config.FinalSummary = *finalSummary
 	}
@@ -373,11 +361,6 @@ func BuildStreamConfig(command string, args []string, lineThreshold *int, checkI
 	}
 	if errorOnlyMode != nil {
 		config.ErrorOnlyMode = *errorOnlyMode
-	}
-
-	// If no ChatID specified, use the default one
-	if config.ChatID == "" {
-		config.ChatID = config.Telegram.ChatID
 	}
 
 	return config, nil
@@ -418,7 +401,7 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("telegram.bot_token is required")
 	}
 	if c.ChatID == "" {
-		return fmt.Errorf("chat_id is required (set via --chat-id or defaults.chat_id in global config)")
+		return fmt.Errorf("telegram.chat_id is required (set via notifications.telegram.chat_id in global config)")
 	}
 	return nil
 }

@@ -236,7 +236,6 @@ func (s *ConfigTestSuite) TestSaveAndLoadGlobalConfig() {
 		Defaults: DefaultsConfig{
 			LineThreshold: 20,
 			CheckInterval: 60 * time.Second,
-			ChatID:        "-100global",
 		},
 	}
 
@@ -283,7 +282,7 @@ defaults:
 	testutils.CreateFileWithContent(s.T(), filepath.Dir(globalConfigPath), "config.yaml", globalConfigContent)
 
 	testLogPath := testutils.GetTestLogPath("test.log")
-	config, err := BuildRuntimeConfig(testLogPath, nil, nil, nil, nil)
+	config, err := BuildRuntimeConfig(testLogPath, nil, nil, nil)
 
 	assert.NoError(s.T(), err)
 	assert.Equal(s.T(), testLogPath, config.LogFile)
@@ -315,15 +314,14 @@ defaults:
 
 	lineThreshold := 25
 	checkInterval := 120 * time.Second
-	chatID := "-100override"
 	testLogPath := testutils.GetTestLogPath("test.log")
 
-	config, err := BuildRuntimeConfig(testLogPath, &lineThreshold, &checkInterval, &chatID, nil)
+	config, err := BuildRuntimeConfig(testLogPath, &lineThreshold, &checkInterval, nil)
 
 	assert.NoError(s.T(), err)
 	assert.Equal(s.T(), 25, config.LineThreshold)
 	assert.Equal(s.T(), 120*time.Second, config.CheckInterval)
-	assert.Equal(s.T(), "-100override", config.ChatID)
+	assert.Equal(s.T(), "-100global", config.ChatID)
 }
 
 func (s *ConfigTestSuite) TestApplyGlobalDefaults() {

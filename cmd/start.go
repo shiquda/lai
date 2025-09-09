@@ -26,7 +26,6 @@ var startCmd = &cobra.Command{
 		// Get command line parameters
 		lineThreshold, _ := cmd.Flags().GetInt("line-threshold")
 		intervalStr, _ := cmd.Flags().GetString("interval")
-		chatID, _ := cmd.Flags().GetString("chat-id")
 		daemonMode, _ := cmd.Flags().GetBool("daemon")
 		processName, _ := cmd.Flags().GetString("name")
 		errorOnlyMode, _ := cmd.Flags().GetBool("error-only")
@@ -48,12 +47,6 @@ var startCmd = &cobra.Command{
 			lineThresholdPtr = &lineThreshold
 		}
 
-		// Handle chat-id parameter
-		var chatIDPtr *string
-		if cmd.Flags().Changed("chat-id") {
-			chatIDPtr = &chatID
-		}
-
 		// Handle error-only parameter
 		var errorOnlyModePtr *bool
 		if cmd.Flags().Changed("error-only") {
@@ -61,11 +54,11 @@ var startCmd = &cobra.Command{
 		}
 
 		if daemonMode {
-			if err := runDaemon(logFile, lineThresholdPtr, checkInterval, chatIDPtr, processName, errorOnlyModePtr, enabledNotifiers); err != nil {
+			if err := runDaemon(logFile, lineThresholdPtr, checkInterval, processName, errorOnlyModePtr, enabledNotifiers); err != nil {
 				log.Fatalf("Daemon startup failed: %v", err)
 			}
 		} else {
-			if err := runMonitor(logFile, lineThresholdPtr, checkInterval, chatIDPtr, errorOnlyModePtr, enabledNotifiers); err != nil {
+			if err := runMonitor(logFile, lineThresholdPtr, checkInterval, errorOnlyModePtr, enabledNotifiers); err != nil {
 				log.Fatalf("Monitor failed: %v", err)
 			}
 		}
@@ -78,16 +71,15 @@ func init() {
 	// Add command line parameters
 	startCmd.Flags().IntP("line-threshold", "l", 0, "Number of lines to trigger summary (overrides global config)")
 	startCmd.Flags().StringP("interval", "i", "", "Check interval (e.g., 30s, 1m) (overrides global config)")
-	startCmd.Flags().StringP("chat-id", "c", "", "Telegram chat ID (overrides global config)")
 	startCmd.Flags().BoolP("daemon", "d", false, "Run in daemon mode (background)")
 	startCmd.Flags().StringP("name", "n", "", "Custom process name (used in daemon mode)")
 	startCmd.Flags().BoolP("error-only", "E", false, "Only send notifications for errors and exceptions")
 	startCmd.Flags().StringSlice("notifiers", []string{}, "Enable specific notifiers (comma-separated: telegram,email)")
 }
 
-func runMonitor(logFile string, lineThreshold *int, checkInterval *time.Duration, chatID *string, errorOnlyMode *bool, enabledNotifiers []string) error {
+func runMonitor(logFile string, lineThreshold *int, checkInterval *time.Duration, errorOnlyMode *bool, enabledNotifiers []string) error {
 	// Build runtime configuration
-	cfg, err := config.BuildRuntimeConfig(logFile, lineThreshold, checkInterval, chatID, errorOnlyMode)
+	cfg, err := config.BuildRuntimeConfig(logFile, lineThreshold, checkInterval, errorOnlyMode)
 	if err != nil {
 		return fmt.Errorf("failed to build config: %w", err)
 	}
@@ -179,7 +171,7 @@ func runMonitor(logFile string, lineThreshold *int, checkInterval *time.Duration
 	}
 }
 
-func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration, chatID *string, processName string, errorOnlyMode *bool, enabledNotifiers []string) error {
+func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration, processName string, errorOnlyMode *bool, enabledNotifiers []string) error {
 	// Create daemon manager
 	manager, err := daemon.NewManager()
 	if err != nil {
@@ -286,7 +278,7 @@ func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration,
 	}()
 
 	// Run the actual monitoring
-	return runMonitor(logFile, lineThreshold, checkInterval, chatID, errorOnlyMode, enabledNotifiers)
+	return runMonitor(logFile, lineThreshold, checkInterval, errorOnlyMode, enabledNotifiers)
 }
 
 // sendToAllNotifiers sends a log summary to all configured notifiers

@@ -113,7 +113,6 @@ func TestConfigMerging(t *testing.T) {
 		Defaults: config.DefaultsConfig{
 			LineThreshold: 15,
 			CheckInterval: 60 * time.Second,
-			ChatID:        "-100global",
 		},
 	}
 
@@ -123,15 +122,14 @@ func TestConfigMerging(t *testing.T) {
 	// Test with overrides
 	lineThreshold := 25
 	checkInterval := 30 * time.Second
-	chatID := "-100override"
 	testLogPath := testutils.GetTestLogPath("test.log")
 
-	runtimeConfig, err := config.BuildRuntimeConfig(testLogPath, &lineThreshold, &checkInterval, &chatID, nil)
+	runtimeConfig, err := config.BuildRuntimeConfig(testLogPath, &lineThreshold, &checkInterval, nil)
 
 	assert.NoError(t, err)
 	assert.Equal(t, testLogPath, runtimeConfig.LogFile)
 	assert.Equal(t, 25, runtimeConfig.LineThreshold)             // Overridden
 	assert.Equal(t, 30*time.Second, runtimeConfig.CheckInterval) // Overridden
-	assert.Equal(t, "-100override", runtimeConfig.ChatID)        // Overridden
+	assert.Equal(t, "-100global", runtimeConfig.ChatID)          // From telegram config
 	assert.Equal(t, "global-key", runtimeConfig.OpenAI.APIKey)   // From global
 }

@@ -10,4 +10,3 @@ notifications:
 defaults:
   line_threshold: 15
   check_interval: "60s"
-  chat_id: "-100987654321"
