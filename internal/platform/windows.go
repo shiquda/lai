@@ -21,7 +21,7 @@ func (w *windowsProcessManager) StartDaemonProcess(execPath string, args []strin
 			CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP | 0x00000008, // DETACHED_PROCESS
 		},
 	}
-	
+
 	return os.StartProcess(execPath, args, procAttr)
 }
 
@@ -30,13 +30,13 @@ func (w *windowsProcessManager) IsProcessRunning(pid int) bool {
 	if pid == os.Getpid() {
 		return true
 	}
-	
+
 	// On Windows, try to find the process
 	process, err := os.FindProcess(pid)
 	if err != nil {
 		return false
 	}
-	
+
 	// Try to send a signal to check if process exists
 	// On Windows, this approach works for checking process existence
 	err = process.Signal(os.Signal(syscall.Signal(0)))
@@ -62,12 +62,12 @@ func (w *windowsProcessManager) terminateProcessWindows(pid int, forceKill bool)
 	if err != nil {
 		return fmt.Errorf("failed to find process %d: %w", pid, err)
 	}
-	
+
 	// On Windows, we use process.Kill() which terminates the process
 	if err := process.Kill(); err != nil {
 		return fmt.Errorf("failed to terminate process %d: %w", pid, err)
 	}
-	
+
 	return nil
 }
 

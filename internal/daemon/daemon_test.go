@@ -242,7 +242,7 @@ func TestGetProcessLogPath(t *testing.T) {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
-	
+
 	logDir := filepath.Join(tempDir, "logs")
 	manager, err := NewManagerWithDirs(filepath.Join(tempDir, "processes"), logDir)
 	if err != nil {
@@ -263,7 +263,7 @@ func TestGetProcessStatus(t *testing.T) {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
-	
+
 	manager, err := NewManagerWithDirs(filepath.Join(tempDir, "processes"), filepath.Join(tempDir, "logs"))
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
@@ -289,7 +289,7 @@ func TestIsProcessRunning(t *testing.T) {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
-	
+
 	manager, err := NewManagerWithDirs(filepath.Join(tempDir, "processes"), filepath.Join(tempDir, "logs"))
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)

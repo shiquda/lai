@@ -20,6 +20,7 @@ type GlobalConfig struct {
 type NotificationsConfig struct {
 	OpenAI   OpenAIConfig   `mapstructure:"openai" yaml:"openai"`
 	Telegram TelegramConfig `mapstructure:"telegram" yaml:"telegram"`
+	Email    EmailConfig    `mapstructure:"email" yaml:"email"`
 }
 
 // DefaultsConfig contains default configuration values
@@ -31,15 +32,17 @@ type DefaultsConfig struct {
 	FinalSummaryOnly bool          `mapstructure:"final_summary_only" yaml:"final_summary_only"`
 	ErrorOnlyMode    bool          `mapstructure:"error_only_mode" yaml:"error_only_mode"`
 	Language         string        `mapstructure:"language" yaml:"language"`
+	EnabledNotifiers []string      `mapstructure:"enabled_notifiers" yaml:"enabled_notifiers"`
 }
 
 // Config represents the runtime configuration (merged final configuration)
 type Config struct {
-	LogFile       string        `mapstructure:"log_file" yaml:"log_file"`
-	LineThreshold int           `mapstructure:"line_threshold" yaml:"line_threshold"`
-	CheckInterval time.Duration `mapstructure:"check_interval" yaml:"check_interval"`
-	ChatID        string        `mapstructure:"chat_id" yaml:"chat_id"`
-	Language      string        `mapstructure:"language" yaml:"language"`
+	LogFile          string        `mapstructure:"log_file" yaml:"log_file"`
+	LineThreshold    int           `mapstructure:"line_threshold" yaml:"line_threshold"`
+	CheckInterval    time.Duration `mapstructure:"check_interval" yaml:"check_interval"`
+	ChatID           string        `mapstructure:"chat_id" yaml:"chat_id"`
+	Language         string        `mapstructure:"language" yaml:"language"`
+	EnabledNotifiers []string      `mapstructure:"enabled_notifiers" yaml:"enabled_notifiers"`
 
 	// Command execution parameters (for stream monitoring)
 	Command     string   `mapstructure:"command" yaml:"command"`
@@ -55,6 +58,7 @@ type Config struct {
 
 	OpenAI   OpenAIConfig   `mapstructure:"openai" yaml:"openai"`
 	Telegram TelegramConfig `mapstructure:"telegram" yaml:"telegram"`
+	Email    EmailConfig    `mapstructure:"email" yaml:"email"`
 }
 
 type OpenAIConfig struct {
@@ -64,13 +68,28 @@ type OpenAIConfig struct {
 }
 
 type TelegramConfig struct {
-	BotToken         string           `mapstructure:"bot_token" yaml:"bot_token"`
-	ChatID           string           `mapstructure:"chat_id" yaml:"chat_id"`
-	MessageTemplates MessageTemplates `mapstructure:"message_templates" yaml:"message_templates"`
+	BotToken         string                   `mapstructure:"bot_token" yaml:"bot_token"`
+	ChatID           string                   `mapstructure:"chat_id" yaml:"chat_id"`
+	MessageTemplates TelegramMessageTemplates `mapstructure:"message_templates" yaml:"message_templates"`
 }
 
-// MessageTemplates contains customizable message templates
-type MessageTemplates struct {
+type EmailConfig struct {
+	SMTPHost         string                `mapstructure:"smtp_host" yaml:"smtp_host"`
+	SMTPPort         int                   `mapstructure:"smtp_port" yaml:"smtp_port"`
+	Username         string                `mapstructure:"username" yaml:"username"`
+	Password         string                `mapstructure:"password" yaml:"password"`
+	FromEmail        string                `mapstructure:"from_email" yaml:"from_email"`
+	ToEmails         []string              `mapstructure:"to_emails" yaml:"to_emails"`
+	Subject          string                `mapstructure:"subject" yaml:"subject"`
+	UseTLS           bool                  `mapstructure:"use_tls" yaml:"use_tls"`
+	MessageTemplates EmailMessageTemplates `mapstructure:"message_templates" yaml:"message_templates"`
+}
+
+type TelegramMessageTemplates struct {
+	LogSummary string `mapstructure:"log_summary" yaml:"log_summary"`
+}
+
+type EmailMessageTemplates struct {
 	LogSummary string `mapstructure:"log_summary" yaml:"log_summary"`
 }
 
@@ -271,14 +290,16 @@ func BuildRuntimeConfig(logFile string, lineThreshold *int, checkInterval *time.
 
 	// Build runtime configuration
 	config := &Config{
-		LogFile:       logFile,
-		LineThreshold: globalConfig.Defaults.LineThreshold,
-		CheckInterval: globalConfig.Defaults.CheckInterval,
-		ChatID:        globalConfig.Defaults.ChatID,
-		Language:      globalConfig.Defaults.Language,
-		ErrorOnlyMode: globalConfig.Defaults.ErrorOnlyMode,
-		OpenAI:        globalConfig.Notifications.OpenAI,
-		Telegram:      globalConfig.Notifications.Telegram,
+		LogFile:          logFile,
+		LineThreshold:    globalConfig.Defaults.LineThreshold,
+		CheckInterval:    globalConfig.Defaults.CheckInterval,
+		ChatID:           globalConfig.Defaults.ChatID,
+		Language:         globalConfig.Defaults.Language,
+		ErrorOnlyMode:    globalConfig.Defaults.ErrorOnlyMode,
+		EnabledNotifiers: globalConfig.Defaults.EnabledNotifiers,
+		OpenAI:           globalConfig.Notifications.OpenAI,
+		Telegram:         globalConfig.Notifications.Telegram,
+		Email:            globalConfig.Notifications.Email,
 	}
 
 	// Apply command line parameter overrides
@@ -325,11 +346,13 @@ func BuildStreamConfig(command string, args []string, lineThreshold *int, checkI
 		CheckInterval:    globalConfig.Defaults.CheckInterval,
 		ChatID:           globalConfig.Defaults.ChatID,
 		Language:         globalConfig.Defaults.Language,
+		EnabledNotifiers: globalConfig.Defaults.EnabledNotifiers,
 		FinalSummary:     globalConfig.Defaults.FinalSummary,
 		FinalSummaryOnly: globalConfig.Defaults.FinalSummaryOnly,
 		ErrorOnlyMode:    globalConfig.Defaults.ErrorOnlyMode,
 		OpenAI:           globalConfig.Notifications.OpenAI,
 		Telegram:         globalConfig.Notifications.Telegram,
+		Email:            globalConfig.Notifications.Email,
 	}
 
 	// Apply command line parameter overrides
@@ -360,8 +383,17 @@ func BuildStreamConfig(command string, args []string, lineThreshold *int, checkI
 	return config, nil
 }
 
-// GetTemplateMap converts MessageTemplates struct to a map for notifier
-func (mt *MessageTemplates) GetTemplateMap() map[string]string {
+// GetTemplateMap converts TelegramMessageTemplates struct to a map for notifier
+func (mt *TelegramMessageTemplates) GetTemplateMap() map[string]string {
+	templates := make(map[string]string)
+	if mt.LogSummary != "" {
+		templates["log_summary"] = mt.LogSummary
+	}
+	return templates
+}
+
+// GetTemplateMap converts EmailMessageTemplates struct to a map for notifier
+func (mt *EmailMessageTemplates) GetTemplateMap() map[string]string {
 	templates := make(map[string]string)
 	if mt.LogSummary != "" {
 		templates["log_summary"] = mt.LogSummary

@@ -30,6 +30,7 @@ var startCmd = &cobra.Command{
 		daemonMode, _ := cmd.Flags().GetBool("daemon")
 		processName, _ := cmd.Flags().GetString("name")
 		errorOnlyMode, _ := cmd.Flags().GetBool("error-only")
+		enabledNotifiers, _ := cmd.Flags().GetStringSlice("notifiers")
 
 		// Parse time interval
 		var checkInterval *time.Duration
@@ -60,11 +61,11 @@ var startCmd = &cobra.Command{
 		}
 
 		if daemonMode {
-			if err := runDaemon(logFile, lineThresholdPtr, checkInterval, chatIDPtr, processName, errorOnlyModePtr); err != nil {
+			if err := runDaemon(logFile, lineThresholdPtr, checkInterval, chatIDPtr, processName, errorOnlyModePtr, enabledNotifiers); err != nil {
 				log.Fatalf("Daemon startup failed: %v", err)
 			}
 		} else {
-			if err := runMonitor(logFile, lineThresholdPtr, checkInterval, chatIDPtr, errorOnlyModePtr); err != nil {
+			if err := runMonitor(logFile, lineThresholdPtr, checkInterval, chatIDPtr, errorOnlyModePtr, enabledNotifiers); err != nil {
 				log.Fatalf("Monitor failed: %v", err)
 			}
 		}
@@ -81,9 +82,10 @@ func init() {
 	startCmd.Flags().BoolP("daemon", "d", false, "Run in daemon mode (background)")
 	startCmd.Flags().StringP("name", "n", "", "Custom process name (used in daemon mode)")
 	startCmd.Flags().BoolP("error-only", "E", false, "Only send notifications for errors and exceptions")
+	startCmd.Flags().StringSlice("notifiers", []string{}, "Enable specific notifiers (comma-separated: telegram,email)")
 }
 
-func runMonitor(logFile string, lineThreshold *int, checkInterval *time.Duration, chatID *string, errorOnlyMode *bool) error {
+func runMonitor(logFile string, lineThreshold *int, checkInterval *time.Duration, chatID *string, errorOnlyMode *bool, enabledNotifiers []string) error {
 	// Build runtime configuration
 	cfg, err := config.BuildRuntimeConfig(logFile, lineThreshold, checkInterval, chatID, errorOnlyMode)
 	if err != nil {
@@ -97,8 +99,12 @@ func runMonitor(logFile string, lineThreshold *int, checkInterval *time.Duration
 
 	// Create service instances
 	openaiClient := summarizer.NewOpenAIClient(cfg.OpenAI.APIKey, cfg.OpenAI.BaseURL, cfg.OpenAI.Model)
-	templates := cfg.Telegram.MessageTemplates.GetTemplateMap()
-	telegramNotifier := notifier.NewTelegramNotifier(cfg.Telegram.BotToken, cfg.ChatID, templates)
+
+	// Create notifiers using factory function
+	notifiers, err := notifier.CreateNotifiers(cfg, enabledNotifiers)
+	if err != nil {
+		return fmt.Errorf("failed to create notifiers: %w", err)
+	}
 
 	// Create appropriate collector based on config
 	var logCollector collector.LogCollector
@@ -121,7 +127,7 @@ func runMonitor(logFile string, lineThreshold *int, checkInterval *time.Duration
 			}
 
 			fmt.Printf("Error detected (severity: %s), sending notification\n", analysis.Severity)
-			if err := telegramNotifier.SendLogSummary(cfg.LogFile, analysis.Summary); err != nil {
+			if err := sendToAllNotifiers(notifiers, cfg.LogFile, analysis.Summary); err != nil {
 				return fmt.Errorf("failed to send notification: %w", err)
 			}
 		} else {
@@ -132,12 +138,12 @@ func runMonitor(logFile string, lineThreshold *int, checkInterval *time.Duration
 				return fmt.Errorf("failed to generate summary: %w", err)
 			}
 
-			if err := telegramNotifier.SendLogSummary(cfg.LogFile, summary); err != nil {
+			if err := sendToAllNotifiers(notifiers, cfg.LogFile, summary); err != nil {
 				return fmt.Errorf("failed to send notification: %w", err)
 			}
 		}
 
-		fmt.Printf("Notification sent to Telegram\n")
+		fmt.Printf("Notification sent to %d notifier(s): %v\n", len(notifiers), notifiers)
 		return nil
 	})
 
@@ -146,6 +152,7 @@ func runMonitor(logFile string, lineThreshold *int, checkInterval *time.Duration
 	fmt.Printf("Line threshold: %d lines\n", cfg.LineThreshold)
 	fmt.Printf("Check interval: %v\n", cfg.CheckInterval)
 	fmt.Printf("Chat ID: %s\n", cfg.ChatID)
+	fmt.Printf("Enabled notifiers: %v\n", enabledNotifiers)
 	if cfg.ErrorOnlyMode {
 		fmt.Printf("Error-only mode: ENABLED (will only notify on errors/exceptions)\n")
 	} else {
@@ -172,7 +179,7 @@ func runMonitor(logFile string, lineThreshold *int, checkInterval *time.Duration
 	}
 }
 
-func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration, chatID *string, processName string, errorOnlyMode *bool) error {
+func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration, chatID *string, processName string, errorOnlyMode *bool, enabledNotifiers []string) error {
 	// Create daemon manager
 	manager, err := daemon.NewManager()
 	if err != nil {
@@ -279,5 +286,23 @@ func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration,
 	}()
 
 	// Run the actual monitoring
-	return runMonitor(logFile, lineThreshold, checkInterval, chatID, errorOnlyMode)
+	return runMonitor(logFile, lineThreshold, checkInterval, chatID, errorOnlyMode, enabledNotifiers)
+}
+
+// sendToAllNotifiers sends a log summary to all configured notifiers
+func sendToAllNotifiers(notifiers []notifier.Notifier, filePath, summary string) error {
+	var errors []error
+	
+	for _, n := range notifiers {
+		if err := n.SendLogSummary(filePath, summary); err != nil {
+			errors = append(errors, err)
+			log.Printf("Failed to send notification to notifier: %v", err)
+		}
+	}
+	
+	if len(errors) > 0 {
+		return fmt.Errorf("%d notifier(s) failed: %v", len(errors), errors)
+	}
+	
+	return nil
 }

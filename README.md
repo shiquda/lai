@@ -3,6 +3,7 @@
 [![Go Version](https://img.shields.io/badge/Go-1.21+-blue.svg)](https://golang.org/doc/install)
 [![AI Powered](https://img.shields.io/badge/AI-Powered-brightgreen.svg)]()
 [![Telegram](https://img.shields.io/badge/Notifications-Telegram-blue.svg)](https://telegram.org/)
+[![Email](https://img.shields.io/badge/Notifications-Email-red.svg)](mailto:)
 [![License](https://img.shields.io/badge/License-AGPL--3.0-yellow.svg)](LICENSE)
 
 Stop manually checking logs. Let AI watch, analyze, and notify you when something important happens.
@@ -12,9 +13,10 @@ Stop manually checking logs. Let AI watch, analyze, and notify you when somethin
 ## ✨ Core Features
 
 - **🤖 AI-Powered Analysis**: GPT automatically summarizes log changes and identifies critical issues
-- **📱 Instant Notifications**: Get smart alerts via Telegram when errors or important events occur
+- **📱 Instant Notifications**: Get smart alerts via Telegram, Email, or both when errors or important events occur
 - **🔄 Universal Monitoring**: Watch any log file or command output (Docker logs, application output, build processes)
 - **🔌 Hot-Pluggable**: No code changes required - works with any existing project or application
+- **🎨 Customizable Templates**: Personalize notification messages with custom templates for each channel
 
 ## ⚡ Installation
 
@@ -79,7 +81,7 @@ source ~/.bashrc
 lai --help
 ```
 
-**Requirements**: Go 1.21+, OpenAI API key, Telegram bot token
+**Requirements**: Go 1.21+, OpenAI API key, Telegram bot token (optional), Email configuration (optional)
 
 ## 🚀 Quick Start
 
@@ -115,11 +117,23 @@ lai start /var/log/api/error.log -d -n "api-monitor"
    lai config set notifications.openai.api_key "sk-your-key"
    ```
 
-2. **Configure Telegram**:
+2. **Configure Notifications** (choose one or both):
 
+   **Telegram Notifications**:
    ```bash
    lai config set notifications.telegram.bot_token "123456:ABC-DEF"
    lai config set defaults.chat_id "-100123456789"
+   ```
+
+   **Email Notifications**:
+   ```bash
+   lai config set notifications.email.smtp_host "smtp.gmail.com"
+   lai config set notifications.email.smtp_port "587"
+   lai config set notifications.email.username "your-email@gmail.com"
+   lai config set notifications.email.password "your-app-password"
+   lai config set notifications.email.from_email "your-email@gmail.com"
+   lai config set notifications.email.to_emails '["recipient1@gmail.com", "recipient2@gmail.com"]'
+   lai config set notifications.email.subject "Lai Log Alert"
    ```
 
 3. **Configure AI response language** (optional):
@@ -132,7 +146,14 @@ lai start /var/log/api/error.log -d -n "api-monitor"
 4. **Start monitoring**:
 
    ```bash
+   # Use all configured notifiers
    lai start /path/to/your.log
+   
+   # Use specific notifiers only
+   lai start /path/to/your.log --notifiers telegram,email
+   
+   # Use only email notifications
+   lai start /path/to/your.log --notifiers email
    ```
 
 ## 📖 Common Use Cases
@@ -187,8 +208,11 @@ lai clean          # Remove stopped entries
 
 ## 📋 Roadmap
 
-- [ ] Add more notification methods (email, Slack, Discord...)
+- [ ] Add more notification methods (Slack, Discord, Webhook...)
 - [ ] Support more customized notification formats and prompts
+- [x] **Email notification support** with SMTP configuration
+- [x] **Multi-notifier support** - enable/disable via config or command line
+- [x] **Customizable message templates** for each notification channel
 - [x] Multi-language support for AI responses
 - [x] Error-only notification mode (filter out normal logs, notify only on errors/exceptions)
 
