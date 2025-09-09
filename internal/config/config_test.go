@@ -27,7 +27,7 @@ func (s *ConfigTestSuite) SetupSuite() {
 
 	s.originalHome = os.Getenv("HOME")
 	s.originalUserProfile = os.Getenv("USERPROFILE")
-	
+
 	// Set both HOME and USERPROFILE for cross-platform compatibility
 	os.Setenv("HOME", s.tempDir)
 	os.Setenv("USERPROFILE", s.tempDir)

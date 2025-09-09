@@ -34,3 +34,4 @@ telegram:
 # Default settings (optional)
 defaults:
   language: "English"  # Language for AI responses (English, Chinese, Spanish, etc.)
+  enabled_notifiers: ["telegram", "email"]  # Default enabled notifiers (telegram, email, or both)

@@ -46,6 +46,7 @@ var execCmd = &cobra.Command{
 		finalSummary, _ := cmd.Flags().GetBool("final-summary")
 		noFinalSummary, _ := cmd.Flags().GetBool("no-final-summary")
 		finalSummaryOnly, _ := cmd.Flags().GetBool("final-summary-only")
+		enabledNotifiers, _ := cmd.Flags().GetStringSlice("notifiers")
 
 		// Parse time interval
 		var checkInterval *time.Duration
@@ -96,14 +97,12 @@ var execCmd = &cobra.Command{
 			finalSummaryPtr = &finalSummary
 		}
 
-
-
 		if daemonMode {
-			if err := runStreamDaemon(command, commandArgs, lineThresholdPtr, checkInterval, chatIDPtr, processName, workingDir, finalSummaryPtr, errorOnlyModePtr, finalSummaryOnlyPtr); err != nil {
+			if err := runStreamDaemon(command, commandArgs, lineThresholdPtr, checkInterval, chatIDPtr, processName, workingDir, finalSummaryPtr, errorOnlyModePtr, finalSummaryOnlyPtr, enabledNotifiers); err != nil {
 				log.Fatalf("Stream daemon startup failed: %v", err)
 			}
 		} else {
-			if err := runStreamMonitor(command, commandArgs, lineThresholdPtr, checkInterval, chatIDPtr, workingDir, finalSummaryPtr, errorOnlyModePtr, finalSummaryOnlyPtr); err != nil {
+			if err := runStreamMonitor(command, commandArgs, lineThresholdPtr, checkInterval, chatIDPtr, workingDir, finalSummaryPtr, errorOnlyModePtr, finalSummaryOnlyPtr, enabledNotifiers); err != nil {
 				log.Fatalf("Stream monitor failed: %v", err)
 			}
 		}
@@ -124,9 +123,10 @@ func init() {
 	execCmd.Flags().Bool("no-final-summary", false, "Disable final summary on program exit")
 	execCmd.Flags().BoolP("error-only", "E", false, "Only send notifications for errors and exceptions")
 	execCmd.Flags().BoolP("final-summary-only", "F", false, "Only send notifications for final summary")
+	execCmd.Flags().StringSlice("notifiers", []string{}, "Enable specific notifiers (comma-separated: telegram,email)")
 }
 
-func runStreamMonitor(command string, commandArgs []string, lineThreshold *int, checkInterval *time.Duration, chatID *string, workingDir string, finalSummary *bool, errorOnlyMode *bool, finalSummaryOnly *bool) error {
+func runStreamMonitor(command string, commandArgs []string, lineThreshold *int, checkInterval *time.Duration, chatID *string, workingDir string, finalSummary *bool, errorOnlyMode *bool, finalSummaryOnly *bool, enabledNotifiers []string) error {
 	// Build runtime configuration for stream monitoring
 	cfg, err := config.BuildStreamConfig(command, commandArgs, lineThreshold, checkInterval, chatID, workingDir, finalSummary, errorOnlyMode, finalSummaryOnly)
 	if err != nil {
@@ -140,8 +140,13 @@ func runStreamMonitor(command string, commandArgs []string, lineThreshold *int, 
 
 	// Create service instances
 	openaiClient := summarizer.NewOpenAIClient(cfg.OpenAI.APIKey, cfg.OpenAI.BaseURL, cfg.OpenAI.Model)
-	templates := cfg.Telegram.MessageTemplates.GetTemplateMap()
-	telegramNotifier := notifier.NewTelegramNotifier(cfg.Telegram.BotToken, cfg.ChatID, templates)
+	
+	// Create notifiers using factory function (same as start command)
+	notifiers, err := notifier.CreateNotifiers(cfg, enabledNotifiers)
+	if err != nil {
+		return fmt.Errorf("failed to create notifiers: %w", err)
+	}
+	
 	streamCollector := collector.NewStreamCollector(cfg.Command, cfg.CommandArgs, cfg.LineThreshold, cfg.CheckInterval, cfg.FinalSummary)
 
 	// Set trigger handler
@@ -160,11 +165,11 @@ func runStreamMonitor(command string, commandArgs []string, lineThreshold *int, 
 		}
 
 		commandStr := fmt.Sprintf("%s %v", cfg.Command, cfg.CommandArgs)
-		if err := telegramNotifier.SendLogSummary(commandStr, summary); err != nil {
+		if err := sendToAllNotifiersForExec(notifiers, commandStr, summary); err != nil {
 			return fmt.Errorf("failed to send notification: %w", err)
 		}
 
-		fmt.Printf("Summary sent to Telegram\n")
+		fmt.Printf("Summary sent to %d notifier(s): %v\n", len(notifiers), enabledNotifiers)
 		return nil
 	})
 
@@ -173,6 +178,7 @@ func runStreamMonitor(command string, commandArgs []string, lineThreshold *int, 
 	fmt.Printf("Line threshold: %d lines\n", cfg.LineThreshold)
 	fmt.Printf("Check interval: %v\n", cfg.CheckInterval)
 	fmt.Printf("Chat ID: %s\n", cfg.ChatID)
+	fmt.Printf("Enabled notifiers: %v\n", enabledNotifiers)
 	if cfg.WorkingDir != "" {
 		fmt.Printf("Working directory: %s\n", cfg.WorkingDir)
 	}
@@ -198,7 +204,7 @@ func runStreamMonitor(command string, commandArgs []string, lineThreshold *int, 
 	}
 }
 
-func runStreamDaemon(command string, commandArgs []string, lineThreshold *int, checkInterval *time.Duration, chatID *string, processName string, workingDir string, finalSummary *bool, errorOnlyMode *bool, finalSummaryOnly *bool) error {
+func runStreamDaemon(command string, commandArgs []string, lineThreshold *int, checkInterval *time.Duration, chatID *string, processName string, workingDir string, finalSummary *bool, errorOnlyMode *bool, finalSummaryOnly *bool, enabledNotifiers []string) error {
 	// Create daemon manager
 	manager, err := daemon.NewManager()
 	if err != nil {
@@ -284,5 +290,23 @@ func runStreamDaemon(command string, commandArgs []string, lineThreshold *int, c
 	}()
 
 	// Run the actual stream monitoring
-	return runStreamMonitor(command, commandArgs, lineThreshold, checkInterval, chatID, workingDir, finalSummary, errorOnlyMode, finalSummaryOnly)
+	return runStreamMonitor(command, commandArgs, lineThreshold, checkInterval, chatID, workingDir, finalSummary, errorOnlyMode, finalSummaryOnly, enabledNotifiers)
+}
+
+// sendToAllNotifiersForExec sends a log summary to all configured notifiers for exec command
+func sendToAllNotifiersForExec(notifiers []notifier.Notifier, commandStr, summary string) error {
+	var errors []error
+	
+	for _, n := range notifiers {
+		if err := n.SendLogSummary(commandStr, summary); err != nil {
+			errors = append(errors, err)
+			log.Printf("Failed to send notification to notifier: %v", err)
+		}
+	}
+	
+	if len(errors) > 0 {
+		return fmt.Errorf("%d notifier(s) failed: %v", len(errors), errors)
+	}
+	
+	return nil
 }
