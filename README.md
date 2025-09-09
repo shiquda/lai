@@ -17,6 +17,7 @@ Stop manually checking logs. Let AI watch, analyze, and notify you when somethin
 - **🔄 Universal Monitoring**: Watch any log file or command output (Docker logs, application output, build processes)
 - **🔌 Hot-Pluggable**: No code changes required - works with any existing project or application
 - **🎨 Customizable Templates**: Personalize notification messages with custom templates for each channel
+- **🎯 Unified Interface**: Single `monitor` command handles both file and command monitoring with consistent options
 
 ## ⚡ Installation
 
@@ -85,21 +86,29 @@ lai --help
 
 ## 🚀 Quick Start
 
-# Monitor a log file with instant AI summaries
+### New Unified Interface (Recommended)
 
 ```
-lai start /path/to/app.log
+# Monitor a log file
+lai monitor file /path/to/app.log
+
+# Monitor command output
+lai monitor command "docker logs webapp -f"
+
+# Monitor with custom working directory
+lai monitor command "npm run build" -w /path/to/project
 ```
+
+### Traditional Commands (Still Supported)
+
+```
+# Monitor a log file with instant AI summaries
+lai start /path/to/app.log
 
 # Monitor Docker container logs
-
-```
 lai exec "docker logs webapp -f" -d
-```
 
 # Monitor build process with completion summary
-
-```
 lai exec "npm run build" --final-summary
 ```
 

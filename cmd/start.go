@@ -7,11 +7,8 @@ import (
 	"time"
 
 	"github.com/shiquda/lai/internal/collector"
-	"github.com/shiquda/lai/internal/config"
 	"github.com/shiquda/lai/internal/daemon"
-	"github.com/shiquda/lai/internal/notifier"
 	"github.com/shiquda/lai/internal/platform"
-	"github.com/shiquda/lai/internal/summarizer"
 	"github.com/spf13/cobra"
 )
 
@@ -86,8 +83,11 @@ func init() {
 }
 
 func runMonitor(logFile string, lineThreshold *int, checkInterval *time.Duration, chatID *string, errorOnlyMode *bool, enabledNotifiers []string) error {
-	// Build runtime configuration
-	cfg, err := config.BuildRuntimeConfig(logFile, lineThreshold, checkInterval, chatID, errorOnlyMode)
+	// Create file monitor source
+	monitorSource := collector.NewFileSource(logFile)
+	
+	// Build unified configuration
+	cfg, err := collector.BuildMonitorConfig(monitorSource, lineThreshold, checkInterval, chatID, "", nil, errorOnlyMode, nil)
 	if err != nil {
 		return fmt.Errorf("failed to build config: %w", err)
 	}
@@ -97,86 +97,14 @@ func runMonitor(logFile string, lineThreshold *int, checkInterval *time.Duration
 		return fmt.Errorf("config validation failed: %w", err)
 	}
 
-	// Create service instances
-	openaiClient := summarizer.NewOpenAIClient(cfg.OpenAI.APIKey, cfg.OpenAI.BaseURL, cfg.OpenAI.Model)
-
-	// Create notifiers using factory function
-	notifiers, err := notifier.CreateNotifiers(cfg, enabledNotifiers)
+	// Create unified monitor
+	monitor, err := collector.NewUnifiedMonitor(cfg, enabledNotifiers)
 	if err != nil {
-		return fmt.Errorf("failed to create notifiers: %w", err)
+		return fmt.Errorf("failed to create unified monitor: %w", err)
 	}
 
-	// Create appropriate collector based on config
-	var logCollector collector.LogCollector
-	logCollector = collector.New(cfg.LogFile, cfg.LineThreshold, cfg.CheckInterval)
-
-	// Set trigger handler
-	logCollector.SetTriggerHandler(func(newContent string) error {
-		fmt.Printf("Log changes detected, processing...\n")
-
-		if cfg.ErrorOnlyMode {
-			// Error-only mode: first check if content contains errors
-			analysis, err := openaiClient.AnalyzeForErrors(newContent, cfg.Language)
-			if err != nil {
-				return fmt.Errorf("failed to analyze errors: %w", err)
-			}
-
-			if !analysis.HasError {
-				fmt.Printf("No errors detected, skipping notification (error-only mode)\n")
-				return nil
-			}
-
-			fmt.Printf("Error detected (severity: %s), sending notification\n", analysis.Severity)
-			if err := sendToAllNotifiers(notifiers, cfg.LogFile, analysis.Summary); err != nil {
-				return fmt.Errorf("failed to send notification: %w", err)
-			}
-		} else {
-			// Normal mode: generate summary and send notification
-			fmt.Printf("Generating summary...\n")
-			summary, err := openaiClient.Summarize(newContent, cfg.Language)
-			if err != nil {
-				return fmt.Errorf("failed to generate summary: %w", err)
-			}
-
-			if err := sendToAllNotifiers(notifiers, cfg.LogFile, summary); err != nil {
-				return fmt.Errorf("failed to send notification: %w", err)
-			}
-		}
-
-		fmt.Printf("Notification sent to %d notifier(s): %v\n", len(notifiers), notifiers)
-		return nil
-	})
-
-	// Display startup information
-	fmt.Printf("Starting log monitoring: %s\n", cfg.LogFile)
-	fmt.Printf("Line threshold: %d lines\n", cfg.LineThreshold)
-	fmt.Printf("Check interval: %v\n", cfg.CheckInterval)
-	fmt.Printf("Chat ID: %s\n", cfg.ChatID)
-	fmt.Printf("Enabled notifiers: %v\n", enabledNotifiers)
-	if cfg.ErrorOnlyMode {
-		fmt.Printf("Error-only mode: ENABLED (will only notify on errors/exceptions)\n")
-	} else {
-		fmt.Printf("Error-only mode: DISABLED (will notify on all log changes)\n")
-	}
-
-	// Setup signal handling
-	p := platform.New()
-	sigChan := p.Signal.SetupShutdownSignals()
-
-	// Run collector in goroutine
-	errChan := make(chan error, 1)
-	go func() {
-		errChan <- logCollector.Start()
-	}()
-
-	// Wait for signal or error
-	select {
-	case <-sigChan:
-		fmt.Println("\nReceived stop signal, shutting down...")
-		return nil
-	case err := <-errChan:
-		return err
-	}
+	// Start monitoring
+	return monitor.Start()
 }
 
 func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration, chatID *string, processName string, errorOnlyMode *bool, enabledNotifiers []string) error {
@@ -289,20 +217,3 @@ func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration,
 	return runMonitor(logFile, lineThreshold, checkInterval, chatID, errorOnlyMode, enabledNotifiers)
 }
 
-// sendToAllNotifiers sends a log summary to all configured notifiers
-func sendToAllNotifiers(notifiers []notifier.Notifier, filePath, summary string) error {
-	var errors []error
-	
-	for _, n := range notifiers {
-		if err := n.SendLogSummary(filePath, summary); err != nil {
-			errors = append(errors, err)
-			log.Printf("Failed to send notification to notifier: %v", err)
-		}
-	}
-	
-	if len(errors) > 0 {
-		return fmt.Errorf("%d notifier(s) failed: %v", len(errors), errors)
-	}
-	
-	return nil
-}

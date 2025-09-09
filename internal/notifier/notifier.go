@@ -207,3 +207,106 @@ func convertEmailTemplates(templates config.EmailMessageTemplates) map[string]st
 		"log_summary": templates.LogSummary,
 	}
 }
+
+// UnifiedConfig represents the interface for unified configuration
+type UnifiedConfig interface {
+	GetEnabledNotifiers() []string
+	GetTelegramConfig() config.TelegramConfig
+	GetEmailConfig() config.EmailConfig
+}
+
+// CreateNotifiersForUnified creates notifiers based on the unified configuration.
+// This is similar to CreateNotifiers but works with the new MonitorConfig.
+func CreateNotifiersForUnified(cfg UnifiedConfig, enabledNotifiers []string) ([]Notifier, error) {
+	var notifiers []Notifier
+
+	// Determine which notifiers to enable based on priority:
+	// 1. Command line parameters have highest priority
+	// 2. Configuration defaults have second priority
+	// 3. If neither specified, enable all configured notifiers
+	var notifiersToCheck []string
+	
+	if len(enabledNotifiers) > 0 {
+		// Command line specification takes precedence
+		notifiersToCheck = enabledNotifiers
+	} else if len(cfg.GetEnabledNotifiers()) > 0 {
+		// Use configuration defaults
+		notifiersToCheck = cfg.GetEnabledNotifiers()
+	} else {
+		// Enable all available notifiers by default
+		notifiersToCheck = []string{"telegram", "email"}
+	}
+
+	// Check each notifier for valid configuration
+	enableTelegram := false
+	enableEmail := false
+	
+	for _, notifierType := range notifiersToCheck {
+		switch notifierType {
+		case "telegram":
+			telegramConfig := cfg.GetTelegramConfig()
+			if telegramConfig.BotToken != "" && telegramConfig.ChatID != "" {
+				enableTelegram = true
+			}
+		case "email":
+			emailConfig := cfg.GetEmailConfig()
+			if emailConfig.SMTPHost != "" && emailConfig.Username != "" && len(emailConfig.ToEmails) > 0 {
+				enableEmail = true
+			}
+		}
+	}
+
+	// Create Telegram notifier if enabled and configured
+	if enableTelegram {
+		telegramConfig := cfg.GetTelegramConfig()
+		telegramNotifier := NewTelegramNotifier(
+			telegramConfig.BotToken,
+			telegramConfig.ChatID,
+			convertTelegramTemplatesForUnified(telegramConfig),
+		)
+		notifiers = append(notifiers, telegramNotifier)
+	}
+
+	// Create Email notifier if enabled and configured
+	if enableEmail {
+		emailConfig := cfg.GetEmailConfig()
+		emailNotifier := NewEmailNotifier(
+			emailConfig.SMTPHost,
+			emailConfig.SMTPPort,
+			emailConfig.Username,
+			emailConfig.Password,
+			emailConfig.FromEmail,
+			emailConfig.ToEmails,
+			emailConfig.Subject,
+			emailConfig.UseTLS,
+			convertEmailTemplatesForUnified(emailConfig),
+		)
+		notifiers = append(notifiers, emailNotifier)
+	}
+
+	if len(notifiers) == 0 {
+		return nil, fmt.Errorf("no valid notifier configuration found")
+	}
+
+	return notifiers, nil
+}
+
+// convertTelegramTemplatesForUnified converts TelegramConfig to map[string]string
+func convertTelegramTemplatesForUnified(telegramConfig config.TelegramConfig) map[string]string {
+	if telegramConfig.MessageTemplates.LogSummary == "" {
+		return nil
+	}
+	return map[string]string{
+		"log_summary": telegramConfig.MessageTemplates.LogSummary,
+	}
+}
+
+// convertEmailTemplatesForUnified converts EmailConfig to map[string]string
+func convertEmailTemplatesForUnified(emailConfig config.EmailConfig) map[string]string {
+	if emailConfig.MessageTemplates.LogSummary == "" {
+		return nil
+	}
+	return map[string]string{
+		"log_summary": emailConfig.MessageTemplates.LogSummary,
+	}
+}
