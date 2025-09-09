@@ -14,7 +14,7 @@ import (
 type Notifier interface {
 	// SendMessage sends a plain message to the notification channel
 	SendMessage(message string) error
-	
+
 	// SendLogSummary sends a formatted log summary to the notification channel
 	// This method typically uses templates to format the message consistently
 	SendLogSummary(filePath, summary string) error
@@ -126,7 +126,7 @@ func CreateNotifiers(cfg *config.Config, enabledNotifiers []string) ([]Notifier,
 	// 2. Configuration defaults have second priority
 	// 3. If neither specified, enable all configured notifiers
 	var notifiersToCheck []string
-	
+
 	if len(enabledNotifiers) > 0 {
 		// Command line specification takes precedence
 		notifiersToCheck = enabledNotifiers
@@ -141,7 +141,7 @@ func CreateNotifiers(cfg *config.Config, enabledNotifiers []string) ([]Notifier,
 	// Check each notifier for valid configuration
 	enableTelegram := false
 	enableEmail := false
-	
+
 	for _, notifierType := range notifiersToCheck {
 		switch notifierType {
 		case "telegram":
@@ -225,7 +225,7 @@ func CreateNotifiersForUnified(cfg UnifiedConfig, enabledNotifiers []string) ([]
 	// 2. Configuration defaults have second priority
 	// 3. If neither specified, enable all configured notifiers
 	var notifiersToCheck []string
-	
+
 	if len(enabledNotifiers) > 0 {
 		// Command line specification takes precedence
 		notifiersToCheck = enabledNotifiers
@@ -240,7 +240,7 @@ func CreateNotifiersForUnified(cfg UnifiedConfig, enabledNotifiers []string) ([]
 	// Check each notifier for valid configuration
 	enableTelegram := false
 	enableEmail := false
-	
+
 	for _, notifierType := range notifiersToCheck {
 		switch notifierType {
 		case "telegram":

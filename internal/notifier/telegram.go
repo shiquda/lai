@@ -10,16 +10,16 @@ import (
 // TelegramNotifier implements the Notifier interface for Telegram notifications.
 // It sends messages via the Telegram Bot API.
 type TelegramNotifier struct {
-	botToken         string                // Telegram bot token from @BotFather
-	chatID           string                // Telegram chat ID or channel ID
-	client           *http.Client          // HTTP client for API requests
-	messageTemplates map[string]string     // Custom message templates
+	botToken         string            // Telegram bot token from @BotFather
+	chatID           string            // Telegram chat ID or channel ID
+	client           *http.Client      // HTTP client for API requests
+	messageTemplates map[string]string // Custom message templates
 }
 
 // TelegramMessage represents the JSON structure for Telegram Bot API messages.
 type TelegramMessage struct {
-	ChatID    string `json:"chat_id"`    // Target chat ID
-	Text      string `json:"text"`      // Message text content
+	ChatID    string `json:"chat_id"`              // Target chat ID
+	Text      string `json:"text"`                 // Message text content
 	ParseMode string `json:"parse_mode,omitempty"` // Message parsing mode (Markdown, HTML)
 }
 

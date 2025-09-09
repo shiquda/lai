@@ -12,16 +12,16 @@ import (
 // EmailNotifier implements the Notifier interface for email notifications.
 // It uses the gomail library to send emails via SMTP servers.
 type EmailNotifier struct {
-	smtpHost         string                // SMTP server hostname (e.g., "smtp.gmail.com")
-	smtpPort         int                   // SMTP server port (e.g., 587 for TLS, 465 for SSL)
-	username         string                // SMTP authentication username
-	password         string                // SMTP authentication password
-	fromEmail        string                // Sender email address
-	toEmails         []string              // List of recipient email addresses
-	subject          string                // Email subject line
-	useTLS           bool                  // Whether to use TLS encryption
-	client           interface{}           // Placeholder for SMTP client injection (for testing)
-	messageTemplates map[string]string     // Custom email templates
+	smtpHost         string            // SMTP server hostname (e.g., "smtp.gmail.com")
+	smtpPort         int               // SMTP server port (e.g., 587 for TLS, 465 for SSL)
+	username         string            // SMTP authentication username
+	password         string            // SMTP authentication password
+	fromEmail        string            // Sender email address
+	toEmails         []string          // List of recipient email addresses
+	subject          string            // Email subject line
+	useTLS           bool              // Whether to use TLS encryption
+	client           interface{}       // Placeholder for SMTP client injection (for testing)
+	messageTemplates map[string]string // Custom email templates
 }
 
 // NewEmailNotifier creates a new EmailNotifier instance with the provided configuration.
@@ -163,14 +163,14 @@ func (e *EmailNotifier) sendLogSummaryWithHTML(filePath, htmlSummary string) err
 func (e *EmailNotifier) renderEmailTemplate(templateStr string, data TemplateData) (string, error) {
 	// Replace placeholders manually to avoid HTML escaping
 	message := templateStr
-	
+
 	// Replace non-HTML fields (these are safe)
 	message = strings.ReplaceAll(message, "{{.FilePath}}", data.FilePath)
 	message = strings.ReplaceAll(message, "{{.Time}}", data.Time)
-	
+
 	// Replace HTML field without escaping
 	message = strings.ReplaceAll(message, "{{.Summary}}", data.Summary)
-	
+
 	return message, nil
 }
 
@@ -185,9 +185,9 @@ func (e *EmailNotifier) renderEmailTemplate(templateStr string, data TemplateDat
 func convertMarkdownToHTML(markdown string) string {
 	// Convert Markdown to HTML with extensions for better formatting
 	unsafeHTML := blackfriday.Run([]byte(markdown), blackfriday.WithExtensions(
-		blackfriday.CommonExtensions | blackfriday.AutoHeadingIDs | blackfriday.Tables | blackfriday.FencedCode,
+		blackfriday.CommonExtensions|blackfriday.AutoHeadingIDs|blackfriday.Tables|blackfriday.FencedCode,
 	))
-	
+
 	// Sanitize HTML to prevent XSS attacks
 	p := bluemonday.UGCPolicy()
 	// Allow common formatting elements
@@ -199,14 +199,14 @@ func convertMarkdownToHTML(markdown string) string {
 	p.AllowElements("blockquote", "pre", "code", "samp", "kbd")
 	p.AllowElements("a", "img")
 	p.AllowElements("table", "thead", "tbody", "tr", "th", "td")
-	
+
 	// Allow attributes for styling
 	p.AllowAttrs("class").Matching(bluemonday.SpaceSeparatedTokens).OnElements("code", "pre")
 	p.AllowAttrs("style").OnElements("p", "div", "span", "h1", "h2", "h3", "h4", "h5", "h6")
-	
+
 	// Sanitize the HTML
 	safeHTML := p.SanitizeBytes(unsafeHTML)
-	
+
 	return string(safeHTML)
 }
 

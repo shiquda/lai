@@ -3,8 +3,8 @@ package notifier
 import (
 	"testing"
 
-	"gopkg.in/gomail.v2"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/gomail.v2"
 )
 
 func TestNewEmailNotifier(t *testing.T) {

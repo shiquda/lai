@@ -42,8 +42,8 @@ lai config set notifications.openai.model "gpt-4o"
 # Set Telegram bot token
 lai config set notifications.telegram.bot_token "123456:ABC-DEF"
 
-# Set default chat ID
-lai config set defaults.chat_id "-100123456789"
+# Set Telegram chat ID
+lai config set notifications.telegram.chat_id "-100123456789"
 
 # Set default line threshold
 lai config set defaults.line_threshold 20
@@ -117,7 +117,7 @@ You can also edit the configuration file directly at `~/.lai/config.yaml`.
 3. **Configure Lai**:
    ```bash
    lai config set notifications.telegram.bot_token "123456:ABC-DEF"
-   lai config set defaults.chat_id "-100123456789"
+   lai config set notifications.telegram.chat_id "-100123456789"
    ```
 
 ### Using Custom OpenAI Endpoints

@@ -127,16 +127,16 @@ func TestRenderTemplate_InvalidTemplateFallback(t *testing.T) {
 func TestSendLogSummary_Common(t *testing.T) {
 	// Test the common SendLogSummary function with a mock notifier
 	mockNotifier := &mockNotifier{}
-	
+
 	filePath := "/var/log/test.log"
 	summary := "Test summary content"
-	
+
 	err := SendLogSummary(mockNotifier, filePath, summary, map[string]string{}, func() map[string]string {
 		return map[string]string{
 			"log_summary": "Mock: {{.Summary}} from {{.FilePath}}",
 		}
 	})
-	
+
 	assert.NoError(t, err)
 	assert.True(t, mockNotifier.sendMessageCalled)
 	assert.Contains(t, mockNotifier.lastMessage, "Mock: Test summary content from /var/log/test.log")
@@ -209,7 +209,7 @@ func TestCreateNotifiers(t *testing.T) {
 // mockNotifier is a mock implementation of the Notifier interface for testing
 type mockNotifier struct {
 	sendMessageCalled bool
-	lastMessage      string
+	lastMessage       string
 }
 
 func (m *mockNotifier) SendMessage(message string) error {

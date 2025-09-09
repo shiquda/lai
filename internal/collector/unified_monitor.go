@@ -58,7 +58,7 @@ func BuildMonitorConfig(source MonitorSource, lineThreshold *int, checkInterval 
 		Source:           source,
 		LineThreshold:    globalConfig.Defaults.LineThreshold,
 		CheckInterval:    globalConfig.Defaults.CheckInterval,
-		ChatID:           globalConfig.Defaults.ChatID,
+		ChatID:           globalConfig.Notifications.Telegram.ChatID,
 		Language:         globalConfig.Defaults.Language,
 		EnabledNotifiers: globalConfig.Defaults.EnabledNotifiers,
 		FinalSummary:     globalConfig.Defaults.FinalSummary,
@@ -236,17 +236,17 @@ func (m *UnifiedMonitor) Stop() {
 // sendToAllNotifiers sends a summary to all configured notifiers
 func (m *UnifiedMonitor) sendToAllNotifiers(summary string) error {
 	var errors []error
-	
+
 	for _, n := range m.notifiers {
 		if err := n.SendLogSummary(m.config.Source.GetIdentifier(), summary); err != nil {
 			errors = append(errors, err)
 			log.Printf("Failed to send notification to notifier: %v", err)
 		}
 	}
-	
+
 	if len(errors) > 0 {
 		return fmt.Errorf("%d notifier(s) failed: %v", len(errors), errors)
 	}
-	
+
 	return nil
 }

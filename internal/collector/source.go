@@ -133,17 +133,17 @@ func (f *FileSource) Stop() {
 
 // CommandSource represents a command-based monitoring source
 type CommandSource struct {
-	command    string
-	args       []string
-	workingDir string
+	command       string
+	args          []string
+	workingDir    string
 	lastLineCount int
 }
 
 func NewCommandSource(command string, args []string, workingDir string) *CommandSource {
 	return &CommandSource{
-		command:      command,
-		args:         args,
-		workingDir:   workingDir,
+		command:       command,
+		args:          args,
+		workingDir:    workingDir,
 		lastLineCount: 0,
 	}
 }

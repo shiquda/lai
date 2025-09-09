@@ -42,7 +42,7 @@ func runTestNotifications(enabledNotifiers []string, customMessage string, verbo
 	}
 
 	// Load global configuration
-	cfg, err := config.BuildRuntimeConfig("", nil, nil, nil, nil)
+	cfg, err := config.BuildRuntimeConfig("", nil, nil, nil)
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
