@@ -1,0 +1,504 @@
+package notifier
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/nikoksr/notify"
+	"github.com/nikoksr/notify/service/discord"
+	"github.com/nikoksr/notify/service/slack"
+	"github.com/nikoksr/notify/service/telegram"
+	"github.com/shiquda/lai/internal/config"
+)
+
+// NotifyNotifier is a universal notifier implemented using the notify library
+// Supports all services provided by the notify library
+type NotifyNotifier struct {
+	notifyClient    *notify.Notify
+	config          *config.NotificationsConfig
+	enabledServices map[string]bool
+	serviceConfigs  map[string]config.ServiceConfig
+}
+
+// NewNotifyNotifier creates a new notify notifier
+func NewNotifyNotifier(cfg *config.NotificationsConfig) (*NotifyNotifier, error) {
+	nn := &NotifyNotifier{
+		notifyClient:    notify.New(),
+		config:          cfg,
+		enabledServices: make(map[string]bool),
+		serviceConfigs:  make(map[string]config.ServiceConfig),
+	}
+
+	// Setup all enabled notification services
+	if err := nn.setupServices(); err != nil {
+		return nil, fmt.Errorf("failed to setup notification services: %w", err)
+	}
+
+	return nn, nil
+}
+
+// setupServices sets up all enabled notification services
+func (nn *NotifyNotifier) setupServices() error {
+	if nn.config.Providers == nil {
+		return fmt.Errorf("no notification providers configured")
+	}
+
+	for providerName, serviceConfig := range nn.config.Providers {
+		if !serviceConfig.Enabled {
+			log.Printf("Info: provider %s is disabled, skipping\n", providerName)
+			continue
+		}
+
+		// Save service configuration for later use
+		nn.serviceConfigs[providerName] = serviceConfig
+
+		if err := nn.setupProvider(providerName, serviceConfig); err != nil {
+			log.Printf("Warning: failed to setup %s service: %v\n", providerName, err)
+			continue
+		}
+
+		nn.enabledServices[providerName] = true
+		log.Printf("Info: successfully enabled %s service\n", providerName)
+	}
+
+	// Setup fallback service
+	if nn.config.Fallback != nil && nn.config.Fallback.Enabled {
+		if err := nn.setupFallback(); err != nil {
+			log.Printf("Warning: failed to setup fallback service: %v\n", err)
+		}
+	}
+
+	if len(nn.enabledServices) == 0 {
+		return fmt.Errorf("no notification services could be enabled")
+	}
+
+	return nil
+}
+
+// setupProvider sets up a single notification service
+func (nn *NotifyNotifier) setupProvider(providerName string, serviceConfig config.ServiceConfig) error {
+	switch serviceConfig.Provider {
+	case "telegram":
+		return nn.setupTelegramService(serviceConfig)
+	case "slack", "slack_webhook":
+		return nn.setupSlackService(serviceConfig)
+	case "discord", "discord_webhook":
+		return nn.setupDiscordService(serviceConfig)
+	case "email", "smtp", "gmail", "sendgrid", "mailgun":
+		return nn.setupEmailService(serviceConfig)
+	case "pushover":
+		return nn.setupPushoverService(serviceConfig)
+	case "twilio":
+		return nn.setupTwilioService(serviceConfig)
+	case "pagerduty":
+		return nn.setupPagerDutyService(serviceConfig)
+	case "dingtalk":
+		return nn.setupDingTalkService(serviceConfig)
+	case "wechat":
+		return nn.setupWeChatService(serviceConfig)
+	default:
+		// Try to dynamically import other services
+		return nn.setupGenericService(providerName, serviceConfig)
+	}
+}
+
+// setupTelegramService sets up Telegram service
+func (nn *NotifyNotifier) setupTelegramService(serviceConfig config.ServiceConfig) error {
+	token, ok := serviceConfig.Config["token"].(string)
+	if !ok || token == "" {
+		return fmt.Errorf("telegram token is required")
+	}
+
+	chatIDStr, ok := serviceConfig.Config["chat_id"].(string)
+	if !ok || chatIDStr == "" {
+		return fmt.Errorf("telegram chat_id is required")
+	}
+
+	// Create Telegram service
+	telegramService, err := telegram.New(token)
+	if err != nil {
+		return fmt.Errorf("failed to create telegram service: %w", err)
+	}
+
+	// Parse and add receivers (supports multiple chat_ids)
+	chatIDs := strings.Split(chatIDStr, ",")
+	for _, chatID := range chatIDs {
+		chatID = strings.TrimSpace(chatID)
+		if chatID != "" {
+			chatIDInt, err := strconv.ParseInt(chatID, 10, 64)
+			if err != nil {
+				return fmt.Errorf("failed to parse chat ID '%s': %w", chatID, err)
+			}
+			telegramService.AddReceivers(chatIDInt)
+		}
+	}
+
+	nn.notifyClient.UseServices(telegramService)
+	return nil
+}
+
+// setupSlackService sets up Slack service
+func (nn *NotifyNotifier) setupSlackService(serviceConfig config.ServiceConfig) error {
+	if serviceConfig.Provider == "slack_webhook" {
+		webhookURL, ok := serviceConfig.Config["webhook_url"].(string)
+		if !ok || webhookURL == "" {
+			return fmt.Errorf("slack webhook_url is required")
+		}
+
+		slackService := slack.New(webhookURL)
+		nn.notifyClient.UseServices(slackService)
+		return nil
+	}
+
+	// OAuth token method
+	oauthToken, ok := serviceConfig.Config["oauth_token"].(string)
+	if !ok || oauthToken == "" {
+		return fmt.Errorf("slack oauth_token is required")
+	}
+
+	slackService := slack.New(oauthToken)
+
+	// Add channels
+	if channelIDs, ok := serviceConfig.Config["channel_ids"].([]interface{}); ok {
+		for _, channelID := range channelIDs {
+			if idStr, ok := channelID.(string); ok && idStr != "" {
+				slackService.AddReceivers(idStr)
+			}
+		}
+	}
+
+	nn.notifyClient.UseServices(slackService)
+	return nil
+}
+
+// setupDiscordService sets up Discord service
+func (nn *NotifyNotifier) setupDiscordService(serviceConfig config.ServiceConfig) error {
+	if serviceConfig.Provider == "discord_webhook" {
+		webhookURL, ok := serviceConfig.Config["webhook_url"].(string)
+		if !ok || webhookURL == "" {
+			return fmt.Errorf("discord webhook_url is required")
+		}
+
+		_ = discord.New()
+		// TODO: webhook support in notify library
+		return fmt.Errorf("discord webhook support not yet implemented")
+	}
+
+	// Bot token method
+	botToken, ok := serviceConfig.Config["bot_token"].(string)
+	if !ok || botToken == "" {
+		return fmt.Errorf("discord bot_token is required")
+	}
+
+	discordService := discord.New()
+	if err := discordService.AuthenticateWithBotToken(botToken); err != nil {
+		return fmt.Errorf("failed to authenticate with discord: %w", err)
+	}
+
+	// Add channels
+	if channelIDs, ok := serviceConfig.Config["channel_ids"].([]interface{}); ok {
+		for _, channelID := range channelIDs {
+			if idStr, ok := channelID.(string); ok && idStr != "" {
+				discordService.AddReceivers(idStr)
+			}
+		}
+	}
+
+	nn.notifyClient.UseServices(discordService)
+	return nil
+}
+
+// setupEmailService sets up Email service
+func (nn *NotifyNotifier) setupEmailService(serviceConfig config.ServiceConfig) error {
+	switch serviceConfig.Provider {
+	case "sendgrid":
+		return nn.setupSendGridService(serviceConfig)
+	case "mailgun":
+		return nn.setupMailgunService(serviceConfig)
+	case "smtp", "gmail":
+		return nn.setupSMTPService(serviceConfig)
+	default:
+		return fmt.Errorf("unsupported email provider: %s", serviceConfig.Provider)
+	}
+}
+
+// setupSendGridService sets up SendGrid email service
+func (nn *NotifyNotifier) setupSendGridService(serviceConfig config.ServiceConfig) error {
+	apiKey, ok := serviceConfig.Config["api_key"].(string)
+	if !ok || apiKey == "" {
+		return fmt.Errorf("sendgrid api_key is required")
+	}
+
+	fromEmail, ok := serviceConfig.Config["from_email"].(string)
+	if !ok || fromEmail == "" {
+		return fmt.Errorf("sendgrid from_email is required")
+	}
+
+	_ = "Lai Bot"
+	if _, ok := serviceConfig.Config["from_name"].(string); ok {
+		// from name configured but not used yet
+	}
+
+	// Note: sendgrid service
+	// sendgridService := sendgrid.New(apiKey, fromEmail, fromName)
+	// nn.notifyClient.UseServices(sendgridService)
+
+	return fmt.Errorf("sendgrid service requires additional dependency: github.com/nikoksr/notify/service/sendgrid")
+}
+
+// setupMailgunService sets up Mailgun email service
+func (nn *NotifyNotifier) setupMailgunService(serviceConfig config.ServiceConfig) error {
+	apiKey, ok := serviceConfig.Config["api_key"].(string)
+	if !ok || apiKey == "" {
+		return fmt.Errorf("mailgun api_key is required")
+	}
+
+	domain, ok := serviceConfig.Config["domain"].(string)
+	if !ok || domain == "" {
+		return fmt.Errorf("mailgun domain is required")
+	}
+
+	// Note: mailgun service
+	// mailgunService := mailgun.New(apiKey, domain)
+	// nn.notifyClient.UseServices(mailgunService)
+
+	return fmt.Errorf("mailgun service requires additional dependency: github.com/nikoksr/notify/service/mailgun")
+}
+
+// setupSMTPService sets up SMTP email service
+func (nn *NotifyNotifier) setupSMTPService(serviceConfig config.ServiceConfig) error {
+	host, ok := serviceConfig.Config["host"].(string)
+	if !ok || host == "" {
+		return fmt.Errorf("smtp host is required")
+	}
+
+	_ = 587
+	if _, ok := serviceConfig.Config["port"].(int); ok {
+		// port configured as int
+	} else if _, ok := serviceConfig.Config["port"].(string); ok {
+		// port configured as string
+	}
+
+	username, ok := serviceConfig.Config["username"].(string)
+	if !ok || username == "" {
+		return fmt.Errorf("smtp username is required")
+	}
+
+	password, ok := serviceConfig.Config["password"].(string)
+	if !ok || password == "" {
+		return fmt.Errorf("smtp password is required")
+	}
+
+	// Note: smtp service
+	// smtpService := smtp.New(host, port, username, password)
+	// nn.notifyClient.UseServices(smtpService)
+
+	return fmt.Errorf("smtp service requires additional dependency: github.com/nikoksr/notify/service/smtp")
+}
+
+// setupPushoverService sets up Pushover service
+func (nn *NotifyNotifier) setupPushoverService(serviceConfig config.ServiceConfig) error {
+	token, ok := serviceConfig.Config["token"].(string)
+	if !ok || token == "" {
+		return fmt.Errorf("pushover token is required")
+	}
+
+	user, ok := serviceConfig.Config["user"].(string)
+	if !ok || user == "" {
+		return fmt.Errorf("pushover user is required")
+	}
+
+	// Note: pushover service
+	// pushoverService := pushover.New(token, user)
+	// nn.notifyClient.UseServices(pushoverService)
+
+	return fmt.Errorf("pushover service requires additional dependency: github.com/nikoksr/notify/service/pushover")
+}
+
+// setupTwilioService sets up Twilio SMS service
+func (nn *NotifyNotifier) setupTwilioService(serviceConfig config.ServiceConfig) error {
+	accountSid, ok := serviceConfig.Config["account_sid"].(string)
+	if !ok || accountSid == "" {
+		return fmt.Errorf("twilio account_sid is required")
+	}
+
+	authToken, ok := serviceConfig.Config["auth_token"].(string)
+	if !ok || authToken == "" {
+		return fmt.Errorf("twilio auth_token is required")
+	}
+
+	fromNumber, ok := serviceConfig.Config["from_number"].(string)
+	if !ok || fromNumber == "" {
+		return fmt.Errorf("twilio from_number is required")
+	}
+
+	// Note: twilio service
+	// twilioService := twilio.New(accountSid, authToken, fromNumber)
+	// nn.notifyClient.UseServices(twilioService)
+
+	return fmt.Errorf("twilio service requires additional dependency: github.com/nikoksr/notify/service/twilio")
+}
+
+// setupPagerDutyService sets up PagerDuty service
+func (nn *NotifyNotifier) setupPagerDutyService(serviceConfig config.ServiceConfig) error {
+	routingKey, ok := serviceConfig.Config["routing_key"].(string)
+	if !ok || routingKey == "" {
+		return fmt.Errorf("pagerduty routing_key is required")
+	}
+
+	// Note: pagerduty service
+	// pagerdutyService := pagerduty.New(routingKey)
+	// nn.notifyClient.UseServices(pagerdutyService)
+
+	return fmt.Errorf("pagerduty service requires additional dependency: github.com/nikoksr/notify/service/pagerduty")
+}
+
+// setupDingTalkService sets up DingTalk service
+func (nn *NotifyNotifier) setupDingTalkService(serviceConfig config.ServiceConfig) error {
+	accessToken, ok := serviceConfig.Config["access_token"].(string)
+	if !ok || accessToken == "" {
+		return fmt.Errorf("dingtalk access_token is required")
+	}
+
+	// Note: dingtalk service
+	// dingtalkService := dingtalk.New(accessToken)
+	// nn.notifyClient.UseServices(dingtalkService)
+
+	return fmt.Errorf("dingtalk service requires additional dependency: github.com/nikoksr/notify/service/dingtalk")
+}
+
+// setupWeChatService sets up WeChat service
+func (nn *NotifyNotifier) setupWeChatService(serviceConfig config.ServiceConfig) error {
+	corpID, ok := serviceConfig.Config["corp_id"].(string)
+	if !ok || corpID == "" {
+		return fmt.Errorf("wechat corp_id is required")
+	}
+
+	corpSecret, ok := serviceConfig.Config["corp_secret"].(string)
+	if !ok || corpSecret == "" {
+		return fmt.Errorf("wechat corp_secret is required")
+	}
+
+	agentID, ok := serviceConfig.Config["agent_id"].(string)
+	if !ok || agentID == "" {
+		return fmt.Errorf("wechat agent_id is required")
+	}
+
+	// Note: wechat service
+	// wechatService := wechat.New(corpID, corpSecret, agentID)
+	// nn.notifyClient.UseServices(wechatService)
+
+	return fmt.Errorf("wechat service requires additional dependency: github.com/nikoksr/notify/service/wechat")
+}
+
+// setupGenericService sets up generic service (dynamic import)
+func (nn *NotifyNotifier) setupGenericService(providerName string, serviceConfig config.ServiceConfig) error {
+	// Dynamic service import logic can be implemented here
+	// Currently returns error to prompt user to install required dependencies
+	return fmt.Errorf("provider '%s' is not supported. Please check if the service is available in the notify library", providerName)
+}
+
+// setupFallback sets up fallback service
+func (nn *NotifyNotifier) setupFallback() error {
+	if nn.config.Fallback == nil || !nn.config.Fallback.Enabled {
+		return nil
+	}
+
+	fallbackConfig := config.ServiceConfig{
+		Enabled:  true,
+		Provider: nn.config.Fallback.Provider,
+		Config:   nn.config.Fallback.Config,
+		Defaults: make(map[string]interface{}),
+	}
+
+	return nn.setupProvider("fallback", fallbackConfig)
+}
+
+// SendLogSummary sends a log summary
+func (nn *NotifyNotifier) SendLogSummary(ctx context.Context, filePath, summary string) error {
+	if !nn.IsEnabled() {
+		return fmt.Errorf("no notification channels enabled")
+	}
+
+	message := nn.formatMessage("log_summary", map[string]interface{}{
+		"filePath": filePath,
+		"summary":  summary,
+		"time":     getCurrentTimeNotify(),
+	})
+
+	return nn.notifyClient.Send(ctx, "🚨 Log Summary Notification", message)
+}
+
+// SendMessage sends a plain message
+func (nn *NotifyNotifier) SendMessage(ctx context.Context, message string) error {
+	if !nn.IsEnabled() {
+		return fmt.Errorf("no notification channels enabled")
+	}
+
+	return nn.notifyClient.Send(ctx, "📢 Lai Notification", message)
+}
+
+// SendError sends an error message
+func (nn *NotifyNotifier) SendError(ctx context.Context, filePath, errorMsg string) error {
+	if !nn.IsEnabled() {
+		return fmt.Errorf("no notification channels enabled")
+	}
+
+	message := nn.formatMessage("error", map[string]interface{}{
+		"filePath": filePath,
+		"errorMsg": errorMsg,
+		"time":     getCurrentTimeNotify(),
+	})
+
+	return nn.notifyClient.Send(ctx, "🚨 Critical Error Alert", message)
+}
+
+// TestProvider tests a specific provider
+func (nn *NotifyNotifier) TestProvider(ctx context.Context, providerName string, message string) error {
+	if !nn.enabledServices[providerName] {
+		return fmt.Errorf("provider %s is not enabled", providerName)
+	}
+
+	testMessage := fmt.Sprintf("🧪 Test Message from Lai\n\nProvider: %s\nTime: %s\nMessage: %s",
+		providerName, getCurrentTimeNotify(), message)
+
+	return nn.notifyClient.Send(ctx, "🧪 Lai Test Notification", testMessage)
+}
+
+// IsEnabled checks if any notification channels are enabled
+func (nn *NotifyNotifier) IsEnabled() bool {
+	return len(nn.enabledServices) > 0
+}
+
+// GetEnabledChannels returns the list of enabled notification channels
+func (nn *NotifyNotifier) GetEnabledChannels() []string {
+	channels := make([]string, 0, len(nn.enabledServices))
+	for channel := range nn.enabledServices {
+		channels = append(channels, channel)
+	}
+	return channels
+}
+
+// formatMessage formats messages considering different service characteristics
+func (nn *NotifyNotifier) formatMessage(msgType string, data map[string]interface{}) string {
+	switch msgType {
+	case "log_summary":
+		return fmt.Sprintf("🚨 *Log Summary Notification*\n\n📁 *File:* %s\n⏰ *Time:* %s\n\n📋 *Summary:*\n%s",
+			data["filePath"], data["time"], data["summary"])
+	case "error":
+		return fmt.Sprintf("🚨 *Critical Error Alert*\n\n📁 *File:* %s\n⏰ *Time:* %s\n\n💥 *Error Details:*\n%s",
+			data["filePath"], data["time"], data["errorMsg"])
+	default:
+		return fmt.Sprintf("📢 *Notification*\n\n⏰ *Time:* %s\n\n📝 *Message:*\n%s",
+			data["time"], data["message"])
+	}
+}
+
+// getCurrentTimeNotify gets current time (notify_notifier specific)
+func getCurrentTimeNotify() string {
+	return time.Now().Format("2006-01-02 15:04:05")
+}

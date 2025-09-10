@@ -2,6 +2,7 @@ package notifier
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"html/template"
 	"time"
@@ -20,6 +21,63 @@ type Notifier interface {
 	SendLogSummary(filePath, summary string) error
 }
 
+// UnifiedNotifier defines the interface for the new unified notification system
+// using the notify library. This provides context-aware operations and better error handling.
+type UnifiedNotifier interface {
+	// SendLogSummary sends a log summary with context
+	SendLogSummary(ctx context.Context, filePath, summary string) error
+
+	// SendMessage sends a plain message with context
+	SendMessage(ctx context.Context, message string) error
+
+	// SendError sends an error message with context
+	SendError(ctx context.Context, filePath, errorMsg string) error
+
+	// TestProvider tests a specific notification provider
+	TestProvider(ctx context.Context, providerName string, message string) error
+
+	// IsEnabled checks if any notification channels are enabled
+	IsEnabled() bool
+
+	// GetEnabledChannels returns the list of enabled notification channels
+	GetEnabledChannels() []string
+}
+
+// CreateUnifiedNotifier creates a new unified notifier using the notify library.
+// This is the recommended factory function for new implementations.
+// It now uses the new provider configuration system.
+func CreateUnifiedNotifier(cfg *config.Config) (UnifiedNotifier, error) {
+	// Check if we need to migrate legacy configuration
+	if len(cfg.Notifications.Providers) == 0 {
+		// Migrate legacy configuration to new format
+		migratedConfig := config.MigrateToNewProviderConfig(&config.GlobalConfig{
+			Notifications: cfg.Notifications,
+		})
+		cfg.Notifications = migratedConfig.Notifications
+	}
+
+	// Create the new notify notifier
+	notifyNotifier, err := NewNotifyNotifier(&cfg.Notifications)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create notify notifier: %w", err)
+	}
+
+	return notifyNotifier, nil
+}
+
+// CreateUnifiedNotifierForMonitor creates a unified notifier for monitor configuration
+func CreateUnifiedNotifierForMonitor(monitorConfig interface{}) (UnifiedNotifier, error) {
+	// Try to convert to different config types
+	switch cfg := monitorConfig.(type) {
+	case *config.Config:
+		return CreateUnifiedNotifier(cfg)
+	case *config.NotificationsConfig:
+		return NewNotifyNotifier(cfg)
+	default:
+		return nil, fmt.Errorf("unsupported config type: %T", monitorConfig)
+	}
+}
+
 // TemplateData represents the data available in message templates.
 // These fields can be used in custom notification templates.
 type TemplateData struct {
@@ -34,6 +92,33 @@ type TemplateData struct {
 // This format is used consistently across all notifications.
 func getCurrentTime() string {
 	return time.Now().Format("2006-01-02 15:04:05")
+}
+
+// SendLogSummary sends a log summary using the provided notifier and templates.
+// This is a convenience function that handles template rendering and message sending.
+//
+// Parameters:
+//   - notifier: The notifier implementation to use (Telegram, Email, etc.)
+//   - filePath: Path to the log file
+//   - summary: AI-generated log summary content
+//   - messageTemplates: Custom templates from configuration
+//   - getDefaultTemplates: Function to get default templates as fallback
+//
+// Returns:
+//   - Error if template rendering or message sending fails
+func SendLogSummary(notifier Notifier, filePath, summary string, messageTemplates map[string]string, getDefaultTemplates func() map[string]string) error {
+	data := TemplateData{
+		FilePath: filePath,
+		Time:     getCurrentTime(),
+		Summary:  summary,
+	}
+
+	message, err := RenderTemplate("log_summary", data, messageTemplates, getDefaultTemplates)
+	if err != nil {
+		return fmt.Errorf("failed to render log summary template: %w", err)
+	}
+
+	return notifier.SendMessage(message)
 }
 
 // RenderTemplate renders a message template with the given data.
@@ -75,36 +160,8 @@ func RenderTemplate(templateName string, data TemplateData, messageTemplates map
 	return buf.String(), nil
 }
 
-// SendLogSummary sends a log summary using the provided notifier and templates.
-// This is a convenience function that handles template rendering and message sending.
-//
-// Parameters:
-//   - notifier: The notifier implementation to use (Telegram, Email, etc.)
-//   - filePath: Path to the log file
-//   - summary: AI-generated log summary content
-//   - messageTemplates: Custom templates from configuration
-//   - getDefaultTemplates: Function to get default templates as fallback
-//
-// Returns:
-//   - Error if template rendering or message sending fails
-func SendLogSummary(notifier Notifier, filePath, summary string, messageTemplates map[string]string, getDefaultTemplates func() map[string]string) error {
-	data := TemplateData{
-		FilePath: filePath,
-		Time:     getCurrentTime(),
-		Summary:  summary,
-	}
-
-	message, err := RenderTemplate("log_summary", data, messageTemplates, getDefaultTemplates)
-	if err != nil {
-		return fmt.Errorf("failed to render log summary template: %w", err)
-	}
-
-	return notifier.SendMessage(message)
-}
-
 // CreateNotifiers creates notifiers based on the provided configuration.
-// This is a factory function that creates notifier instances based on configuration
-// and command-line specifications.
+// This function now uses the new unified notification system.
 //
 // Priority order for determining which notifiers to enable:
 // 1. Command line specifications (--notifiers telegram,email)
@@ -119,194 +176,37 @@ func SendLogSummary(notifier Notifier, filePath, summary string, messageTemplate
 //   - Slice of configured notifier instances
 //   - Error if no valid notifiers can be created
 func CreateNotifiers(cfg *config.Config, enabledNotifiers []string) ([]Notifier, error) {
-	var notifiers []Notifier
-
-	// Determine which notifiers to enable based on priority:
-	// 1. Command line parameters have highest priority
-	// 2. Configuration defaults have second priority
-	// 3. If neither specified, enable all configured notifiers
-	var notifiersToCheck []string
-
-	if len(enabledNotifiers) > 0 {
-		// Command line specification takes precedence
-		notifiersToCheck = enabledNotifiers
-	} else if len(cfg.EnabledNotifiers) > 0 {
-		// Use configuration defaults
-		notifiersToCheck = cfg.EnabledNotifiers
-	} else {
-		// Enable all available notifiers by default
-		notifiersToCheck = []string{"telegram", "email"}
+	// For backward compatibility, create a unified notifier
+	// This will automatically migrate legacy configuration if needed
+	unifiedNotifier, err := CreateUnifiedNotifier(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create unified notifier: %w", err)
 	}
 
-	// Check each notifier for valid configuration
-	enableTelegram := false
-	enableEmail := false
-
-	for _, notifierType := range notifiersToCheck {
-		switch notifierType {
-		case "telegram":
-			if cfg.Telegram.BotToken != "" && cfg.Telegram.ChatID != "" {
-				enableTelegram = true
-			}
-		case "email":
-			if cfg.Email.SMTPHost != "" && cfg.Email.Username != "" && len(cfg.Email.ToEmails) > 0 {
-				enableEmail = true
-			}
-		}
+	// Check if the unified notifier is enabled
+	if !unifiedNotifier.IsEnabled() {
+		return nil, fmt.Errorf("no notification channels enabled")
 	}
 
-	// Create Telegram notifier if enabled and configured
-	if enableTelegram {
-		telegramNotifier := NewTelegramNotifier(
-			cfg.Telegram.BotToken,
-			cfg.Telegram.ChatID,
-			convertTelegramTemplates(cfg.Telegram.MessageTemplates),
-		)
-		notifiers = append(notifiers, telegramNotifier)
-	}
-
-	// Create Email notifier if enabled and configured
-	if enableEmail {
-		emailNotifier := NewEmailNotifier(
-			cfg.Email.SMTPHost,
-			cfg.Email.SMTPPort,
-			cfg.Email.Username,
-			cfg.Email.Password,
-			cfg.Email.FromEmail,
-			cfg.Email.ToEmails,
-			cfg.Email.Subject,
-			cfg.Email.UseTLS,
-			convertEmailTemplates(cfg.Email.MessageTemplates),
-		)
-		notifiers = append(notifiers, emailNotifier)
-	}
-
-	if len(notifiers) == 0 {
-		return nil, fmt.Errorf("no valid notifier configuration found")
-	}
-
-	return notifiers, nil
+	// Return a slice containing just the unified notifier
+	// This maintains compatibility with the existing interface
+	return []Notifier{&UniversalNotifier{unified: unifiedNotifier}}, nil
 }
 
-// convertTelegramTemplates converts TelegramMessageTemplates to map[string]string
-func convertTelegramTemplates(templates config.TelegramMessageTemplates) map[string]string {
-	if templates.LogSummary == "" {
-		return nil
-	}
-	return map[string]string{
-		"log_summary": templates.LogSummary,
-	}
+// UniversalNotifier is a wrapper that implements the legacy Notifier interface
+// but uses the new UnifiedNotifier internally for backward compatibility
+type UniversalNotifier struct {
+	unified UnifiedNotifier
 }
 
-// convertEmailTemplates converts EmailMessageTemplates to map[string]string
-func convertEmailTemplates(templates config.EmailMessageTemplates) map[string]string {
-	if templates.LogSummary == "" {
-		return nil
-	}
-	return map[string]string{
-		"log_summary": templates.LogSummary,
-	}
+// SendMessage sends a plain message (compatible with legacy interface)
+func (un *UniversalNotifier) SendMessage(message string) error {
+	ctx := context.Background()
+	return un.unified.SendMessage(ctx, message)
 }
 
-// UnifiedConfig represents the interface for unified configuration
-type UnifiedConfig interface {
-	GetEnabledNotifiers() []string
-	GetTelegramConfig() config.TelegramConfig
-	GetEmailConfig() config.EmailConfig
-}
-
-// CreateNotifiersForUnified creates notifiers based on the unified configuration.
-// This is similar to CreateNotifiers but works with the new MonitorConfig.
-func CreateNotifiersForUnified(cfg UnifiedConfig, enabledNotifiers []string) ([]Notifier, error) {
-	var notifiers []Notifier
-
-	// Determine which notifiers to enable based on priority:
-	// 1. Command line parameters have highest priority
-	// 2. Configuration defaults have second priority
-	// 3. If neither specified, enable all configured notifiers
-	var notifiersToCheck []string
-
-	if len(enabledNotifiers) > 0 {
-		// Command line specification takes precedence
-		notifiersToCheck = enabledNotifiers
-	} else if len(cfg.GetEnabledNotifiers()) > 0 {
-		// Use configuration defaults
-		notifiersToCheck = cfg.GetEnabledNotifiers()
-	} else {
-		// Enable all available notifiers by default
-		notifiersToCheck = []string{"telegram", "email"}
-	}
-
-	// Check each notifier for valid configuration
-	enableTelegram := false
-	enableEmail := false
-
-	for _, notifierType := range notifiersToCheck {
-		switch notifierType {
-		case "telegram":
-			telegramConfig := cfg.GetTelegramConfig()
-			if telegramConfig.BotToken != "" && telegramConfig.ChatID != "" {
-				enableTelegram = true
-			}
-		case "email":
-			emailConfig := cfg.GetEmailConfig()
-			if emailConfig.SMTPHost != "" && emailConfig.Username != "" && len(emailConfig.ToEmails) > 0 {
-				enableEmail = true
-			}
-		}
-	}
-
-	// Create Telegram notifier if enabled and configured
-	if enableTelegram {
-		telegramConfig := cfg.GetTelegramConfig()
-		telegramNotifier := NewTelegramNotifier(
-			telegramConfig.BotToken,
-			telegramConfig.ChatID,
-			convertTelegramTemplatesForUnified(telegramConfig),
-		)
-		notifiers = append(notifiers, telegramNotifier)
-	}
-
-	// Create Email notifier if enabled and configured
-	if enableEmail {
-		emailConfig := cfg.GetEmailConfig()
-		emailNotifier := NewEmailNotifier(
-			emailConfig.SMTPHost,
-			emailConfig.SMTPPort,
-			emailConfig.Username,
-			emailConfig.Password,
-			emailConfig.FromEmail,
-			emailConfig.ToEmails,
-			emailConfig.Subject,
-			emailConfig.UseTLS,
-			convertEmailTemplatesForUnified(emailConfig),
-		)
-		notifiers = append(notifiers, emailNotifier)
-	}
-
-	if len(notifiers) == 0 {
-		return nil, fmt.Errorf("no valid notifier configuration found")
-	}
-
-	return notifiers, nil
-}
-
-// convertTelegramTemplatesForUnified converts TelegramConfig to map[string]string
-func convertTelegramTemplatesForUnified(telegramConfig config.TelegramConfig) map[string]string {
-	if telegramConfig.MessageTemplates.LogSummary == "" {
-		return nil
-	}
-	return map[string]string{
-		"log_summary": telegramConfig.MessageTemplates.LogSummary,
-	}
-}
-
-// convertEmailTemplatesForUnified converts EmailConfig to map[string]string
-func convertEmailTemplatesForUnified(emailConfig config.EmailConfig) map[string]string {
-	if emailConfig.MessageTemplates.LogSummary == "" {
-		return nil
-	}
-	return map[string]string{
-		"log_summary": emailConfig.MessageTemplates.LogSummary,
-	}
+// SendLogSummary sends a log summary (compatible with legacy interface)
+func (un *UniversalNotifier) SendLogSummary(filePath, summary string) error {
+	ctx := context.Background()
+	return un.unified.SendLogSummary(ctx, filePath, summary)
 }

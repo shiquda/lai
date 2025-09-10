@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -47,18 +48,27 @@ func runTestNotifications(enabledNotifiers []string, customMessage string, verbo
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	// Create notifiers
-	notifiers, err := notifier.CreateNotifiers(cfg, enabledNotifiers)
+	// Create unified notifier for detailed service testing
+	unifiedNotifier, err := notifier.CreateUnifiedNotifier(cfg)
 	if err != nil {
-		return fmt.Errorf("failed to create notifiers: %w", err)
+		return fmt.Errorf("failed to create unified notifier: %w", err)
 	}
 
-	if len(notifiers) == 0 {
-		return fmt.Errorf("no valid notifiers configured")
+	if !unifiedNotifier.IsEnabled() {
+		return fmt.Errorf("no notification services enabled")
+	}
+
+	// Get enabled channels
+	enabledChannels := unifiedNotifier.GetEnabledChannels()
+	if len(enabledChannels) == 0 {
+		return fmt.Errorf("no notification channels configured")
 	}
 
 	if verbose {
-		logger.Printf("Found %d configured notifier(s)\n", len(notifiers))
+		logger.Printf("Found %d configured notification service(s)\n", len(enabledChannels))
+		for _, channel := range enabledChannels {
+			logger.Printf("  - %s\n", channel)
+		}
 		logger.Println()
 	}
 
@@ -68,23 +78,22 @@ func runTestNotifications(enabledNotifiers []string, customMessage string, verbo
 		testMessage = getDefaultTestMessage()
 	}
 
-	// Test each notifier
+	// Test each enabled service
 	var successCount, failureCount int
-	for i, n := range notifiers {
-		notifierType := getNotifierType(n)
+	for i, serviceName := range enabledChannels {
 		if verbose {
-			logger.Printf("Testing %s notifier (%d/%d)...\n", notifierType, i+1, len(notifiers))
+			logger.Printf("Testing %s service (%d/%d)...\n", serviceName, i+1, len(enabledChannels))
 		}
 
-		if err := testSingleNotifier(n, notifierType, testMessage, verbose); err != nil {
+		if err := testSingleService(unifiedNotifier, serviceName, testMessage, verbose); err != nil {
 			failureCount++
-			logger.Printf("❌ %s notification test failed: %v\n", notifierType, err)
+			logger.Printf("❌ %s service test failed: %v\n", serviceName, err)
 		} else {
 			successCount++
-			logger.Printf("✅ %s notification test succeeded\n", notifierType)
+			logger.Printf("✅ %s service test succeeded\n", serviceName)
 		}
 
-		if verbose && i < len(notifiers)-1 {
+		if verbose && i < len(enabledChannels)-1 {
 			logger.Println()
 		}
 	}
@@ -94,40 +103,29 @@ func runTestNotifications(enabledNotifiers []string, customMessage string, verbo
 	logger.Printf("Test completed: %d succeeded, %d failed\n", successCount, failureCount)
 
 	if failureCount > 0 {
-		return fmt.Errorf("%d notifier(s) failed the test", failureCount)
+		return fmt.Errorf("%d service(s) failed the test", failureCount)
 	}
 
 	return nil
 }
 
-func testSingleNotifier(n notifier.Notifier, notifierType string, message string, verbose bool) error {
+func testSingleService(unifiedNotifier notifier.UnifiedNotifier, serviceName string, message string, verbose bool) error {
 	if verbose {
-		logger.Printf("  - Preparing test message...\n")
+		logger.Printf("  - Preparing test message for %s...\n", serviceName)
 		logger.Printf("  - Message: %s\n", message)
 	}
 
-	// Send test message using SendMessage interface
-	if err := n.SendMessage(message); err != nil {
-		return fmt.Errorf("failed to send message: %w", err)
+	// Send test message using TestProvider method
+	ctx := context.Background()
+	if err := unifiedNotifier.TestProvider(ctx, serviceName, message); err != nil {
+		return fmt.Errorf("failed to send message via %s: %w", serviceName, err)
 	}
 
 	if verbose {
-		logger.Printf("  - Message sent successfully\n")
+		logger.Printf("  - Message sent successfully via %s\n", serviceName)
 	}
 
 	return nil
-}
-
-func getNotifierType(n notifier.Notifier) string {
-	// Use type assertion to determine notifier type
-	switch n.(type) {
-	case *notifier.TelegramNotifier:
-		return "Telegram"
-	case *notifier.EmailNotifier:
-		return "Email"
-	default:
-		return "Unknown"
-	}
 }
 
 func getDefaultTestMessage() string {

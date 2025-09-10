@@ -61,10 +61,18 @@ func TestConfigValidation(t *testing.T) {
 		OpenAI: config.OpenAIConfig{
 			APIKey: "sk-test-123",
 		},
-		Telegram: config.TelegramConfig{
-			BotToken: "123:token",
+		Notifications: config.NotificationsConfig{
+			Providers: map[string]config.ServiceConfig{
+				"telegram": {
+					Enabled:  true,
+					Provider: "telegram",
+					Config: map[string]interface{}{
+						"token":   "123:token",
+						"chat_id": "-100123456789",
+					},
+				},
+			},
 		},
-		ChatID: "-100123456789",
 	}
 
 	err := validConfig.Validate()
@@ -76,10 +84,18 @@ func TestConfigValidation(t *testing.T) {
 		OpenAI: config.OpenAIConfig{
 			APIKey: "", // Missing
 		},
-		Telegram: config.TelegramConfig{
-			BotToken: "123:token",
+		Notifications: config.NotificationsConfig{
+			Providers: map[string]config.ServiceConfig{
+				"telegram": {
+					Enabled:  true,
+					Provider: "telegram",
+					Config: map[string]interface{}{
+						"token":   "123:token",
+						"chat_id": "-100123456789",
+					},
+				},
+			},
 		},
-		ChatID: "-100123456789",
 	}
 
 	err = invalidConfig.Validate()
@@ -105,9 +121,15 @@ func TestConfigMerging(t *testing.T) {
 				BaseURL: "https://api.openai.com/v1",
 				Model:   "gpt-3.5-turbo",
 			},
-			Telegram: config.TelegramConfig{
-				BotToken: "global:token",
-				ChatID:   "-100global",
+			Providers: map[string]config.ServiceConfig{
+				"telegram": {
+					Enabled:  true,
+					Provider: "telegram",
+					Config: map[string]interface{}{
+						"token":   "global:token",
+						"chat_id": "-100global",
+					},
+				},
 			},
 		},
 		Defaults: config.DefaultsConfig{
@@ -130,6 +152,9 @@ func TestConfigMerging(t *testing.T) {
 	assert.Equal(t, testLogPath, runtimeConfig.LogFile)
 	assert.Equal(t, 25, runtimeConfig.LineThreshold)             // Overridden
 	assert.Equal(t, 30*time.Second, runtimeConfig.CheckInterval) // Overridden
-	assert.Equal(t, "-100global", runtimeConfig.ChatID)          // From telegram config
-	assert.Equal(t, "global-key", runtimeConfig.OpenAI.APIKey)   // From global
+	// Check if telegram provider is configured with correct chat_id
+	if telegramProvider, exists := runtimeConfig.Notifications.Providers["telegram"]; exists {
+		assert.Equal(t, "-100global", telegramProvider.Config["chat_id"])
+	}
+	assert.Equal(t, "global-key", runtimeConfig.OpenAI.APIKey) // From global
 }

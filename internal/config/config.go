@@ -24,11 +24,11 @@ type GlobalConfig struct {
 	Logging       LoggingConfig       `mapstructure:"logging" yaml:"logging"`
 }
 
-// NotificationsConfig contains notification channel configurations
+// NotificationsConfig contains the new unified notification configuration
 type NotificationsConfig struct {
-	OpenAI   OpenAIConfig   `mapstructure:"openai" yaml:"openai"`
-	Telegram TelegramConfig `mapstructure:"telegram" yaml:"telegram"`
-	Email    EmailConfig    `mapstructure:"email" yaml:"email"`
+	OpenAI    OpenAIConfig             `mapstructure:"openai" yaml:"openai"`
+	Providers map[string]ServiceConfig `mapstructure:"providers" yaml:"providers"`
+	Fallback  *FallbackConfig          `mapstructure:"fallback" yaml:"fallback"`
 }
 
 // LoggingConfig contains logging configuration
@@ -52,7 +52,6 @@ type Config struct {
 	LogFile          string        `mapstructure:"log_file" yaml:"log_file"`
 	LineThreshold    int           `mapstructure:"line_threshold" yaml:"line_threshold"`
 	CheckInterval    time.Duration `mapstructure:"check_interval" yaml:"check_interval"`
-	ChatID           string        `mapstructure:"chat_id" yaml:"chat_id"`
 	Language         string        `mapstructure:"language" yaml:"language"`
 	EnabledNotifiers []string      `mapstructure:"enabled_notifiers" yaml:"enabled_notifiers"`
 
@@ -68,9 +67,8 @@ type Config struct {
 	// Error detection options
 	ErrorOnlyMode bool `mapstructure:"error_only_mode" yaml:"error_only_mode"`
 
-	OpenAI   OpenAIConfig   `mapstructure:"openai" yaml:"openai"`
-	Telegram TelegramConfig `mapstructure:"telegram" yaml:"telegram"`
-	Email    EmailConfig    `mapstructure:"email" yaml:"email"`
+	OpenAI        OpenAIConfig        `mapstructure:"openai" yaml:"openai"`
+	Notifications NotificationsConfig `mapstructure:"notifications" yaml:"notifications"`
 }
 
 type OpenAIConfig struct {
@@ -79,6 +77,22 @@ type OpenAIConfig struct {
 	Model   string `mapstructure:"model" yaml:"model"`
 }
 
+// ServiceConfig represents a single notification service configuration
+type ServiceConfig struct {
+	Enabled  bool                   `mapstructure:"enabled" yaml:"enabled"`
+	Provider string                 `mapstructure:"provider" yaml:"provider"`
+	Config   map[string]interface{} `mapstructure:"config" yaml:"config"`
+	Defaults map[string]interface{} `mapstructure:"defaults" yaml:"defaults"`
+}
+
+// FallbackConfig represents fallback notification configuration
+type FallbackConfig struct {
+	Enabled  bool                   `mapstructure:"enabled" yaml:"enabled"`
+	Provider string                 `mapstructure:"provider" yaml:"provider"`
+	Config   map[string]interface{} `mapstructure:"config" yaml:"config"`
+}
+
+// Legacy configurations for backward compatibility during migration
 type TelegramConfig struct {
 	BotToken         string                   `mapstructure:"bot_token" yaml:"bot_token"`
 	ChatID           string                   `mapstructure:"chat_id" yaml:"chat_id"`
@@ -97,6 +111,17 @@ type EmailConfig struct {
 	MessageTemplates EmailMessageTemplates `mapstructure:"message_templates" yaml:"message_templates"`
 }
 
+type DiscordConfig struct {
+	WebhookURL string `mapstructure:"webhook_url" yaml:"webhook_url"`
+	Enabled    bool   `mapstructure:"enabled" yaml:"enabled"`
+}
+
+type SlackConfig struct {
+	WebhookURL string `mapstructure:"webhook_url" yaml:"webhook_url"`
+	Enabled    bool   `mapstructure:"enabled" yaml:"enabled"`
+}
+
+// Legacy message template types
 type TelegramMessageTemplates struct {
 	LogSummary string `mapstructure:"log_summary" yaml:"log_summary"`
 }
@@ -198,6 +223,43 @@ func getDefaultGlobalConfig() *GlobalConfig {
 			OpenAI: OpenAIConfig{
 				BaseURL: "https://api.openai.com/v1",
 				Model:   "gpt-3.5-turbo",
+			},
+			Providers: map[string]ServiceConfig{
+				"telegram": {
+					Enabled:  false, // Disabled by default until configured
+					Provider: "telegram",
+					Config:   map[string]interface{}{},
+					Defaults: map[string]interface{}{
+						"parse_mode": "markdown",
+					},
+				},
+				"email": {
+					Enabled:  false, // Disabled by default until configured
+					Provider: "smtp",
+					Config:   map[string]interface{}{},
+					Defaults: map[string]interface{}{
+						"subject": "Log Summary Notification",
+					},
+				},
+				"slack": {
+					Enabled:  false, // Disabled by default until configured
+					Provider: "slack",
+					Config:   map[string]interface{}{},
+					Defaults: map[string]interface{}{
+						"username":   "Lai Bot",
+						"icon_emoji": ":robot_face:",
+					},
+				},
+				"discord": {
+					Enabled:  false, // Disabled by default until configured
+					Provider: "discord",
+					Config:   map[string]interface{}{},
+				},
+			},
+			Fallback: &FallbackConfig{
+				Enabled:  false,
+				Provider: "email",
+				Config:   map[string]interface{}{},
 			},
 		},
 		Defaults: DefaultsConfig{
@@ -524,13 +586,11 @@ func BuildRuntimeConfig(logFile string, lineThreshold *int, checkInterval *time.
 		LogFile:          logFile,
 		LineThreshold:    globalConfig.Defaults.LineThreshold,
 		CheckInterval:    globalConfig.Defaults.CheckInterval,
-		ChatID:           globalConfig.Notifications.Telegram.ChatID,
 		Language:         globalConfig.Defaults.Language,
 		ErrorOnlyMode:    globalConfig.Defaults.ErrorOnlyMode,
 		EnabledNotifiers: globalConfig.Defaults.EnabledNotifiers,
 		OpenAI:           globalConfig.Notifications.OpenAI,
-		Telegram:         globalConfig.Notifications.Telegram,
-		Email:            globalConfig.Notifications.Email,
+		Notifications:    globalConfig.Notifications,
 	}
 
 	// Apply command line parameter overrides
@@ -567,15 +627,13 @@ func BuildStreamConfig(command string, args []string, lineThreshold *int, checkI
 		WorkingDir:       workingDir,
 		LineThreshold:    globalConfig.Defaults.LineThreshold,
 		CheckInterval:    globalConfig.Defaults.CheckInterval,
-		ChatID:           globalConfig.Notifications.Telegram.ChatID,
 		Language:         globalConfig.Defaults.Language,
 		EnabledNotifiers: globalConfig.Defaults.EnabledNotifiers,
 		FinalSummary:     globalConfig.Defaults.FinalSummary,
 		FinalSummaryOnly: globalConfig.Defaults.FinalSummaryOnly,
 		ErrorOnlyMode:    globalConfig.Defaults.ErrorOnlyMode,
 		OpenAI:           globalConfig.Notifications.OpenAI,
-		Telegram:         globalConfig.Notifications.Telegram,
-		Email:            globalConfig.Notifications.Email,
+		Notifications:    globalConfig.Notifications,
 	}
 
 	// Apply command line parameter overrides
@@ -598,22 +656,78 @@ func BuildStreamConfig(command string, args []string, lineThreshold *int, checkI
 	return config, nil
 }
 
-// GetTemplateMap converts TelegramMessageTemplates struct to a map for notifier
-func (mt *TelegramMessageTemplates) GetTemplateMap() map[string]string {
-	templates := make(map[string]string)
-	if mt.LogSummary != "" {
-		templates["log_summary"] = mt.LogSummary
-	}
-	return templates
-}
+// MigrateToNewProviderConfig migrates legacy configuration to new provider format
+// This function should be called when the old configuration format is detected
+func MigrateToNewProviderConfig(oldConfig *GlobalConfig) *GlobalConfig {
+	newConfig := *oldConfig
 
-// GetTemplateMap converts EmailMessageTemplates struct to a map for notifier
-func (mt *EmailMessageTemplates) GetTemplateMap() map[string]string {
-	templates := make(map[string]string)
-	if mt.LogSummary != "" {
-		templates["log_summary"] = mt.LogSummary
+	// Initialize providers map if it doesn't exist
+	if newConfig.Notifications.Providers == nil {
+		newConfig.Notifications.Providers = make(map[string]ServiceConfig)
 	}
-	return templates
+
+	// Check if we have legacy configuration by looking for direct field access
+	// This is a simplified migration that assumes the old config might have these fields
+
+	// Try to migrate from mapstructure data if available
+	if oldConfig.Notifications.OpenAI.APIKey == "" {
+		// No OpenAI key configured, likely no legacy configuration to migrate
+		return &newConfig
+	}
+
+	// Set up common providers with default configurations
+	// These will be used if the user hasn't configured them yet
+
+	// Default Telegram provider (disabled by default)
+	if _, exists := newConfig.Notifications.Providers["telegram"]; !exists {
+		newConfig.Notifications.Providers["telegram"] = ServiceConfig{
+			Enabled:  false,
+			Provider: "telegram",
+			Config:   make(map[string]interface{}),
+			Defaults: map[string]interface{}{
+				"parse_mode": "markdown",
+			},
+		}
+	}
+
+	// Default Email provider (disabled by default)
+	if _, exists := newConfig.Notifications.Providers["email"]; !exists {
+		newConfig.Notifications.Providers["email"] = ServiceConfig{
+			Enabled:  false,
+			Provider: "smtp",
+			Config:   make(map[string]interface{}),
+			Defaults: map[string]interface{}{
+				"subject": "🚨 Log Summary Notification",
+			},
+		}
+	}
+
+	// Default Slack provider (disabled by default)
+	if _, exists := newConfig.Notifications.Providers["slack"]; !exists {
+		newConfig.Notifications.Providers["slack"] = ServiceConfig{
+			Enabled:  false,
+			Provider: "slack",
+			Config:   make(map[string]interface{}),
+			Defaults: map[string]interface{}{
+				"username":   "Lai Bot",
+				"icon_emoji": ":robot_face:",
+			},
+		}
+	}
+
+	// Default Discord provider (disabled by default)
+	if _, exists := newConfig.Notifications.Providers["discord"]; !exists {
+		newConfig.Notifications.Providers["discord"] = ServiceConfig{
+			Enabled:  false,
+			Provider: "discord",
+			Config:   make(map[string]interface{}),
+			Defaults: map[string]interface{}{
+				"username": "Lai Bot",
+			},
+		}
+	}
+
+	return &newConfig
 }
 
 func (c *Config) Validate() error {
@@ -629,12 +743,24 @@ func (c *Config) Validate() error {
 	if c.OpenAI.APIKey == "" {
 		return fmt.Errorf("openai.api_key is required")
 	}
-	if c.Telegram.BotToken == "" {
-		return fmt.Errorf("telegram.bot_token is required")
+
+	// Check if at least one notification provider is configured
+	if len(c.Notifications.Providers) == 0 {
+		return fmt.Errorf("at least one notification provider must be configured")
 	}
-	if c.ChatID == "" {
-		return fmt.Errorf("telegram.chat_id is required (set via notifications.telegram.chat_id in global config)")
+
+	// Validate that at least one provider is enabled
+	var providerEnabled bool
+	for _, provider := range c.Notifications.Providers {
+		if provider.Enabled {
+			providerEnabled = true
+			break
+		}
 	}
+	if !providerEnabled {
+		return fmt.Errorf("at least one notification provider must be enabled")
+	}
+
 	return nil
 }
 

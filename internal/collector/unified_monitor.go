@@ -23,21 +23,7 @@ type MonitorConfig struct {
 	FinalSummary     bool
 	FinalSummaryOnly bool
 	OpenAI           config.OpenAIConfig
-	Telegram         config.TelegramConfig
-	Email            config.EmailConfig
-}
-
-// Implement UnifiedConfig interface
-func (c *MonitorConfig) GetEnabledNotifiers() []string {
-	return c.EnabledNotifiers
-}
-
-func (c *MonitorConfig) GetTelegramConfig() config.TelegramConfig {
-	return c.Telegram
-}
-
-func (c *MonitorConfig) GetEmailConfig() config.EmailConfig {
-	return c.Email
+	Notifications    config.NotificationsConfig
 }
 
 // BuildMonitorConfig builds unified monitoring configuration
@@ -58,15 +44,13 @@ func BuildMonitorConfig(source MonitorSource, lineThreshold *int, checkInterval 
 		Source:           source,
 		LineThreshold:    globalConfig.Defaults.LineThreshold,
 		CheckInterval:    globalConfig.Defaults.CheckInterval,
-		ChatID:           globalConfig.Notifications.Telegram.ChatID,
 		Language:         globalConfig.Defaults.Language,
 		EnabledNotifiers: globalConfig.Defaults.EnabledNotifiers,
 		FinalSummary:     globalConfig.Defaults.FinalSummary,
 		FinalSummaryOnly: globalConfig.Defaults.FinalSummaryOnly,
 		ErrorOnlyMode:    globalConfig.Defaults.ErrorOnlyMode,
 		OpenAI:           globalConfig.Notifications.OpenAI,
-		Telegram:         globalConfig.Notifications.Telegram,
-		Email:            globalConfig.Notifications.Email,
+		Notifications:    globalConfig.Notifications,
 	}
 
 	// Apply command line parameter overrides
@@ -89,9 +73,13 @@ func BuildMonitorConfig(source MonitorSource, lineThreshold *int, checkInterval 
 		cfg.ErrorOnlyMode = *errorOnlyMode
 	}
 
-	// If no ChatID specified, use the default one
+	// If no ChatID specified, use the default one from Telegram provider
 	if cfg.ChatID == "" {
-		cfg.ChatID = cfg.Telegram.ChatID
+		if telegramProvider, exists := cfg.Notifications.Providers["telegram"]; exists {
+			if chatID, ok := telegramProvider.Config["chat_id"].(string); ok {
+				cfg.ChatID = chatID
+			}
+		}
 	}
 
 	return cfg, nil
@@ -106,8 +94,19 @@ func (c *MonitorConfig) Validate() error {
 	if c.OpenAI.APIKey == "" {
 		return fmt.Errorf("openai.api_key is required")
 	}
-	if c.Telegram.BotToken == "" {
-		return fmt.Errorf("telegram.bot_token is required")
+	// Check if at least one notification provider is configured
+	if len(c.Notifications.Providers) == 0 {
+		return fmt.Errorf("at least one notification provider must be configured")
+	}
+
+	// Check if Telegram is properly configured if enabled
+	if telegramProvider, exists := c.Notifications.Providers["telegram"]; exists && telegramProvider.Enabled {
+		if token, ok := telegramProvider.Config["token"].(string); !ok || token == "" {
+			return fmt.Errorf("telegram.token is required when telegram provider is enabled")
+		}
+		if chatID, ok := telegramProvider.Config["chat_id"].(string); !ok || chatID == "" {
+			return fmt.Errorf("telegram.chat_id is required when telegram provider is enabled")
+		}
 	}
 	if c.ChatID == "" {
 		return fmt.Errorf("chat_id is required (set via --chat-id or defaults.chat_id in global config)")
@@ -129,7 +128,13 @@ func NewUnifiedMonitor(cfg *MonitorConfig, enabledNotifiers []string) (*UnifiedM
 	openaiClient := summarizer.NewOpenAIClient(cfg.OpenAI.APIKey, cfg.OpenAI.BaseURL, cfg.OpenAI.Model)
 
 	// Create notifiers
-	notifiers, err := notifier.CreateNotifiersForUnified(cfg, enabledNotifiers)
+	// Create a temporary config object for notifier creation
+	tempConfig := &config.Config{
+		Notifications:    cfg.Notifications,
+		EnabledNotifiers: cfg.EnabledNotifiers,
+	}
+
+	notifiers, err := notifier.CreateNotifiers(tempConfig, enabledNotifiers)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create notifiers: %w", err)
 	}

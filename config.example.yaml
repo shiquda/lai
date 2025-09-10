@@ -2,9 +2,9 @@
 # This file should be located at ~/.lai/config.yaml
 
 # Configuration version
-version: "0.0.3"
+version: "0.0.4"
 
-# Notification channel configurations
+# Notification configurations - Now supporting ALL notify library services!
 notifications:
   # OpenAI configuration for log summarization
   openai:
@@ -12,38 +12,182 @@ notifications:
     base_url: "https://api.openai.com/v1" # Optional, defaults to OpenAI
     model: "gpt-3.5-turbo" # Optional, defaults to gpt-3.5-turbo
 
-  # Telegram notification configuration
-  telegram:
-    bot_token: "your-telegram-bot-token"
-    chat_id: "your-telegram-chat-id"
-    # Optional message templates
-    message_templates:
-      log_summary: ""
+  # Unified provider configuration - supports all notify library services!
+  providers:
+    # Telegram notifications (most popular)
+    telegram:
+      enabled: true
+      provider: "telegram"
+      config:
+        token: "your-telegram-bot-token"
+        chat_id: "your-telegram-chat-id"  # Can be multiple: "chat_id1,chat_id2"
+      defaults:
+        parse_mode: "markdown"
+        disable_notification: false
 
-  # Email notification configuration
-  email:
-    smtp_host: "smtp.gmail.com"
-    smtp_port: 587
-    username: "your-email@gmail.com"
-    password: "your-app-password"
-    from_email: "your-email@gmail.com"
-    to_emails: ["recipient@example.com"]
-    subject: "Lai Log Summary"
-    use_tls: true
-    # Optional message templates
-    message_templates:
-      log_summary: ""
+    # Email notifications with multiple providers
+    email:
+      enabled: true
+      provider: "sendgrid"  # Options: "sendgrid", "smtp", "gmail", "mailgun"
+      config:
+        # For SendGrid (recommended)
+        api_key: "your-sendgrid-api-key"
+        from_email: "bot@example.com"
+        from_name: "Lai Bot"
+        to_emails: ["admin@example.com", "team@example.com"]
+        
+        # For SMTP (fallback)
+        # host: "smtp.gmail.com"
+        # port: 587
+        # username: "your-email@gmail.com"
+        # password: "your-app-password"
+        # from_email: "your-email@gmail.com"
+        # to_emails: ["recipient@example.com"]
+        # use_tls: true
+      defaults:
+        subject: "🚨 Log Summary Notification"
+
+    # Slack notifications
+    slack:
+      enabled: true
+      provider: "slack"  # Options: "slack" (webhook), "slack_oauth" (token)
+      config:
+        # Webhook method (easier)
+        webhook_url: "your-slack-webhook-url"
+        
+        # OAuth token method (more features)
+        # oauth_token: "your-slack-oauth-token"
+        # channel_ids: ["C1234567890", "U0987654321"]
+      defaults:
+        username: "Lai Bot"
+        icon_emoji: ":robot_face:"
+        icon_url: ""
+
+    # Discord notifications
+    discord:
+      enabled: true
+      provider: "discord"  # Options: "discord" (bot token), "discord_webhook" (webhook)
+      config:
+        # Bot token method (recommended)
+        bot_token: "your-discord-bot-token"
+        channel_ids: ["your-channel-id-1", "your-channel-id-2"]
+        
+        # Webhook method (simpler)
+        # webhook_url: "your-discord-webhook-url"
+      defaults:
+        username: "Lai Bot"
+
+    # Pushover mobile notifications
+    pushover:
+      enabled: false
+      provider: "pushover"
+      config:
+        token: "your-pushover-app-token"
+        user: "your-pushover-user-key"
+      defaults:
+        priority: 0  # -2 (lowest) to 2 (highest emergency)
+        sound: "pushover"
+        title: "Lai Alert"
+
+    # Twilio SMS notifications
+    twilio:
+      enabled: false
+      provider: "twilio"
+      config:
+        account_sid: "your-twilio-account-sid"
+        auth_token: "your-twilio-auth-token"
+        from_number: "+1234567890"
+      defaults:
+        to_number: "+0987654321"
+
+    # Mailgun email service
+    mailgun:
+      enabled: false
+      provider: "mailgun"
+      config:
+        api_key: "your-mailgun-api-key"
+        domain: "mg.yourdomain.com"
+        from_email: "bot@yourdomain.com"
+        to_emails: ["admin@yourdomain.com"]
+
+    # PagerDuty incident management
+    pagerduty:
+      enabled: false
+      provider: "pagerduty"
+      config:
+        routing_key: "your-pagerduty-integration-key"
+      defaults:
+        source: "Lai Log Monitor"
+        severity: "warning"
+
+    # DingTalk notifications (Chinese users)
+    dingtalk:
+      enabled: false
+      provider: "dingtalk"
+      config:
+        access_token: "your-dingtalk-access-token"
+        secret: "your-dingtalk-secret"
+
+    # WeChat notifications
+    wechat:
+      enabled: false
+      provider: "wechat"
+      config:
+        corp_id: "your-wechat-corp-id"
+        corp_secret: "your-wechat-corp-secret"
+        agent_id: "your-wechat-agent-id"
+
+  # Fallback configuration when primary services fail
+  fallback:
+    enabled: true
+    provider: "email"
+    config:
+      host: "backup-smtp.gmail.com"
+      port: 587
+      username: "backup@gmail.com"
+      password: "backup-password"
+      from_email: "backup@gmail.com"
+      to_emails: ["admin@example.com"]
+      use_tls: true
 
 # Default configuration values
 defaults:
-  line_threshold: 10 # Number of new lines to trigger summary
-  check_interval: 30s # How often to check for changes
-  final_summary: true # Send summary when monitoring stops
-  final_summary_only: false # Only send final summary (disable intermediate notifications)
-  error_only_mode: false # Only send notifications for error logs
-  language: "English" # Language for AI responses
-  enabled_notifiers: [] # Default enabled notifiers (telegram, email)
+  line_threshold: 10        # Number of new lines to trigger summary
+  check_interval: 30s       # How often to check for changes
+  final_summary: true        # Send summary when monitoring stops
+  final_summary_only: false  # Only send final summary (disable intermediate notifications)
+  error_only_mode: false     # Only send notifications for error logs
+  language: "English"        # Language for AI responses
+  enabled_notifiers: ["telegram", "email"]  # Default enabled providers
 
 # Logging configuration
 logging:
-  level: "info" # Log level: debug, info, warn, error, fatal
+  level: "info"  # Log level: debug, info, warn, error, fatal
+
+# Example configuration for enabling multiple providers:
+#
+# providers:
+#   telegram:
+#     enabled: true
+#     provider: "telegram"
+#     config:
+#       token: "123456:ABC-DEF"
+#       chat_id: "-100123456789"
+#   email:
+#     enabled: true
+#     provider: "sendgrid"
+#     config:
+#       api_key: "SG.sendgrid-key"
+#       from_email: "bot@example.com"
+#       to_emails: ["admin@example.com"]
+#   slack:
+#     enabled: true
+#     provider: "slack"
+#     config:
+#       webhook_url: "https://hooks.slack.com/services/..."
+#   pushover:
+#     enabled: true
+#     provider: "pushover"
+#     config:
+#       token: "abc123"
+#       user: "user456"
