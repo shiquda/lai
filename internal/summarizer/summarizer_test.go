@@ -212,8 +212,10 @@ func (s *SummarizerTestSuite) TestSummarize_NetworkError() {
 	summary, err := client.Summarize("test log content", "English")
 
 	assert.Error(s.T(), err)
-	// The error message may vary depending on the network error, just check that there's an error
-	assert.Contains(s.T(), err.Error(), "API request failed")
+	// Network errors can return either "failed to send request" (DNS/network issues) 
+	// or "API request failed with status" (HTTP errors like 502 Bad Gateway)
+	assert.True(s.T(), strings.Contains(err.Error(), "failed to send request") || 
+		strings.Contains(err.Error(), "API request failed with status"))
 	assert.Empty(s.T(), summary)
 }
 

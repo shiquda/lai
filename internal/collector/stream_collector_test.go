@@ -12,7 +12,7 @@ func getTestCommand() (string, []string) {
 	if runtime.GOOS == "windows" {
 		return "cmd", []string{"/c", "echo line1 & echo line2 & echo line3"}
 	}
-	return "echo", []string{"line1\nline2\nline3"}
+	return "sh", []string{"-c", "echo line1; echo line2; echo line3"}
 }
 
 // getMultiLineTestCommand returns a platform-appropriate multi-line command
