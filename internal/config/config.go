@@ -4,16 +4,24 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/mitchellh/mapstructure"
 	"gopkg.in/yaml.v3"
+
+	"github.com/shiquda/lai/internal/logger"
+	"github.com/shiquda/lai/internal/version"
 )
 
 // GlobalConfig represents the global configuration structure
 type GlobalConfig struct {
+	Version       string              `mapstructure:"version" yaml:"version"`
 	Notifications NotificationsConfig `mapstructure:"notifications" yaml:"notifications"`
 	Defaults      DefaultsConfig      `mapstructure:"defaults" yaml:"defaults"`
+	Logging       LoggingConfig       `mapstructure:"logging" yaml:"logging"`
 }
 
 // NotificationsConfig contains notification channel configurations
@@ -21,6 +29,11 @@ type NotificationsConfig struct {
 	OpenAI   OpenAIConfig   `mapstructure:"openai" yaml:"openai"`
 	Telegram TelegramConfig `mapstructure:"telegram" yaml:"telegram"`
 	Email    EmailConfig    `mapstructure:"email" yaml:"email"`
+}
+
+// LoggingConfig contains logging configuration
+type LoggingConfig struct {
+	Level string `mapstructure:"level" yaml:"level"`
 }
 
 // DefaultsConfig contains default configuration values
@@ -140,6 +153,13 @@ func LoadGlobalConfig() (*GlobalConfig, error) {
 		return nil, fmt.Errorf("failed to decode global config: %w", err)
 	}
 
+	// Check if migration is needed and perform it silently
+	if needsMigration(&config, rawConfig) {
+		if err := migrateConfigSilently(&config, rawConfig); err != nil {
+			return nil, fmt.Errorf("failed to migrate config: %w", err)
+		}
+	}
+
 	// Apply default values
 	applyGlobalDefaults(&config)
 	return &config, nil
@@ -173,6 +193,7 @@ func SaveGlobalConfig(config *GlobalConfig) error {
 // getDefaultGlobalConfig returns the default global configuration
 func getDefaultGlobalConfig() *GlobalConfig {
 	return &GlobalConfig{
+		Version: version.Version,
 		Notifications: NotificationsConfig{
 			OpenAI: OpenAIConfig{
 				BaseURL: "https://api.openai.com/v1",
@@ -185,7 +206,15 @@ func getDefaultGlobalConfig() *GlobalConfig {
 			FinalSummary:  true,      // Default to sending final summary
 			Language:      "English", // Default language for AI responses
 		},
+		Logging: LoggingConfig{
+			Level: "info",
+		},
 	}
+}
+
+// GetDefaultGlobalConfig returns the default global configuration (exported)
+func GetDefaultGlobalConfig() *GlobalConfig {
+	return getDefaultGlobalConfig()
 }
 
 // applyGlobalDefaults applies global default values
@@ -210,6 +239,11 @@ func applyGlobalDefaults(config *GlobalConfig) {
 	// If no explicit setting exists, apply the default
 	if !config.Defaults.FinalSummary {
 		config.Defaults.FinalSummary = true
+	}
+
+	// Apply logging defaults
+	if config.Logging.Level == "" {
+		config.Logging.Level = "info"
 	}
 }
 
@@ -266,12 +300,210 @@ func EnsureGlobalConfig() error {
 		if err := SaveGlobalConfig(defaultConfig); err != nil {
 			return fmt.Errorf("failed to create default config: %w", err)
 		}
-		fmt.Printf("Created default config file: %s\n", configPath)
+		logger.Printf("Created default config file: %s\n", configPath)
 	}
 
 	// Validate existing config
 	_, err = LoadGlobalConfig()
 	return err
+}
+
+// InitLogger initializes the logging system with global config
+func InitLogger() error {
+	globalConfig, err := LoadGlobalConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load global config for logger initialization: %w", err)
+	}
+
+	// Convert LoggingConfig to logger.LogConfig
+	logConfig := &logger.LogConfig{
+		Level: globalConfig.Logging.Level,
+	}
+
+	return logger.InitDefaultLogger(logConfig)
+}
+
+// getKeys returns the keys of a map
+func getKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+// needsMigration checks if the configuration needs migration
+func needsMigration(config *GlobalConfig, rawConfig map[string]interface{}) bool {
+	defaultConfig := getDefaultGlobalConfig()
+
+	// If config file doesn't have version field, always migrate
+	if _, hasVersion := rawConfig["version"]; !hasVersion {
+		return true
+	}
+
+	// If current config version is dev, always migrate
+	if config.Version == "dev" {
+		return true
+	}
+
+	// If default config version is dev, always migrate
+	if defaultConfig.Version == "dev" {
+		return true
+	}
+
+	// If current config version is less than default config version, migrate
+	return compareVersions(config.Version, defaultConfig.Version) < 0
+}
+
+// migrateConfigSilently migrates the configuration without user interaction
+func migrateConfigSilently(config *GlobalConfig, rawConfig map[string]interface{}) error {
+	// Create backup of existing config
+	configPath, err := GetGlobalConfigPath()
+	if err != nil {
+		return err
+	}
+
+	backupPath := configPath + ".backup." + time.Now().Format("20060102-150405")
+	if err := copyFile(configPath, backupPath); err != nil {
+		return fmt.Errorf("failed to create backup: %w", err)
+	}
+
+	// Get default config
+	defaultConfig := getDefaultGlobalConfig()
+
+	// Use reflection to merge configurations elegantly
+	mergedConfig := mergeConfigsWithReflection(config, defaultConfig)
+
+	// Save merged config
+	if err := SaveGlobalConfig(mergedConfig); err != nil {
+		return fmt.Errorf("failed to save merged config: %w", err)
+	}
+
+	return nil
+}
+
+// mergeConfigsWithReflection merges two configurations using reflection
+func mergeConfigsWithReflection(existing, defaults *GlobalConfig) *GlobalConfig {
+	merged := *defaults
+
+	// Use reflection to iterate through all fields
+	existingValue := reflect.ValueOf(existing).Elem()
+	defaultsValue := reflect.ValueOf(defaults).Elem()
+	mergedValue := reflect.ValueOf(&merged).Elem()
+
+	for i := 0; i < existingValue.NumField(); i++ {
+		existingField := existingValue.Field(i)
+		defaultsField := defaultsValue.Field(i)
+		mergedField := mergedValue.Field(i)
+
+		// Skip version field - always use default version
+		if i == 0 { // Version is the first field
+			continue
+		}
+
+		// For each field, merge based on type
+		mergeField(existingField, defaultsField, mergedField)
+	}
+
+	return &merged
+}
+
+// mergeField recursively merges field values
+func mergeField(existing, defaults, merged reflect.Value) {
+	switch existing.Kind() {
+	case reflect.Struct:
+		// Recursively merge struct fields
+		for i := 0; i < existing.NumField(); i++ {
+			mergeField(existing.Field(i), defaults.Field(i), merged.Field(i))
+		}
+	case reflect.String:
+		if existing.String() != "" {
+			merged.SetString(existing.String())
+		} else {
+			merged.SetString(defaults.String())
+		}
+	case reflect.Int, reflect.Int64:
+		if existing.Int() != 0 {
+			merged.SetInt(existing.Int())
+		} else {
+			merged.SetInt(defaults.Int())
+		}
+	case reflect.Bool:
+		// For bool, we need to check if it was explicitly set
+		// This is tricky because false is a valid value
+		// We'll use the existing value if it's different from the default
+		if existing.Bool() != defaults.Bool() {
+			merged.SetBool(existing.Bool())
+		} else {
+			merged.SetBool(defaults.Bool())
+		}
+	case reflect.Slice:
+		if existing.Len() > 0 {
+			merged.Set(existing)
+		} else {
+			merged.Set(defaults)
+		}
+	case reflect.Ptr:
+		if !existing.IsNil() {
+			merged.Set(existing)
+		} else {
+			merged.Set(defaults)
+		}
+	default:
+		// For other types, use existing if not zero, otherwise use default
+		if !existing.IsZero() {
+			merged.Set(existing)
+		} else {
+			merged.Set(defaults)
+		}
+	}
+}
+
+// copyFile copies a file from src to dst
+func copyFile(src, dst string) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dst, data, 0644)
+}
+
+// compareVersions compares two version strings (e.g., "1.0.0")
+// Returns -1 if v1 < v2, 0 if v1 == v2, 1 if v1 > v2
+func compareVersions(v1, v2 string) int {
+	if v1 == "dev" {
+		return -1 // Treat dev as older
+	}
+	if v2 == "dev" {
+		return 1 // Treat dev as older
+	}
+
+	v1Parts := strings.Split(v1, ".")
+	v2Parts := strings.Split(v2, ".")
+
+	maxLen := len(v1Parts)
+	if len(v2Parts) > maxLen {
+		maxLen = len(v2Parts)
+	}
+
+	for i := 0; i < maxLen; i++ {
+		var v1Num, v2Num int
+
+		if i < len(v1Parts) {
+			v1Num, _ = strconv.Atoi(v1Parts[i])
+		}
+		if i < len(v2Parts) {
+			v2Num, _ = strconv.Atoi(v2Parts[i])
+		}
+
+		if v1Num < v2Num {
+			return -1
+		} else if v1Num > v2Num {
+			return 1
+		}
+	}
+
+	return 0
 }
 
 // BuildRuntimeConfig builds runtime configuration by merging global config and command line arguments

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/shiquda/lai/internal/logger"
 	"github.com/shiquda/lai/internal/platform"
 )
 
@@ -144,7 +145,7 @@ func (m *Manager) ListProcesses() ([]*ProcessInfo, error) {
 			// Update the file with current status
 			if saveErr := m.SaveProcessInfo(info); saveErr != nil {
 				// Log error but continue with updated status
-				fmt.Printf("Warning: failed to update status for process %s: %v\n", processID, saveErr)
+				logger.Warnf("Warning: failed to update status for process %s: %v", processID, saveErr)
 			}
 		}
 

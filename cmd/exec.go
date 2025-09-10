@@ -2,13 +2,13 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/shiquda/lai/internal/collector"
 	"github.com/shiquda/lai/internal/daemon"
+	"github.com/shiquda/lai/internal/logger"
 	"github.com/shiquda/lai/internal/platform"
 	"github.com/spf13/cobra"
 )
@@ -48,7 +48,7 @@ var execCmd = &cobra.Command{
 		var checkInterval *time.Duration
 		if intervalStr != "" {
 			if duration, err := time.ParseDuration(intervalStr); err != nil {
-				log.Fatalf("Invalid interval format: %v", err)
+				logger.Fatalf("Invalid interval format: %v", err)
 			} else {
 				checkInterval = &duration
 			}
@@ -89,11 +89,11 @@ var execCmd = &cobra.Command{
 
 		if daemonMode {
 			if err := runStreamDaemon(command, commandArgs, lineThresholdPtr, checkInterval, processName, workingDir, finalSummaryPtr, errorOnlyModePtr, finalSummaryOnlyPtr, enabledNotifiers); err != nil {
-				log.Fatalf("Stream daemon startup failed: %v", err)
+				logger.Fatalf("Stream daemon startup failed: %v", err)
 			}
 		} else {
 			if err := runStreamMonitor(command, commandArgs, lineThresholdPtr, checkInterval, workingDir, finalSummaryPtr, errorOnlyModePtr, finalSummaryOnlyPtr, enabledNotifiers); err != nil {
-				log.Fatalf("Stream monitor failed: %v", err)
+				logger.Fatalf("Stream monitor failed: %v", err)
 			}
 		}
 	},
@@ -203,11 +203,11 @@ func runStreamDaemon(command string, commandArgs []string, lineThreshold *int, c
 			return fmt.Errorf("failed to save process info: %w", err)
 		}
 
-		fmt.Printf("Started stream daemon with process ID: %s (PID: %d)\n", processID, process.Pid)
-		fmt.Printf("Log file: %s\n", daemonLogPath)
-		fmt.Printf("Use 'lai list' to see running processes\n")
-		fmt.Printf("Use 'lai logs %s' to view logs\n", processID)
-		fmt.Printf("Use 'lai stop %s' to stop the process\n", processID)
+		logger.Printf("Started stream daemon with process ID: %s (PID: %d)\n", processID, process.Pid)
+		logger.Printf("Log file: %s\n", daemonLogPath)
+		logger.Printf("Use 'lai list' to see running processes\n")
+		logger.Printf("Use 'lai logs %s' to view logs\n", processID)
+		logger.Printf("Use 'lai stop %s' to stop the process\n", processID)
 
 		return nil
 	}
@@ -220,7 +220,7 @@ func runStreamDaemon(command string, commandArgs []string, lineThreshold *int, c
 		if err == nil {
 			info.Status = "stopped"
 			if saveErr := manager.SaveProcessInfo(info); saveErr != nil {
-				log.Printf("Failed to update process status: %v", saveErr)
+				logger.Errorf("Failed to update process status: %v", saveErr)
 			}
 		}
 	}()

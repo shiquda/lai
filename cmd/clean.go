@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/shiquda/lai/internal/daemon"
+	"github.com/shiquda/lai/internal/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -17,21 +18,21 @@ var cleanCmd = &cobra.Command{
 
 		manager, err := daemon.NewManager()
 		if err != nil {
-			fmt.Printf("Failed to create daemon manager: %v\n", err)
+			logger.Errorf("Failed to create daemon manager: %v", err)
 			return
 		}
 
 		if cleanAll {
 			if err := cleanAllStoppedProcesses(manager); err != nil {
-				fmt.Printf("Failed to clean all stopped processes: %v\n", err)
+				logger.Errorf("Failed to clean all stopped processes: %v", err)
 			}
 		} else if len(args) == 1 {
 			processID := args[0]
 			if err := cleanSingleProcess(manager, processID); err != nil {
-				fmt.Printf("Failed to clean process %s: %v\n", processID, err)
+				logger.Errorf("Failed to clean process %s: %v", processID, err)
 			}
 		} else {
-			fmt.Println("Please specify a process ID or use --all flag")
+			logger.Println("Please specify a process ID or use --all flag")
 		}
 	},
 }
@@ -58,7 +59,7 @@ func cleanSingleProcess(manager *daemon.Manager, processID string) error {
 		return fmt.Errorf("failed to remove process info: %w", err)
 	}
 
-	fmt.Printf("Cleaned up process: %s\n", processID)
+	logger.Printf("Cleaned up process: %s\n", processID)
 	return nil
 }
 
@@ -72,18 +73,18 @@ func cleanAllStoppedProcesses(manager *daemon.Manager) error {
 	for _, proc := range processes {
 		if proc.Status == "stopped" {
 			if err := manager.RemoveProcessInfo(proc.ID); err != nil {
-				fmt.Printf("Failed to clean process %s: %v\n", proc.ID, err)
+				logger.Errorf("Failed to clean process %s: %v", proc.ID, err)
 				continue
 			}
-			fmt.Printf("Cleaned up process: %s\n", proc.ID)
+			logger.Printf("Cleaned up process: %s\n", proc.ID)
 			cleanedCount++
 		}
 	}
 
 	if cleanedCount == 0 {
-		fmt.Println("No stopped processes to clean")
+		logger.Println("No stopped processes to clean")
 	} else {
-		fmt.Printf("Cleaned up %d stopped processes\n", cleanedCount)
+		logger.Printf("Cleaned up %d stopped processes\n", cleanedCount)
 	}
 
 	return nil

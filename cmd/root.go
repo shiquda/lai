@@ -1,11 +1,11 @@
-/*
-Copyright © 2025 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 import (
 	"os"
 
+	"github.com/shiquda/lai/internal/config"
+	"github.com/shiquda/lai/internal/logger"
+	"github.com/shiquda/lai/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -14,7 +14,7 @@ var rootCmd = &cobra.Command{
 	Use:     "lai",
 	Short:   "A smart lightweight log monitoring and notification tool",
 	Long:    `A smart lightweight log monitoring and notification tool`,
-	Version: Version,
+	Version: version.Version,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
@@ -23,6 +23,11 @@ var rootCmd = &cobra.Command{
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	// Initialize logging system
+	if err := config.InitLogger(); err != nil {
+		logger.Fatalf("Failed to initialize logging system: %v", err)
+	}
+
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)

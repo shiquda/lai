@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/shiquda/lai/internal/config"
+	"github.com/shiquda/lai/internal/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -24,15 +25,16 @@ var configSetCmd = &cobra.Command{
 	Long:  "Set a configuration value in the global config file",
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
+		logger.Debugf("Config set command called with args: %v", args)
 		key := args[0]
 		value := args[1]
 
 		if err := setConfigValue(key, value); err != nil {
-			fmt.Printf("Error setting config: %v\n", err)
+			logger.Printf("Error setting config: %v\n", err)
 			os.Exit(1)
 		}
 
-		fmt.Printf("Set %s = %s\n", key, value)
+		logger.Printf("Set %s = %s\n", key, value)
 	},
 }
 
@@ -46,11 +48,11 @@ var configGetCmd = &cobra.Command{
 
 		value, err := getConfigValue(key)
 		if err != nil {
-			fmt.Printf("Error getting config: %v\n", err)
+			logger.Errorf("Error getting config: %v", err)
 			os.Exit(1)
 		}
 
-		fmt.Printf("%s = %s\n", key, value)
+		logger.Printf("%s = %s\n", key, value)
 	},
 }
 
@@ -60,7 +62,7 @@ var configListCmd = &cobra.Command{
 	Long:  "List all configuration values in the global config file",
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := listConfigValues(); err != nil {
-			fmt.Printf("Error listing config: %v\n", err)
+			logger.Errorf("Error listing config: %v", err)
 			os.Exit(1)
 		}
 	},
@@ -72,11 +74,11 @@ var configResetCmd = &cobra.Command{
 	Long:  "Reset the global configuration to default values",
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := resetConfigValues(); err != nil {
-			fmt.Printf("Error resetting config: %v\n", err)
+			logger.Errorf("Error resetting config: %v", err)
 			os.Exit(1)
 		}
 
-		fmt.Println("Configuration reset to defaults")
+		logger.Println("Configuration reset to defaults")
 	},
 }
 
@@ -138,8 +140,8 @@ func listConfigValues() error {
 }
 
 func resetConfigValues() error {
-	// Get default config
-	defaultConfig := getDefaultGlobalConfig()
+	// Get default config from config package
+	defaultConfig := config.GetDefaultGlobalConfig()
 
 	// Save default config
 	if err := config.SaveGlobalConfig(defaultConfig); err != nil {
@@ -246,7 +248,7 @@ func printConfig(obj interface{}, prefix string) {
 		if field.Kind() == reflect.Struct {
 			printConfig(field.Addr().Interface(), fullPath)
 		} else {
-			fmt.Printf("%s = %v\n", fullPath, field.Interface())
+			logger.Printf("%s = %v\n", fullPath, field.Interface())
 		}
 	}
 }
@@ -310,20 +312,4 @@ func toSnakeCase(s string) string {
 		result.WriteRune(r)
 	}
 	return strings.ToLower(result.String())
-}
-
-// getDefaultGlobalConfig returns a default global configuration
-func getDefaultGlobalConfig() *config.GlobalConfig {
-	return &config.GlobalConfig{
-		Notifications: config.NotificationsConfig{
-			OpenAI: config.OpenAIConfig{
-				BaseURL: "https://api.openai.com/v1",
-				Model:   "gpt-3.5-turbo",
-			},
-		},
-		Defaults: config.DefaultsConfig{
-			LineThreshold: 10,
-			CheckInterval: 30 * time.Second,
-		},
-	}
 }

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/shiquda/lai/internal/logger"
 )
 
 // StreamCollector monitors command output streams
@@ -81,7 +83,7 @@ func (sc *StreamCollector) Start() error {
 		return fmt.Errorf("failed to start command: %w", err)
 	}
 
-	fmt.Printf("Started command: %s %s (PID: %d)\n", sc.command, strings.Join(sc.args, " "), sc.cmd.Process.Pid)
+	logger.Printf("Started command: %s %s (PID: %d)\n", sc.command, strings.Join(sc.args, " "), sc.cmd.Process.Pid)
 
 	// Create wait groups for goroutines
 	var wg sync.WaitGroup
@@ -121,15 +123,15 @@ func (sc *StreamCollector) Start() error {
 			sc.cmd.Process.Kill()
 		}
 		<-cmdDone // Wait for command to actually exit
-		fmt.Printf("Command stopped by user\n")
+		logger.Printf("Command stopped by user\n")
 	case err := <-cmdDone:
 		// Command finished - signal threshold checker to stop
 		close(sc.stopCh)
 		commandError = err
 		if err != nil {
-			fmt.Printf("Command finished with error: %v\n", err)
+			logger.Printf("Command finished with error: %v\n", err)
 		} else {
-			fmt.Printf("Command finished successfully\n")
+			logger.Printf("Command finished successfully\n")
 		}
 	}
 
@@ -174,11 +176,11 @@ func (sc *StreamCollector) monitorStream(stream io.ReadCloser, streamType string
 		sc.lineMutex.Unlock()
 
 		// Print to console for immediate feedback
-		fmt.Printf("[%s] %s\n", streamType, line)
+		logger.Printf("[%s] %s\n", streamType, line)
 	}
 
 	if err := scanner.Err(); err != nil {
-		fmt.Printf("Error reading from %s: %v\n", streamType, err)
+		logger.Errorf("Error reading from %s: %v", streamType, err)
 	}
 }
 
@@ -214,7 +216,7 @@ func (sc *StreamCollector) runThresholdChecker() {
 				// Call the trigger handler
 				if sc.onTrigger != nil && contentStr != "" {
 					if err := sc.onTrigger(contentStr); err != nil {
-						fmt.Printf("Error in trigger handler: %v\n", err)
+						logger.Errorf("Error in trigger handler: %v", err)
 					}
 				}
 
@@ -285,10 +287,10 @@ func (sc *StreamCollector) sendFinalSummary(commandError error) {
 	finalContent := summaryBuilder.String()
 
 	// Send the final summary
-	fmt.Printf("Generating final summary...\n")
+	logger.Printf("Generating final summary...\n")
 	if err := sc.onTrigger(finalContent); err != nil {
-		fmt.Printf("Failed to send final summary: %v\n", err)
+		logger.Errorf("Failed to send final summary: %v", err)
 	} else {
-		fmt.Printf("Final summary sent successfully\n")
+		logger.Printf("Final summary sent successfully\n")
 	}
 }

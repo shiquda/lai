@@ -2,12 +2,12 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"time"
 
 	"github.com/shiquda/lai/internal/collector"
 	"github.com/shiquda/lai/internal/daemon"
+	"github.com/shiquda/lai/internal/logger"
 	"github.com/shiquda/lai/internal/platform"
 	"github.com/spf13/cobra"
 )
@@ -32,7 +32,7 @@ var startCmd = &cobra.Command{
 		var checkInterval *time.Duration
 		if intervalStr != "" {
 			if duration, err := time.ParseDuration(intervalStr); err != nil {
-				log.Fatalf("Invalid interval format: %v", err)
+				logger.Fatalf("Invalid interval format: %v", err)
 			} else {
 				checkInterval = &duration
 			}
@@ -52,11 +52,11 @@ var startCmd = &cobra.Command{
 
 		if daemonMode {
 			if err := runDaemon(logFile, lineThresholdPtr, checkInterval, processName, errorOnlyModePtr, enabledNotifiers); err != nil {
-				log.Fatalf("Daemon startup failed: %v", err)
+				logger.Fatalf("Daemon startup failed: %v", err)
 			}
 		} else {
 			if err := runMonitor(logFile, lineThresholdPtr, checkInterval, errorOnlyModePtr, enabledNotifiers); err != nil {
-				log.Fatalf("Monitor failed: %v", err)
+				logger.Fatalf("Monitor failed: %v", err)
 			}
 		}
 	},
@@ -165,11 +165,11 @@ func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration,
 			}
 		}
 
-		fmt.Printf("Started daemon with process ID: %s (PID: %d)\n", processID, process.Pid)
-		fmt.Printf("Log file: %s\n", daemonLogPath)
-		fmt.Printf("Use 'lai list' to see running processes\n")
-		fmt.Printf("Use 'lai logs %s' to view logs\n", processID)
-		fmt.Printf("Use 'lai stop %s' to stop the process\n", processID)
+		logger.Printf("Started daemon with process ID: %s (PID: %d)\n", processID, process.Pid)
+		logger.Printf("Log file: %s\n", daemonLogPath)
+		logger.Printf("Use 'lai list' to see running processes\n")
+		logger.Printf("Use 'lai logs %s' to view logs\n", processID)
+		logger.Printf("Use 'lai stop %s' to stop the process\n", processID)
 
 		return nil
 	}
@@ -189,7 +189,7 @@ func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration,
 			Status:    "running",
 		}
 		if err := manager.SaveProcessInfo(processInfo); err != nil {
-			log.Printf("Failed to save process info in child: %v", err)
+			logger.Errorf("Failed to save process info in child: %v", err)
 		}
 	}
 
@@ -200,7 +200,7 @@ func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration,
 		if err == nil {
 			info.Status = "stopped"
 			if saveErr := manager.SaveProcessInfo(info); saveErr != nil {
-				log.Printf("Failed to update process status: %v", saveErr)
+				logger.Errorf("Failed to update process status: %v", saveErr)
 			}
 		}
 	}()

@@ -1,9 +1,8 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/shiquda/lai/internal/daemon"
+	"github.com/shiquda/lai/internal/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -17,22 +16,22 @@ var stopCmd = &cobra.Command{
 
 		manager, err := daemon.NewManager()
 		if err != nil {
-			fmt.Printf("Failed to create daemon manager: %v\n", err)
+			logger.Errorf("Failed to create daemon manager: %v", err)
 			return
 		}
 
 		if all {
-			fmt.Println("Stopping all daemon processes...")
+			logger.Println("Stopping all daemon processes...")
 			if err := manager.StopAllProcesses(); err != nil {
-				fmt.Printf("Failed to stop all processes: %v\n", err)
+				logger.Errorf("Failed to stop all processes: %v", err)
 				return
 			}
-			fmt.Println("All processes stopped successfully")
+			logger.Println("All processes stopped successfully")
 			return
 		}
 
 		if len(args) == 0 {
-			fmt.Println("Error: process-id is required (or use --all flag)")
+			logger.Println("Error: process-id is required (or use --all flag)")
 			cmd.Usage()
 			return
 		}
@@ -42,18 +41,18 @@ var stopCmd = &cobra.Command{
 		// Check if process exists
 		processInfo, err := manager.LoadProcessInfo(processID)
 		if err != nil {
-			fmt.Printf("Process not found: %s\n", processID)
+			logger.Errorf("Process not found: %s", processID)
 			return
 		}
 
-		fmt.Printf("Stopping process: %s (PID: %d)\n", processID, processInfo.PID)
+		logger.Printf("Stopping process: %s (PID: %d)\n", processID, processInfo.PID)
 
 		if err := manager.StopProcess(processID); err != nil {
-			fmt.Printf("Failed to stop process: %v\n", err)
+			logger.Errorf("Failed to stop process: %v", err)
 			return
 		}
 
-		fmt.Printf("Process %s stopped successfully\n", processID)
+		logger.Printf("Process %s stopped successfully\n", processID)
 	},
 }
 

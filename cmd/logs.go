@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"bufio"
-	"fmt"
 	"os"
 
 	"github.com/shiquda/lai/internal/daemon"
+	"github.com/shiquda/lai/internal/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -21,14 +21,14 @@ var logsCmd = &cobra.Command{
 
 		manager, err := daemon.NewManager()
 		if err != nil {
-			fmt.Printf("Failed to create daemon manager: %v\n", err)
+			logger.Errorf("Failed to create daemon manager: %v", err)
 			return
 		}
 
 		// Check if process exists
 		_, err = manager.LoadProcessInfo(processID)
 		if err != nil {
-			fmt.Printf("Process not found: %s\n", processID)
+			logger.Errorf("Process not found: %s", processID)
 			return
 		}
 
@@ -36,17 +36,17 @@ var logsCmd = &cobra.Command{
 
 		// Check if log file exists
 		if _, err := os.Stat(logPath); os.IsNotExist(err) {
-			fmt.Printf("Log file not found: %s\n", logPath)
+			logger.Errorf("Log file not found: %s", logPath)
 			return
 		}
 
 		if follow {
 			if err := tailFile(logPath); err != nil {
-				fmt.Printf("Failed to tail log file: %v\n", err)
+				logger.Errorf("Failed to tail log file: %v", err)
 			}
 		} else {
 			if err := showLastLines(logPath, lines); err != nil {
-				fmt.Printf("Failed to show log file: %v\n", err)
+				logger.Errorf("Failed to show log file: %v", err)
 			}
 		}
 	},
@@ -83,7 +83,7 @@ func showLastLines(filePath string, numLines int) error {
 	}
 
 	for i := start; i < len(lines); i++ {
-		fmt.Println(lines[i])
+		logger.Println(lines[i])
 	}
 
 	return nil
@@ -95,7 +95,7 @@ func tailFile(filePath string) error {
 		return err
 	}
 
-	fmt.Println("==> Following log file (Ctrl+C to stop) <==")
+	logger.Println("==> Following log file (Ctrl+C to stop) <==")
 
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -110,7 +110,7 @@ func tailFile(filePath string) error {
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		fmt.Println(scanner.Text())
+		logger.Println(scanner.Text())
 	}
 
 	return scanner.Err()

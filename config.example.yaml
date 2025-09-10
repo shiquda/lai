@@ -1,37 +1,49 @@
-# Log monitoring configuration example
-# Copy this file to config.yaml and fill in the actual configuration
+# Global configuration for lai
+# This file should be located at ~/.lai/config.yaml
 
-# Log file path to monitor
-log_file: /var/log/app.log
+# Configuration version
+version: "0.0.3"
 
-# Line threshold for triggering summary generation
-line_threshold: 10 # Number of new lines
+# Notification channel configurations
+notifications:
+  # OpenAI configuration for log summarization
+  openai:
+    api_key: "your-openai-api-key"
+    base_url: "https://api.openai.com/v1" # Optional, defaults to OpenAI
+    model: "gpt-3.5-turbo" # Optional, defaults to gpt-3.5-turbo
 
-# Check interval
-check_interval: 30s
+  # Telegram notification configuration
+  telegram:
+    bot_token: "your-telegram-bot-token"
+    chat_id: "your-telegram-chat-id"
+    # Optional message templates
+    message_templates:
+      log_summary: ""
 
-# OpenAI configuration
-openai:
-  api_key: "your-openai-api-key"
-  base_url: "https://api.openai.com/v1" # Optional, defaults to OpenAI
-  model: "gpt-3.5-turbo" # Optional, defaults to gpt-3.5-turbo
+  # Email notification configuration
+  email:
+    smtp_host: "smtp.gmail.com"
+    smtp_port: 587
+    username: "your-email@gmail.com"
+    password: "your-app-password"
+    from_email: "your-email@gmail.com"
+    to_emails: ["recipient@example.com"]
+    subject: "Lai Log Summary"
+    use_tls: true
+    # Optional message templates
+    message_templates:
+      log_summary: ""
 
-# Telegram configuration
-telegram:
-  bot_token: "your-telegram-bot-token"
-  chat_id: "your-telegram-chat-id"
-  # Optional message templates (supports Go template syntax)
-  message_templates:
-    log_summary: |
-      🚨 *Log Summary Notification*
-      
-      📁 File: {{.FilePath}}
-      ⏰ Time: {{.Time}}
-      
-      📋 Summary:
-      {{.Summary}}
-
-# Default settings (optional)
+# Default configuration values
 defaults:
-  language: "English"  # Language for AI responses (English, Chinese, Spanish, etc.)
-  enabled_notifiers: ["telegram", "email"]  # Default enabled notifiers (telegram, email, or both)
+  line_threshold: 10 # Number of new lines to trigger summary
+  check_interval: 30s # How often to check for changes
+  final_summary: true # Send summary when monitoring stops
+  final_summary_only: false # Only send final summary (disable intermediate notifications)
+  error_only_mode: false # Only send notifications for error logs
+  language: "English" # Language for AI responses
+  enabled_notifiers: [] # Default enabled notifiers (telegram, email)
+
+# Logging configuration
+logging:
+  level: "info" # Log level: debug, info, warn, error, fatal

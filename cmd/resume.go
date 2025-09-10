@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"time"
 
 	"github.com/shiquda/lai/internal/daemon"
+	"github.com/shiquda/lai/internal/logger"
 	"github.com/shiquda/lai/internal/platform"
 	"github.com/spf13/cobra"
 )
@@ -21,12 +21,12 @@ var resumeCmd = &cobra.Command{
 
 		manager, err := daemon.NewManager()
 		if err != nil {
-			fmt.Printf("Failed to create daemon manager: %v\n", err)
+			logger.Errorf("Failed to create daemon manager: %v", err)
 			return
 		}
 
 		if err := resumeProcess(manager, processID); err != nil {
-			log.Fatalf("Failed to resume process %s: %v", processID, err)
+			logger.Fatalf("Failed to resume process %s: %v", processID, err)
 		}
 	},
 }
@@ -96,14 +96,14 @@ func resumeProcess(manager *daemon.Manager, processID string) error {
 	info.Status = "running"
 	info.StartTime = time.Now()
 	if err := manager.SaveProcessInfo(info); err != nil {
-		log.Printf("Warning: failed to update process info: %v", err)
+		logger.Warnf("Warning: failed to update process info: %v", err)
 	}
 
-	fmt.Printf("Resumed daemon with process ID: %s (PID: %d)\n", processID, process.Pid)
-	fmt.Printf("Log file: %s\n", daemonLogPath)
-	fmt.Printf("Use 'lai list' to see running processes\n")
-	fmt.Printf("Use 'lai logs %s' to view logs\n", processID)
-	fmt.Printf("Use 'lai stop %s' to stop the process\n", processID)
+	logger.Printf("Resumed daemon with process ID: %s (PID: %d)\n", processID, process.Pid)
+	logger.Printf("Log file: %s\n", daemonLogPath)
+	logger.Printf("Use 'lai list' to see running processes\n")
+	logger.Printf("Use 'lai logs %s' to view logs\n", processID)
+	logger.Printf("Use 'lai stop %s' to stop the process\n", processID)
 
 	return nil
 }

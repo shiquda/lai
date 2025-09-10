@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/shiquda/lai/internal/config"
+	"github.com/shiquda/lai/internal/logger"
 	"github.com/shiquda/lai/internal/notifier"
 	"github.com/spf13/cobra"
 )
@@ -21,7 +21,7 @@ var testCmd = &cobra.Command{
 		verbose, _ := cmd.Flags().GetBool("verbose")
 
 		if err := runTestNotifications(enabledNotifiers, customMessage, verbose); err != nil {
-			log.Fatalf("Test failed: %v", err)
+			logger.Fatalf("Test failed: %v", err)
 		}
 	},
 }
@@ -37,8 +37,8 @@ func init() {
 
 func runTestNotifications(enabledNotifiers []string, customMessage string, verbose bool) error {
 	if verbose {
-		fmt.Println("Starting notification channel test...")
-		fmt.Println("=====================================")
+		logger.Println("Starting notification channel test...")
+		logger.Println("=====================================")
 	}
 
 	// Load global configuration
@@ -58,8 +58,8 @@ func runTestNotifications(enabledNotifiers []string, customMessage string, verbo
 	}
 
 	if verbose {
-		fmt.Printf("Found %d configured notifier(s)\n", len(notifiers))
-		fmt.Println()
+		logger.Printf("Found %d configured notifier(s)\n", len(notifiers))
+		logger.Println()
 	}
 
 	// Prepare test message
@@ -73,25 +73,25 @@ func runTestNotifications(enabledNotifiers []string, customMessage string, verbo
 	for i, n := range notifiers {
 		notifierType := getNotifierType(n)
 		if verbose {
-			fmt.Printf("Testing %s notifier (%d/%d)...\n", notifierType, i+1, len(notifiers))
+			logger.Printf("Testing %s notifier (%d/%d)...\n", notifierType, i+1, len(notifiers))
 		}
 
 		if err := testSingleNotifier(n, notifierType, testMessage, verbose); err != nil {
 			failureCount++
-			fmt.Printf("❌ %s notification test failed: %v\n", notifierType, err)
+			logger.Printf("❌ %s notification test failed: %v\n", notifierType, err)
 		} else {
 			successCount++
-			fmt.Printf("✅ %s notification test succeeded\n", notifierType)
+			logger.Printf("✅ %s notification test succeeded\n", notifierType)
 		}
 
 		if verbose && i < len(notifiers)-1 {
-			fmt.Println()
+			logger.Println()
 		}
 	}
 
 	// Show summary
-	fmt.Println("=====================================")
-	fmt.Printf("Test completed: %d succeeded, %d failed\n", successCount, failureCount)
+	logger.Println("=====================================")
+	logger.Printf("Test completed: %d succeeded, %d failed\n", successCount, failureCount)
 
 	if failureCount > 0 {
 		return fmt.Errorf("%d notifier(s) failed the test", failureCount)
@@ -102,8 +102,8 @@ func runTestNotifications(enabledNotifiers []string, customMessage string, verbo
 
 func testSingleNotifier(n notifier.Notifier, notifierType string, message string, verbose bool) error {
 	if verbose {
-		fmt.Printf("  - Preparing test message...\n")
-		fmt.Printf("  - Message: %s\n", message)
+		logger.Printf("  - Preparing test message...\n")
+		logger.Printf("  - Message: %s\n", message)
 	}
 
 	// Send test message using SendMessage interface
@@ -112,7 +112,7 @@ func testSingleNotifier(n notifier.Notifier, notifierType string, message string
 	}
 
 	if verbose {
-		fmt.Printf("  - Message sent successfully\n")
+		logger.Printf("  - Message sent successfully\n")
 	}
 
 	return nil

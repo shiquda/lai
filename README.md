@@ -6,6 +6,8 @@
 [![Email](https://img.shields.io/badge/Notifications-Email-red.svg)](mailto:)
 [![License](https://img.shields.io/badge/License-AGPL--3.0-yellow.svg)](LICENSE)
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/shiquda/lai)
+
 Stop manually checking logs. Let AI watch, analyze, and notify you when something important happens.
 
 > Note: This project is under active development. Any kind of contributions are welcome!
@@ -129,12 +131,14 @@ lai start /var/log/api/error.log -d -n "api-monitor"
 2. **Configure Notifications** (choose one or both):
 
    **Telegram Notifications**:
+
    ```bash
    lai config set notifications.telegram.bot_token "123456:ABC-DEF"
    lai config set notifications.telegram.chat_id "-100123456789"
    ```
 
    **Email Notifications**:
+
    ```bash
    lai config set notifications.email.smtp_host "smtp.gmail.com"
    lai config set notifications.email.smtp_port "587"
@@ -146,6 +150,7 @@ lai start /var/log/api/error.log -d -n "api-monitor"
    ```
 
 3. **Configure AI response language** (optional):
+
    ```bash
    lai config set defaults.language "Chinese"  # Chinese
    lai config set defaults.language "Spanish"  # Spanish  

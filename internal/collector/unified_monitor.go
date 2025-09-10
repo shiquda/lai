@@ -2,10 +2,10 @@ package collector
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/shiquda/lai/internal/config"
+	"github.com/shiquda/lai/internal/logger"
 	"github.com/shiquda/lai/internal/notifier"
 	"github.com/shiquda/lai/internal/platform"
 	"github.com/shiquda/lai/internal/summarizer"
@@ -159,7 +159,7 @@ func NewUnifiedMonitor(cfg *MonitorConfig, enabledNotifiers []string) (*UnifiedM
 func (m *UnifiedMonitor) Start() error {
 	// Set trigger handler
 	m.collector.SetTriggerHandler(func(newContent string) error {
-		fmt.Printf("Changes detected, processing...\n")
+		logger.Printf("Changes detected, processing...\n")
 
 		if m.config.ErrorOnlyMode {
 			// Error-only mode: first check if content contains errors
@@ -169,17 +169,17 @@ func (m *UnifiedMonitor) Start() error {
 			}
 
 			if !analysis.HasError {
-				fmt.Printf("No errors detected, skipping notification (error-only mode)\n")
+				logger.Printf("No errors detected, skipping notification (error-only mode)\n")
 				return nil
 			}
 
-			fmt.Printf("Error detected (severity: %s), sending notification\n", analysis.Severity)
+			logger.Printf("Error detected (severity: %s), sending notification\n", analysis.Severity)
 			if err := m.sendToAllNotifiers(analysis.Summary); err != nil {
 				return fmt.Errorf("failed to send notification: %w", err)
 			}
 		} else {
 			// Normal mode: generate summary and send notification
-			fmt.Printf("Generating summary...\n")
+			logger.Printf("Generating summary...\n")
 			summary, err := m.summarizer.Summarize(newContent, m.config.Language)
 			if err != nil {
 				return fmt.Errorf("failed to generate summary: %w", err)
@@ -190,20 +190,20 @@ func (m *UnifiedMonitor) Start() error {
 			}
 		}
 
-		fmt.Printf("Notification sent to %d notifier(s)\n", len(m.notifiers))
+		logger.Printf("Notification sent to %d notifier(s)\n", len(m.notifiers))
 		return nil
 	})
 
 	// Display startup information
-	fmt.Printf("Starting monitoring: %s\n", m.config.Source.GetIdentifier())
-	fmt.Printf("Type: %s\n", m.config.Source.GetType())
-	fmt.Printf("Line threshold: %d lines\n", m.config.LineThreshold)
-	fmt.Printf("Check interval: %v\n", m.config.CheckInterval)
-	fmt.Printf("Chat ID: %s\n", m.config.ChatID)
+	logger.Printf("Starting monitoring: %s\n", m.config.Source.GetIdentifier())
+	logger.Printf("Type: %s\n", m.config.Source.GetType())
+	logger.Printf("Line threshold: %d lines\n", m.config.LineThreshold)
+	logger.Printf("Check interval: %v\n", m.config.CheckInterval)
+	logger.Printf("Chat ID: %s\n", m.config.ChatID)
 	if m.config.ErrorOnlyMode {
-		fmt.Printf("Error-only mode: ENABLED (will only notify on errors/exceptions)\n")
+		logger.Printf("Error-only mode: ENABLED (will only notify on errors/exceptions)\n")
 	} else {
-		fmt.Printf("Error-only mode: DISABLED (will notify on all changes)\n")
+		logger.Printf("Error-only mode: DISABLED (will notify on all changes)\n")
 	}
 
 	// Setup signal handling
@@ -219,7 +219,7 @@ func (m *UnifiedMonitor) Start() error {
 	// Wait for signal or error
 	select {
 	case <-sigChan:
-		fmt.Println("\nReceived stop signal, shutting down...")
+		logger.Println("\nReceived stop signal, shutting down...")
 		return nil
 	case err := <-errChan:
 		return err
@@ -240,7 +240,7 @@ func (m *UnifiedMonitor) sendToAllNotifiers(summary string) error {
 	for _, n := range m.notifiers {
 		if err := n.SendLogSummary(m.config.Source.GetIdentifier(), summary); err != nil {
 			errors = append(errors, err)
-			log.Printf("Failed to send notification to notifier: %v", err)
+			logger.Errorf("Failed to send notification to notifier: %v", err)
 		}
 	}
 

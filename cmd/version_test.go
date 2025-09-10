@@ -5,25 +5,26 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/shiquda/lai/internal/version"
 	"github.com/spf13/cobra"
 )
 
 func TestVersionCommand(t *testing.T) {
 	// Save original values
-	originalVersion := Version
-	originalBuildTime := BuildTime
-	originalGitCommit := GitCommit
+	originalVersion := version.Version
+	originalBuildTime := version.BuildTime
+	originalGitCommit := version.GitCommit
 
 	// Set test values
-	Version = "1.0.0"
-	BuildTime = "2025-01-01_12:00:00"
-	GitCommit = "abc1234"
+	version.Version = "1.0.0"
+	version.BuildTime = "2025-01-01_12:00:00"
+	version.GitCommit = "abc1234"
 
 	// Restore original values after test
 	defer func() {
-		Version = originalVersion
-		BuildTime = originalBuildTime
-		GitCommit = originalGitCommit
+		version.Version = originalVersion
+		version.BuildTime = originalBuildTime
+		version.GitCommit = originalGitCommit
 	}()
 
 	// Create a buffer to capture output
@@ -34,9 +35,9 @@ func TestVersionCommand(t *testing.T) {
 		Use:   "version",
 		Short: "Show version information",
 		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Printf("lai version %s\n", Version)
-			cmd.Printf("Build time: %s\n", BuildTime)
-			cmd.Printf("Git commit: %s\n", GitCommit)
+			cmd.Printf("lai version %s\n", version.Version)
+			cmd.Printf("Build time: %s\n", version.BuildTime)
+			cmd.Printf("Git commit: %s\n", version.GitCommit)
 		},
 	}
 
@@ -67,13 +68,13 @@ func TestVersionCommand(t *testing.T) {
 
 func TestVersionVariables(t *testing.T) {
 	// Test that version variables have default values
-	if Version == "" {
+	if version.Version == "" {
 		t.Error("Version should not be empty")
 	}
-	if BuildTime == "" {
+	if version.BuildTime == "" {
 		t.Error("BuildTime should not be empty")
 	}
-	if GitCommit == "" {
+	if version.GitCommit == "" {
 		t.Error("GitCommit should not be empty")
 	}
 }

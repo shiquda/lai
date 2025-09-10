@@ -2,13 +2,13 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/shiquda/lai/internal/collector"
 	"github.com/shiquda/lai/internal/daemon"
+	"github.com/shiquda/lai/internal/logger"
 	"github.com/shiquda/lai/internal/platform"
 	"github.com/spf13/cobra"
 )
@@ -39,7 +39,7 @@ var monitorCmd = &cobra.Command{
 		var checkInterval *time.Duration
 		if intervalStr != "" {
 			if duration, err := time.ParseDuration(intervalStr); err != nil {
-				log.Fatalf("Invalid interval format: %v", err)
+				logger.Fatalf("Invalid interval format: %v", err)
 			} else {
 				checkInterval = &duration
 			}
@@ -102,16 +102,16 @@ var monitorCmd = &cobra.Command{
 				monitorSource = collector.NewCommandSource(source, []string{}, workingDir)
 			}
 		default:
-			log.Fatalf("Unsupported monitor type: %s. Supported types: file, command", monitorType)
+			logger.Fatalf("Unsupported monitor type: %s. Supported types: file, command", monitorType)
 		}
 
 		if daemonMode {
 			if err := runUnifiedDaemon(monitorSource, lineThresholdPtr, checkInterval, chatIDPtr, processName, workingDir, finalSummaryPtr, errorOnlyModePtr, finalSummaryOnlyPtr, enabledNotifiers); err != nil {
-				log.Fatalf("Daemon startup failed: %v", err)
+				logger.Fatalf("Daemon startup failed: %v", err)
 			}
 		} else {
 			if err := runUnifiedMonitor(monitorSource, lineThresholdPtr, checkInterval, chatIDPtr, workingDir, finalSummaryPtr, errorOnlyModePtr, finalSummaryOnlyPtr, enabledNotifiers); err != nil {
-				log.Fatalf("Monitor failed: %v", err)
+				logger.Fatalf("Monitor failed: %v", err)
 			}
 		}
 	},
@@ -219,11 +219,11 @@ func runUnifiedDaemon(monitorSource collector.MonitorSource, lineThreshold *int,
 			return fmt.Errorf("failed to save process info: %w", err)
 		}
 
-		fmt.Printf("Started unified daemon with process ID: %s (PID: %d)\n", processID, process.Pid)
-		fmt.Printf("Log file: %s\n", daemonLogPath)
-		fmt.Printf("Use 'lai list' to see running processes\n")
-		fmt.Printf("Use 'lai logs %s' to view logs\n", processID)
-		fmt.Printf("Use 'lai stop %s' to stop the process\n", processID)
+		logger.Printf("Started unified daemon with process ID: %s (PID: %d)\n", processID, process.Pid)
+		logger.Printf("Log file: %s\n", daemonLogPath)
+		logger.Printf("Use 'lai list' to see running processes\n")
+		logger.Printf("Use 'lai logs %s' to view logs\n", processID)
+		logger.Printf("Use 'lai stop %s' to stop the process\n", processID)
 
 		return nil
 	}
@@ -236,7 +236,7 @@ func runUnifiedDaemon(monitorSource collector.MonitorSource, lineThreshold *int,
 		if err == nil {
 			info.Status = "stopped"
 			if saveErr := manager.SaveProcessInfo(info); saveErr != nil {
-				log.Printf("Failed to update process status: %v", saveErr)
+				logger.Errorf("Failed to update process status: %v", saveErr)
 			}
 		}
 	}()

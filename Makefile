@@ -21,7 +21,7 @@ BUILD_TIME ?= $(shell $(DATE_CMD))
 GIT_COMMIT ?= $(shell git rev-parse --short HEAD $(NULL_REDIRECT) || echo unknown)
 
 # Build flags - cross-platform
-LDFLAGS = -ldflags "-X github.com/shiquda/lai/cmd.Version=$(VERSION) -X github.com/shiquda/lai/cmd.BuildTime=$(BUILD_TIME) -X github.com/shiquda/lai/cmd.GitCommit=$(GIT_COMMIT)"
+LDFLAGS = -ldflags "-X github.com/shiquda/lai/internal/version.Version=$(VERSION) -X github.com/shiquda/lai/internal/version.BuildTime=$(BUILD_TIME) -X github.com/shiquda/lai/internal/version.GitCommit=$(GIT_COMMIT)"
 
 # Default target
 help:

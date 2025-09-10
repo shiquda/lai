@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/shiquda/lai/internal/logger"
 )
 
 // LogCollector is the interface that all collectors must implement
@@ -44,7 +46,7 @@ func (c *Collector) Start() error {
 
 	for range ticker.C {
 		if err := c.checkAndTrigger(); err != nil {
-			fmt.Printf("Error checking file: %v\n", err)
+			logger.Errorf("Error checking file: %v", err)
 		}
 	}
 
