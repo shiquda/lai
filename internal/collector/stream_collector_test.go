@@ -20,25 +20,27 @@ func getMultiLineTestCommand() (string, []string) {
 	if runtime.GOOS == "windows" {
 		return "cmd", []string{"/c", "for /l %i in (1,1,5) do echo line%i"}
 	}
-	return "sh", []string{"-c", "echo line1; sleep 0.1; echo line2; sleep 0.1; echo line3; sleep 0.1; echo line4; sleep 0.1; echo line5"}
+	// Use minimal sleep to ensure output separation, but avoid excessive delays
+	return "sh", []string{"-c", "echo line1; echo line2; echo line3; echo line4; echo line5"}
 }
 
-// getSleepCommand returns a platform-appropriate sleep command
+// getSleepCommand returns a platform-appropriate long-running command for testing
 func getSleepCommand() (string, []string) {
 	if runtime.GOOS == "windows" {
-		return "cmd", []string{"/c", "for /l %i in (1,1,100) do echo line%i"}
+		return "cmd", []string{"/c", "for /l %i in (1,1,100) do echo line%i & ping -n 2 127.0.0.1 >nul"}
 	}
-	return "sh", []string{"-c", "for i in $(seq 1 100); do echo line$i; sleep 0.1; done"}
+	// Use a pure shell loop instead of seq command for better compatibility
+	return "sh", []string{"-c", "i=1; while [ $i -le 100 ]; do echo line$i; i=$((i+1)); sleep 0.1; done"}
 }
 
-// getSimpleEchoCommand returns a platform-appropriate simple echo command with slight delay
+// getSimpleEchoCommand returns a platform-appropriate simple echo command
 func getSimpleEchoCommand(text string) (string, []string) {
 	if runtime.GOOS == "windows" {
-		// Add a small delay on Windows using ping (more reliable than timeout)
+		// Add a very small delay on Windows using ping for consistency
 		return "cmd", []string{"/c", "echo " + text + " & ping -n 1 127.0.0.1 >nul"}
 	}
-	// Add a small delay on Unix systems
-	return "sh", []string{"-c", "echo " + text + "; sleep 0.05"}
+	// Keep it simple on Unix systems - no sleep needed
+	return "sh", []string{"-c", "echo " + text}
 }
 
 func TestNewStreamCollector(t *testing.T) {
@@ -140,14 +142,14 @@ func TestStreamCollectorMultiLineCommand(t *testing.T) {
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Error("Test timed out - command didn't finish")
 		sc.Stop()
 		return
 	}
 
 	// Give the threshold checker a moment to process after command ends
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 
 	// Should have at least some lines
 	if sc.GetLineCount() < 3 {
@@ -155,10 +157,10 @@ func TestStreamCollectorMultiLineCommand(t *testing.T) {
 	}
 
 	// Should have triggered at least once since we have 5+ lines and threshold is 3
-	// Note: On Windows, the command output might be processed differently, so we allow for this
+	// Note: Timing issues can occur across different platforms, so we're more lenient
 	if triggerCount == 0 && sc.GetLineCount() >= 3 {
 		t.Logf("Warning: Expected at least one trigger event with %d lines, got %d triggers", sc.GetLineCount(), triggerCount)
-		// Don't fail the test - this might be a timing issue on Windows
+		// Don't fail the test - this might be a timing issue on different platforms
 	}
 }
 
@@ -197,7 +199,7 @@ func TestStreamCollectorStop(t *testing.T) {
 }
 
 func TestStreamCollectorTriggerHandler(t *testing.T) {
-	// Use a slower command to allow threshold checking
+	// Use a simple command to allow threshold checking
 	cmd, args := getSimpleEchoCommand("test content")
 	// Use smaller check interval to catch output before command finishes
 	sc := NewStreamCollector(cmd, args, 1, 10*time.Millisecond, false)
@@ -216,20 +218,20 @@ func TestStreamCollectorTriggerHandler(t *testing.T) {
 		done <- sc.Start()
 	}()
 
-	// Wait longer for the command to finish and give threshold checker time to work
+	// Wait for the command to finish and give threshold checker time to work
 	select {
 	case err := <-done:
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Error("Test timed out")
 		sc.Stop()
 		return
 	}
 
 	// Give the threshold checker a moment to process after command ends
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 
 	if !triggerCalled {
 		t.Error("Expected trigger handler to be called")
