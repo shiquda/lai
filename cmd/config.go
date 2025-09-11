@@ -18,7 +18,7 @@ import (
 var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Manage global configuration",
-	Long:  `Manage global configuration settings for lai.
+	Long: `Manage global configuration settings for lai.
 
 Available commands:
   interactive  Launch interactive TUI configuration interface (recommended)
@@ -99,9 +99,9 @@ var configResetCmd = &cobra.Command{
 }
 
 var configInteractiveCmd = &cobra.Command{
-	Use:   "interactive",
-	Short: "Launch interactive configuration interface",
-	Long:  "Launch an interactive TUI for managing configuration settings with a user-friendly interface",
+	Use:     "interactive",
+	Short:   "Launch interactive configuration interface",
+	Long:    "Launch an interactive TUI for managing configuration settings with a user-friendly interface",
 	Aliases: []string{"i", "tui", "ui"},
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := runInteractiveConfig(); err != nil {
@@ -350,29 +350,29 @@ func runInteractiveConfig() error {
 	if err := config.EnsureGlobalConfig(); err != nil {
 		return fmt.Errorf("failed to ensure global config: %w", err)
 	}
-	
+
 	// Create the TUI model
 	model, err := tui.NewConfigModel()
 	if err != nil {
 		return fmt.Errorf("failed to create config model: %w", err)
 	}
-	
+
 	// Create and run the Bubble Tea program
 	program := tea.NewProgram(model, tea.WithAltScreen())
-	
+
 	// Run the program
 	finalModel, err := program.Run()
 	if err != nil {
 		return fmt.Errorf("failed to run interactive config: %w", err)
 	}
-	
+
 	// Check if there were any final errors
 	if configModel, ok := finalModel.(*tui.ConfigModel); ok {
 		if configModel.HasError() {
 			return configModel.GetError()
 		}
 	}
-	
+
 	logger.Println("Interactive configuration completed successfully")
 	return nil
 }

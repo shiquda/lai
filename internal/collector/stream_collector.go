@@ -232,7 +232,7 @@ func (sc *StreamCollector) runThresholdChecker() {
 func (sc *StreamCollector) processRemainingLines(lastProcessedCount int) {
 	sc.lineMutex.RLock()
 	currentCount := sc.lineCount
-	
+
 	// If there are unprocessed lines and we meet the threshold
 	if currentCount > lastProcessedCount && (currentCount-lastProcessedCount) >= sc.lineThreshold {
 		var newContent strings.Builder

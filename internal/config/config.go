@@ -48,10 +48,10 @@ type DefaultsConfig struct {
 
 // Config represents the runtime configuration (merged final configuration)
 type Config struct {
-	LogFile          string        `mapstructure:"log_file" yaml:"log_file"`
-	LineThreshold    int           `mapstructure:"line_threshold" yaml:"line_threshold"`
-	CheckInterval    time.Duration `mapstructure:"check_interval" yaml:"check_interval"`
-	Language         string        `mapstructure:"language" yaml:"language"`
+	LogFile       string        `mapstructure:"log_file" yaml:"log_file"`
+	LineThreshold int           `mapstructure:"line_threshold" yaml:"line_threshold"`
+	CheckInterval time.Duration `mapstructure:"check_interval" yaml:"check_interval"`
+	Language      string        `mapstructure:"language" yaml:"language"`
 
 	// Command execution parameters (for stream monitoring)
 	Command     string   `mapstructure:"command" yaml:"command"`
@@ -295,10 +295,10 @@ func applyGlobalDefaults(config *GlobalConfig) {
 	if config.Defaults.Language == "" {
 		config.Defaults.Language = "English"
 	}
-	
+
 	// Note: We no longer force FinalSummary to true here
 	// The migration logic should handle this properly
-	
+
 	// Apply logging defaults
 	if config.Logging.Level == "" {
 		config.Logging.Level = "info"
@@ -528,13 +528,13 @@ func mergeFieldPreserveExisting(existing, defaults, merged reflect.Value) {
 			if defaults.Len() > 0 {
 				// Create a new map that combines existing and defaults
 				mergedMap := reflect.MakeMap(existing.Type())
-				
+
 				// Copy all existing values
 				iter := existing.MapRange()
 				for iter.Next() {
 					mergedMap.SetMapIndex(iter.Key(), iter.Value())
 				}
-				
+
 				// Add default values for keys not in existing
 				iter = defaults.MapRange()
 				for iter.Next() {
@@ -543,7 +543,7 @@ func mergeFieldPreserveExisting(existing, defaults, merged reflect.Value) {
 						mergedMap.SetMapIndex(key, iter.Value())
 					}
 				}
-				
+
 				merged.Set(mergedMap)
 			}
 			// Otherwise keep existing value (already set in merged)
@@ -619,13 +619,13 @@ func BuildRuntimeConfig(logFile string, lineThreshold *int, checkInterval *time.
 
 	// Build runtime configuration
 	config := &Config{
-		LogFile:          logFile,
-		LineThreshold:    globalConfig.Defaults.LineThreshold,
-		CheckInterval:    globalConfig.Defaults.CheckInterval,
-		Language:         globalConfig.Defaults.Language,
-		ErrorOnlyMode:    globalConfig.Defaults.ErrorOnlyMode,
-		OpenAI:           globalConfig.Notifications.OpenAI,
-		Notifications:    globalConfig.Notifications,
+		LogFile:       logFile,
+		LineThreshold: globalConfig.Defaults.LineThreshold,
+		CheckInterval: globalConfig.Defaults.CheckInterval,
+		Language:      globalConfig.Defaults.Language,
+		ErrorOnlyMode: globalConfig.Defaults.ErrorOnlyMode,
+		OpenAI:        globalConfig.Notifications.OpenAI,
+		Notifications: globalConfig.Notifications,
 	}
 
 	// Apply command line parameter overrides

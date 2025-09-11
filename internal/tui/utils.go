@@ -16,7 +16,7 @@ func getFieldByPath(obj interface{}, path string) (string, error) {
 	if strings.Contains(path, "providers") {
 		return getProviderFieldValue(obj, path)
 	}
-	
+
 	parts := strings.Split(path, ".")
 	v := reflect.ValueOf(obj).Elem()
 
@@ -37,7 +37,7 @@ func setFieldByPath(obj interface{}, path, value string) error {
 	if strings.Contains(path, "providers") {
 		return setProviderFieldValue(obj, path, value)
 	}
-	
+
 	parts := strings.Split(path, ".")
 	v := reflect.ValueOf(obj).Elem()
 
@@ -116,23 +116,23 @@ func setFieldByPath(obj interface{}, path, value string) error {
 // getProviderFieldValue handles getting values from the providers map
 func getProviderFieldValue(obj interface{}, path string) (string, error) {
 	globalConfig := obj.(*config.GlobalConfig)
-	
+
 	// Parse path like "notifications.providers.telegram.enabled"
 	parts := strings.Split(path, ".")
 	if len(parts) < 4 || parts[0] != "notifications" || parts[1] != "providers" {
 		return "", fmt.Errorf("invalid provider path: %s", path)
 	}
-	
+
 	providerName := parts[2]
 	fieldName := strings.Join(parts[3:], ".")
-	
+
 	// Get the provider from the map
 	provider, exists := globalConfig.Notifications.Providers[providerName]
 	if !exists {
 		// Return default value for non-existent providers
 		return "", nil
 	}
-	
+
 	// Handle different field paths
 	switch {
 	case fieldName == "enabled":
@@ -150,28 +150,28 @@ func getProviderFieldValue(obj interface{}, path string) (string, error) {
 		}
 		return "", nil
 	}
-	
+
 	return "", fmt.Errorf("unknown provider field: %s", fieldName)
 }
 
 // setProviderFieldValue handles setting values in the providers map
 func setProviderFieldValue(obj interface{}, path, value string) error {
 	globalConfig := obj.(*config.GlobalConfig)
-	
+
 	// Parse path like "notifications.providers.telegram.enabled"
 	parts := strings.Split(path, ".")
 	if len(parts) < 4 || parts[0] != "notifications" || parts[1] != "providers" {
 		return fmt.Errorf("invalid provider path: %s", path)
 	}
-	
+
 	providerName := parts[2]
 	fieldName := strings.Join(parts[3:], ".")
-	
+
 	// Ensure providers map exists
 	if globalConfig.Notifications.Providers == nil {
 		globalConfig.Notifications.Providers = make(map[string]config.ServiceConfig)
 	}
-	
+
 	// Get or create the provider
 	provider, exists := globalConfig.Notifications.Providers[providerName]
 	if !exists {
@@ -182,7 +182,7 @@ func setProviderFieldValue(obj interface{}, path, value string) error {
 			Defaults: make(map[string]interface{}),
 		}
 	}
-	
+
 	// Handle different field paths
 	switch {
 	case fieldName == "enabled":
@@ -196,24 +196,24 @@ func setProviderFieldValue(obj interface{}, path, value string) error {
 		if provider.Config == nil {
 			provider.Config = make(map[string]interface{})
 		}
-		
+
 		// Try to convert value to appropriate type
 		provider.Config[configKey] = convertStringToInterface(value, configKey)
-		
+
 	case strings.HasPrefix(fieldName, "defaults."):
 		defaultKey := strings.TrimPrefix(fieldName, "defaults.")
 		if provider.Defaults == nil {
 			provider.Defaults = make(map[string]interface{})
 		}
 		provider.Defaults[defaultKey] = convertStringToInterface(value, defaultKey)
-		
+
 	default:
 		return fmt.Errorf("unknown provider field: %s", fieldName)
 	}
-	
+
 	// Save the updated provider back to the map
 	globalConfig.Notifications.Providers[providerName] = provider
-	
+
 	return nil
 }
 
@@ -240,7 +240,7 @@ func convertStringToInterface(value, key string) interface{} {
 		}
 		return []string{}
 	}
-	
+
 	// Default to string
 	return value
 }

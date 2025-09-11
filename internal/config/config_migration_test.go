@@ -266,59 +266,59 @@ func TestConfigMigrationWithBooleanValues(t *testing.T) {
 
 func TestNeedsMigration(t *testing.T) {
 	tests := []struct {
-		name         string
-		configVer    string
-		defaultVer   string
-		hasVersion   bool
+		name          string
+		configVer     string
+		defaultVer    string
+		hasVersion    bool
 		expectMigrate bool
 	}{
 		{
-			name:         "No version field",
-			configVer:    "",
-			defaultVer:   "1.0.0",
-			hasVersion:   false,
+			name:          "No version field",
+			configVer:     "",
+			defaultVer:    "1.0.0",
+			hasVersion:    false,
 			expectMigrate: true,
 		},
 		{
-			name:         "Older version",
-			configVer:    "1.0.0",
-			defaultVer:   "2.0.0",
-			hasVersion:   true,
+			name:          "Older version",
+			configVer:     "1.0.0",
+			defaultVer:    "2.0.0",
+			hasVersion:    true,
 			expectMigrate: true,
 		},
 		{
-			name:         "Same version",
-			configVer:    "1.0.0",
-			defaultVer:   "1.0.0",
-			hasVersion:   true,
+			name:          "Same version",
+			configVer:     "1.0.0",
+			defaultVer:    "1.0.0",
+			hasVersion:    true,
 			expectMigrate: false,
 		},
 		{
-			name:         "Newer version",
-			configVer:    "2.0.0",
-			defaultVer:   "1.0.0",
-			hasVersion:   true,
+			name:          "Newer version",
+			configVer:     "2.0.0",
+			defaultVer:    "1.0.0",
+			hasVersion:    true,
 			expectMigrate: false,
 		},
 		{
-			name:         "Both dev versions",
-			configVer:    "dev",
-			defaultVer:   "dev",
-			hasVersion:   true,
+			name:          "Both dev versions",
+			configVer:     "dev",
+			defaultVer:    "dev",
+			hasVersion:    true,
 			expectMigrate: false,
 		},
 		{
-			name:         "Config dev, default real",
-			configVer:    "dev",
-			defaultVer:   "1.0.0",
-			hasVersion:   true,
+			name:          "Config dev, default real",
+			configVer:     "dev",
+			defaultVer:    "1.0.0",
+			hasVersion:    true,
 			expectMigrate: true,
 		},
 		{
-			name:         "Config real, default dev",
-			configVer:    "1.0.0",
-			defaultVer:   "dev",
-			hasVersion:   true,
+			name:          "Config real, default dev",
+			configVer:     "1.0.0",
+			defaultVer:    "dev",
+			hasVersion:    true,
 			expectMigrate: false,
 		},
 	}
@@ -326,14 +326,14 @@ func TestNeedsMigration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rawConfig := make(map[string]interface{})
-			
+
 			if tt.hasVersion {
 				rawConfig["version"] = tt.configVer
 			}
 
 			// Test the logic directly
 			result := false
-			
+
 			if !tt.hasVersion {
 				result = true
 			} else if tt.configVer == "dev" {
