@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/shiquda/lai/internal/config"
@@ -64,10 +65,20 @@ func runTestNotifications(enabledNotifiers []string, customMessage string, verbo
 		return fmt.Errorf("no notification channels configured")
 	}
 
+	// Validate and prepare the list of notifiers to test
+	notifiersToTest, err := prepareNotifiersToTest(enabledNotifiers, enabledChannels, unifiedNotifier)
+	if err != nil {
+		return fmt.Errorf("failed to prepare notifiers for testing: %w", err)
+	}
+
 	if verbose {
 		logger.Printf("Found %d configured notification service(s)\n", len(enabledChannels))
 		for _, channel := range enabledChannels {
 			logger.Printf("  - %s\n", channel)
+		}
+		
+		if len(enabledNotifiers) > 0 {
+			logger.Printf("Testing specified notifiers: %v\n", enabledNotifiers)
 		}
 		logger.Println()
 	}
@@ -78,11 +89,11 @@ func runTestNotifications(enabledNotifiers []string, customMessage string, verbo
 		testMessage = getDefaultTestMessage()
 	}
 
-	// Test each enabled service
+	// Test each selected service
 	var successCount, failureCount int
-	for i, serviceName := range enabledChannels {
+	for i, serviceName := range notifiersToTest {
 		if verbose {
-			logger.Printf("Testing %s service (%d/%d)...\n", serviceName, i+1, len(enabledChannels))
+			logger.Printf("Testing %s service (%d/%d)...\n", serviceName, i+1, len(notifiersToTest))
 		}
 
 		if err := testSingleService(unifiedNotifier, serviceName, testMessage, verbose); err != nil {
@@ -93,7 +104,7 @@ func runTestNotifications(enabledNotifiers []string, customMessage string, verbo
 			logger.Printf("✅ %s service test succeeded\n", serviceName)
 		}
 
-		if verbose && i < len(enabledChannels)-1 {
+		if verbose && i < len(notifiersToTest)-1 {
 			logger.Println()
 		}
 	}
@@ -126,6 +137,50 @@ func testSingleService(unifiedNotifier notifier.UnifiedNotifier, serviceName str
 	}
 
 	return nil
+}
+
+// prepareNotifiersToTest prepares the list of notifiers to test based on user input and enabled channels
+func prepareNotifiersToTest(userNotifiers []string, enabledChannels []string, unifiedNotifier notifier.UnifiedNotifier) ([]string, error) {
+	// If user specified specific notifiers, validate and use them
+	if len(userNotifiers) > 0 {
+		// Create a map of enabled channels for case-insensitive lookup
+		enabledChannelsMap := make(map[string]string) // lowercase -> original case
+		for _, channel := range enabledChannels {
+			enabledChannelsMap[strings.ToLower(channel)] = channel
+		}
+
+		// Validate user-specified notifiers and collect valid ones in original case
+		var validNotifiers []string
+		var invalidNotifiers []string
+		
+		for _, notifier := range userNotifiers {
+			lowerNotifier := strings.ToLower(notifier)
+			if originalCase, exists := enabledChannelsMap[lowerNotifier]; exists {
+				validNotifiers = append(validNotifiers, originalCase)
+			} else {
+				invalidNotifiers = append(invalidNotifiers, notifier)
+			}
+		}
+
+		// If there are invalid notifiers, provide detailed error
+		if len(invalidNotifiers) > 0 {
+			if len(validNotifiers) > 0 {
+				return nil, fmt.Errorf("the following notifiers are not configured or enabled: %v\nAvailable notifiers: %v", invalidNotifiers, enabledChannels)
+			} else {
+				return nil, fmt.Errorf("the following notifiers are not configured or enabled: %v\nNo valid notifiers specified. Available notifiers: %v", invalidNotifiers, enabledChannels)
+			}
+		}
+
+		// If all specified notifiers are invalid
+		if len(validNotifiers) == 0 {
+			return nil, fmt.Errorf("no valid notifiers specified. Available notifiers: %v", enabledChannels)
+		}
+
+		return validNotifiers, nil
+	}
+
+	// If no user notifiers specified, test all enabled channels
+	return enabledChannels, nil
 }
 
 func getDefaultTestMessage() string {

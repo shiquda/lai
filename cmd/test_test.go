@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"strings"
 	"testing"
 )
 
@@ -60,6 +61,100 @@ func TestRunTestNotifications(t *testing.T) {
 		// This would test the error case where no providers are enabled
 		_ = true // Placeholder for actual test
 	})
+}
+
+func TestPrepareNotifiersToTest(t *testing.T) {
+	mockNotifier := &MockUnifiedNotifier{
+		enabledChannels: []string{"telegram", "email"},
+	}
+
+	tests := []struct {
+		name           string
+		userNotifiers  []string
+		enabledChannels []string
+		expectedResult []string
+		expectError    bool
+		errorContains  string
+	}{
+		{
+			name:           "No user notifiers specified - should return all enabled",
+			userNotifiers:  []string{},
+			enabledChannels: []string{"telegram", "email"},
+			expectedResult: []string{"telegram", "email"},
+			expectError:    false,
+		},
+		{
+			name:           "Valid user notifiers specified",
+			userNotifiers:  []string{"telegram"},
+			enabledChannels: []string{"telegram", "email"},
+			expectedResult: []string{"telegram"},
+			expectError:    false,
+		},
+		{
+			name:           "Valid user notifiers with different case",
+			userNotifiers:  []string{"TELEGRAM", "Email"},
+			enabledChannels: []string{"telegram", "email"},
+			expectedResult: []string{"telegram", "email"},
+			expectError:    false,
+		},
+		{
+			name:           "Invalid user notifiers",
+			userNotifiers:  []string{"invalid", "telegram"},
+			enabledChannels: []string{"telegram", "email"},
+			expectedResult: nil,
+			expectError:    true,
+			errorContains:  "not configured or enabled",
+		},
+		{
+			name:           "All invalid user notifiers",
+			userNotifiers:  []string{"invalid1", "invalid2"},
+			enabledChannels: []string{"telegram", "email"},
+			expectedResult: nil,
+			expectError:    true,
+			errorContains:  "not configured or enabled",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockNotifier.enabledChannels = tt.enabledChannels
+			
+			result, err := prepareNotifiersToTest(tt.userNotifiers, tt.enabledChannels, mockNotifier)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("Expected error but got none")
+					return
+				}
+				if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
+					t.Errorf("Expected error to contain '%s', but got '%s'", tt.errorContains, err.Error())
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+
+			if !equalStringSlices(result, tt.expectedResult) {
+				t.Errorf("Expected %v, but got %v", tt.expectedResult, result)
+			}
+		})
+	}
+}
+
+// Helper function to compare string slices
+func equalStringSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestGetDefaultTestMessage(t *testing.T) {
