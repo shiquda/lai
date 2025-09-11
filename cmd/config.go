@@ -8,15 +8,31 @@ import (
 	"strings"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/shiquda/lai/internal/config"
 	"github.com/shiquda/lai/internal/logger"
+	"github.com/shiquda/lai/internal/tui"
 	"github.com/spf13/cobra"
 )
 
 var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Manage global configuration",
-	Long:  "Manage global configuration settings for lai",
+	Long:  `Manage global configuration settings for lai.
+
+Available commands:
+  interactive  Launch interactive TUI configuration interface (recommended)
+  set          Set a configuration value via command line
+  get          Get a configuration value
+  list         List all configuration values
+  reset        Reset configuration to defaults
+
+Examples:
+  lai config interactive       # Launch interactive config interface
+  lai config set notifications.openai.api_key "sk-your-key"
+  lai config get notifications.openai.api_key
+  lai config list
+  lai config reset`,
 }
 
 var configSetCmd = &cobra.Command{
@@ -82,6 +98,19 @@ var configResetCmd = &cobra.Command{
 	},
 }
 
+var configInteractiveCmd = &cobra.Command{
+	Use:   "interactive",
+	Short: "Launch interactive configuration interface",
+	Long:  "Launch an interactive TUI for managing configuration settings with a user-friendly interface",
+	Aliases: []string{"i", "tui", "ui"},
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := runInteractiveConfig(); err != nil {
+			logger.Errorf("Failed to run interactive config: %v", err)
+			os.Exit(1)
+		}
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(configCmd)
 
@@ -89,6 +118,7 @@ func init() {
 	configCmd.AddCommand(configGetCmd)
 	configCmd.AddCommand(configListCmd)
 	configCmd.AddCommand(configResetCmd)
+	configCmd.AddCommand(configInteractiveCmd)
 }
 
 func setConfigValue(key, value string) error {
@@ -312,4 +342,37 @@ func toSnakeCase(s string) string {
 		result.WriteRune(r)
 	}
 	return strings.ToLower(result.String())
+}
+
+// runInteractiveConfig launches the interactive TUI configuration interface
+func runInteractiveConfig() error {
+	// Ensure global config exists before starting TUI
+	if err := config.EnsureGlobalConfig(); err != nil {
+		return fmt.Errorf("failed to ensure global config: %w", err)
+	}
+	
+	// Create the TUI model
+	model, err := tui.NewConfigModel()
+	if err != nil {
+		return fmt.Errorf("failed to create config model: %w", err)
+	}
+	
+	// Create and run the Bubble Tea program
+	program := tea.NewProgram(model, tea.WithAltScreen())
+	
+	// Run the program
+	finalModel, err := program.Run()
+	if err != nil {
+		return fmt.Errorf("failed to run interactive config: %w", err)
+	}
+	
+	// Check if there were any final errors
+	if configModel, ok := finalModel.(*tui.ConfigModel); ok {
+		if configModel.HasError() {
+			return configModel.GetError()
+		}
+	}
+	
+	logger.Println("Interactive configuration completed successfully")
+	return nil
 }

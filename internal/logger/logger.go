@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// LogLevel 定义日志级别类型
+// LogLevel defines log level types
 type LogLevel string
 
 const (
@@ -19,32 +19,32 @@ const (
 	FatalLevel LogLevel = "fatal"
 )
 
-// LogConfig 日志配置
+// LogConfig logger configuration
 type LogConfig struct {
-	Level string `yaml:"level"` // 日志级别
+	Level string `yaml:"level"` // log level
 }
 
-// DefaultLogConfig 默认日志配置
+// DefaultLogConfig default logger configuration
 func DefaultLogConfig() *LogConfig {
 	return &LogConfig{
 		Level: "info",
 	}
 }
 
-// Logger 统一日志接口
+// Logger unified logging interface
 type Logger struct {
 	zapLogger *zap.Logger
 	sugar     *zap.SugaredLogger
 	config    *LogConfig
 }
 
-// NewLogger 创建新的日志实例
+// NewLogger creates a new logger instance
 func NewLogger(config *LogConfig) (*Logger, error) {
 	if config == nil {
 		config = DefaultLogConfig()
 	}
 
-	// 设置日志级别
+	// Set log level
 	level := zapcore.InfoLevel
 	switch config.Level {
 	case "debug":
@@ -59,7 +59,7 @@ func NewLogger(config *LogConfig) (*Logger, error) {
 		level = zapcore.FatalLevel
 	}
 
-	// 创建编码器配置
+	// Create encoder configuration
 	encoderConfig := zapcore.EncoderConfig{
 		TimeKey:        "time",
 		LevelKey:       "level",
@@ -75,16 +75,16 @@ func NewLogger(config *LogConfig) (*Logger, error) {
 		EncodeCaller:   zapcore.ShortCallerEncoder,
 	}
 
-	// 使用控制台编码器
+	// Use console encoder
 	encoder := zapcore.NewConsoleEncoder(encoderConfig)
 
-	// 输出到标准输出
+	// Output to stdout
 	writeSyncer := zapcore.AddSync(os.Stdout)
 
-	// 创建核心
+	// Create core
 	core := zapcore.NewCore(encoder, writeSyncer, zap.NewAtomicLevelAt(level))
 
-	// 创建logger
+	// Create logger
 	zapLogger := zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1))
 	sugar := zapLogger.Sugar()
 
@@ -95,85 +95,85 @@ func NewLogger(config *LogConfig) (*Logger, error) {
 	}, nil
 }
 
-// Debug 调试日志
+// Debug debug log
 func (l *Logger) Debug(args ...interface{}) {
 	l.sugar.Debug(args...)
 }
 
-// Debugf 格式化调试日志
+// Debugf formatted debug log
 func (l *Logger) Debugf(template string, args ...interface{}) {
 	l.sugar.Debugf(template, args...)
 }
 
-// Info 信息日志
+// Info info log
 func (l *Logger) Info(args ...interface{}) {
 	l.sugar.Info(args...)
 }
 
-// Infof 格式化信息日志
+// Infof formatted info log
 func (l *Logger) Infof(template string, args ...interface{}) {
 	l.sugar.Infof(template, args...)
 }
 
-// Warn 警告日志
+// Warn warning log
 func (l *Logger) Warn(args ...interface{}) {
 	l.sugar.Warn(args...)
 }
 
-// Warnf 格式化警告日志
+// Warnf formatted warning log
 func (l *Logger) Warnf(template string, args ...interface{}) {
 	l.sugar.Warnf(template, args...)
 }
 
-// Error 错误日志
+// Error error log
 func (l *Logger) Error(args ...interface{}) {
 	l.sugar.Error(args...)
 }
 
-// Errorf 格式化错误日志
+// Errorf formatted error log
 func (l *Logger) Errorf(template string, args ...interface{}) {
 	l.sugar.Errorf(template, args...)
 }
 
-// Fatal 致命错误日志
+// Fatal fatal error log
 func (l *Logger) Fatal(args ...interface{}) {
 	l.sugar.Fatal(args...)
 }
 
-// Fatalf 格式化致命错误日志
+// Fatalf formatted fatal error log
 func (l *Logger) Fatalf(template string, args ...interface{}) {
 	l.sugar.Fatalf(template, args...)
 }
 
-// Printf 兼容fmt.Printf的接口，用于用户交互输出
+// Printf compatible interface with fmt.Printf for user interaction output
 func (l *Logger) Printf(format string, args ...interface{}) {
 	fmt.Printf(format, args...)
 }
 
-// Print 兼容fmt.Print的接口，用于用户交互输出
+// Print compatible interface with fmt.Print for user interaction output
 func (l *Logger) Print(args ...interface{}) {
 	fmt.Print(args...)
 }
 
-// Println 兼容fmt.Println的接口，用于用户交互输出
+// Println compatible interface with fmt.Println for user interaction output
 func (l *Logger) Println(args ...interface{}) {
 	fmt.Println(args...)
 }
 
-// Sync 同步日志缓冲区
+// Sync log buffer
 func (l *Logger) Sync() error {
 	return l.zapLogger.Sync()
 }
 
-// Close 关闭日志
+// Close logger
 func (l *Logger) Close() error {
 	return l.zapLogger.Sync()
 }
 
-// 全局日志实例
+// Global logger instance
 var defaultLogger *Logger
 
-// InitDefaultLogger 初始化默认日志实例
+// InitDefaultLogger initializes default logger instance
 func InitDefaultLogger(config *LogConfig) error {
 	logger, err := NewLogger(config)
 	if err != nil {
@@ -183,7 +183,7 @@ func InitDefaultLogger(config *LogConfig) error {
 	return nil
 }
 
-// GetDefaultLogger 获取默认日志实例
+// GetDefaultLogger gets default logger instance
 func GetDefaultLogger() *Logger {
 	if defaultLogger == nil {
 		defaultLogger, _ = NewLogger(DefaultLogConfig())
@@ -191,7 +191,7 @@ func GetDefaultLogger() *Logger {
 	return defaultLogger
 }
 
-// 全局便捷函数
+// Global convenience functions
 func Debug(args ...interface{}) {
 	GetDefaultLogger().Debug(args...)
 }
@@ -232,17 +232,17 @@ func Fatalf(template string, args ...interface{}) {
 	GetDefaultLogger().Fatalf(template, args...)
 }
 
-// Printf 兼容fmt.Printf的全局函数
+// Printf global function compatible with fmt.Printf
 func Printf(format string, args ...interface{}) {
 	GetDefaultLogger().Printf(format, args...)
 }
 
-// Print 兼容fmt.Print的全局函数
+// Print global function compatible with fmt.Print
 func Print(args ...interface{}) {
 	GetDefaultLogger().Print(args...)
 }
 
-// Println 兼容fmt.Println的全局函数
+// Println global function compatible with fmt.Println
 func Println(args ...interface{}) {
 	GetDefaultLogger().Println(args...)
 }

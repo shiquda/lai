@@ -108,9 +108,9 @@ func (nn *NotifyNotifier) setupProvider(providerName string, serviceConfig confi
 
 // setupTelegramService sets up Telegram service
 func (nn *NotifyNotifier) setupTelegramService(serviceConfig config.ServiceConfig) error {
-	token, ok := serviceConfig.Config["token"].(string)
+	token, ok := serviceConfig.Config["bot_token"].(string)
 	if !ok || token == "" {
-		return fmt.Errorf("telegram token is required")
+		return fmt.Errorf("telegram bot_token is required")
 	}
 
 	chatIDStr, ok := serviceConfig.Config["chat_id"].(string)
