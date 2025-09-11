@@ -14,12 +14,11 @@ Stop manually checking logs. Let AI watch, analyze, and notify you when somethin
 
 ## ✨ Core Features
 
-- **🤖 AI-Powered Analysis**: GPT automatically summarizes log changes and identifies critical issues
-- **📱 Instant Notifications**: Get smart alerts via Telegram, Email, or both when errors or important events occur
+- **🤖 AI-Powered Analysis**: LLMs automatically summarizes log changes and identifies critical issues
+- **📱 Instant Notifications**: Get smart alerts via Telegram, Email, Discord, or Slack when errors or important events occur
 - **🔄 Universal Monitoring**: Watch any log file or command output (Docker logs, application output, build processes)
 - **🔌 Hot-Pluggable**: No code changes required - works with any existing project or application
-- **🎨 Customizable Templates**: Personalize notification messages with custom templates for each channel
-- **🎯 Unified Interface**: Single `monitor` command handles both file and command monitoring with consistent options
+- **📝 Customizable Templates**: Personalize notification messages with custom templates for each channel
 
 ## ⚡ Installation
 
@@ -88,39 +87,63 @@ lai --help
 
 ## 🚀 Quick Start
 
-### New Unified Interface (Recommended)
+### Recommended: Unified Interface
 
-```
+The new `monitor` command provides a unified interface for all monitoring needs:
+
+```bash
 # Monitor a log file
 lai monitor file /path/to/app.log
 
-# Monitor command output
+# Monitor Docker container logs
 lai monitor command "docker logs webapp -f"
 
-# Monitor with custom working directory
+# Monitor build process with custom working directory
 lai monitor command "npm run build" -w /path/to/project
+
+# Run as daemon with custom name
+lai monitor file /var/log/nginx/error.log -d -n "nginx-monitor"
 ```
 
-### Traditional Commands (Still Supported)
+### Legacy Commands (Still Supported)
 
-```
-# Monitor a log file with instant AI summaries
+For backward compatibility, the original commands remain available:
+
+```bash
+# Traditional file monitoring
 lai start /path/to/app.log
 
-# Monitor Docker container logs
+# Traditional command monitoring
 lai exec "docker logs webapp -f" -d
 
-# Monitor build process with completion summary
+# Build process monitoring
 lai exec "npm run build" --final-summary
 ```
 
 **Real Example**: Monitor your production API logs and get notified when errors spike:
 
 ```bash
-lai start /var/log/api/error.log -d -n "api-monitor"
+lai monitor file /var/log/api/error.log -d -n "api-monitor"
 ```
 
 ## 🛠️ Setup
+
+### Option 1: Interactive Configuration (Recommended)
+
+Launch the user-friendly TUI interface for guided configuration:
+
+```bash
+lai config interactive
+```
+
+The interactive interface will guide you through:
+
+- Setting up your OpenAI API key
+- Configuring notification providers
+- Customizing monitoring preferences
+- Testing your configuration
+
+### Option 2: Command Line Configuration
 
 1. **Configure OpenAI**:
 
@@ -128,25 +151,37 @@ lai start /var/log/api/error.log -d -n "api-monitor"
    lai config set notifications.openai.api_key "sk-your-key"
    ```
 
-2. **Configure Notifications** (choose one or both):
+2. **Configure Notifications** (choose from multiple providers):
 
    **Telegram Notifications**:
 
    ```bash
-   lai config set notifications.telegram.bot_token "123456:ABC-DEF"
-   lai config set notifications.telegram.chat_id "-100123456789"
+   lai config set notifications.providers.telegram.bot_token "123456:ABC-DEF"
+   lai config set notifications.providers.telegram.chat_id "-100123456789"
    ```
 
    **Email Notifications**:
 
    ```bash
-   lai config set notifications.email.smtp_host "smtp.gmail.com"
-   lai config set notifications.email.smtp_port "587"
-   lai config set notifications.email.username "your-email@gmail.com"
-   lai config set notifications.email.password "your-app-password"
-   lai config set notifications.email.from_email "your-email@gmail.com"
-   lai config set notifications.email.to_emails '["recipient1@gmail.com", "recipient2@gmail.com"]'
-   lai config set notifications.email.subject "Lai Log Alert"
+   lai config set notifications.providers.email.smtp_host "smtp.gmail.com"
+   lai config set notifications.providers.email.smtp_port "587"
+   lai config set notifications.providers.email.username "your-email@gmail.com"
+   lai config set notifications.providers.email.password "your-app-password"
+   lai config set notifications.providers.email.from_email "your-email@gmail.com"
+   lai config set notifications.providers.email.to_emails '["recipient1@gmail.com", "recipient2@gmail.com"]'
+   lai config set notifications.providers.email.subject "Lai Log Alert"
+   ```
+
+   **Discord Notifications**:
+
+   ```bash
+   lai config set notifications.providers.discord.webhook_url "https://discord.com/api/webhooks/..."
+   ```
+
+   **Slack Notifications**:
+
+   ```bash
+   lai config set notifications.providers.slack.webhook_url "https://hooks.slack.com/services/..."
    ```
 
 3. **Configure AI response language** (optional):
@@ -161,13 +196,16 @@ lai start /var/log/api/error.log -d -n "api-monitor"
 
    ```bash
    # Use all configured notifiers
-   lai start /path/to/your.log
+   lai monitor file /path/to/your.log
    
    # Use specific notifiers only
-   lai start /path/to/your.log --notifiers telegram,email
+   lai monitor file /path/to/your.log --notifiers telegram,email
    
    # Use only email notifications
-   lai start /path/to/your.log --notifiers email
+   lai monitor file /path/to/your.log --notifiers email
+   
+   # Monitor command output
+   lai monitor command "docker logs myapp -f" --notifiers discord
    ```
 
 ## 📖 Common Use Cases
@@ -176,7 +214,7 @@ lai start /var/log/api/error.log -d -n "api-monitor"
 
 ```bash
 # Background monitoring with custom name
-lai start /var/log/nginx/error.log -d -n "nginx-errors"
+lai monitor file /var/log/nginx/error.log -d -n "nginx-errors"
 
 # View what's being monitored
 lai list
@@ -189,20 +227,20 @@ lai logs nginx-errors -f
 
 ```bash
 # Monitor specific container
-lai exec "docker logs webapp -f" -d -n "webapp-monitor"
+lai monitor command "docker logs webapp -f" -d -n "webapp-monitor"
 
 # Monitor with custom thresholds
-lai exec "docker logs db -f" --line-threshold 5 --interval 10s
+lai monitor command "docker logs db -f" --line-threshold 5 --interval 10s
 ```
 
 ### Monitor Build/CI Processes
 
 ```bash
 # Get summary when build completes
-lai exec "npm run build" --final-summary
+lai monitor command "npm run build" --final-summary
 
 # Monitor tests with error detection
-lai exec "npm test" -l 3 -i 15s
+lai monitor command "npm test" -l 3 -i 15s
 ```
 
 ## 🔧 Process Management
@@ -222,8 +260,23 @@ lai clean          # Remove stopped entries
 
 ## 📋 Roadmap
 
-- [ ] Add more notification methods (Slack, Discord, Webhook...)
-- [ ] Support more customized notification formats and prompts
+### Recently Completed ✅
+
+- [x] **Unified monitoring interface** - Single `monitor` command for all monitoring needs
+- [x] **Interactive configuration TUI** - User-friendly configuration interface
+- [x] **Discord and Slack notifications** - Expanded notification provider support
+- [x] **Unified notification system** - Improved provider configuration system
+- [x] **Cross-platform improvements** - Enhanced Windows compatibility
+- [x] **Configuration metadata system** - Better configuration validation and documentation
+
+### Upcoming Features 🚀
+
+- [ ] Webhook notifications support
+- [ ] Advanced log filtering and pattern matching
+- [ ] Integration with popular monitoring tools (Prometheus, Grafana)
+
+### Legacy Features ✅
+
 - [x] **Email notification support** with SMTP configuration
 - [x] **Multi-notifier support** - enable/disable via config or command line
 - [x] **Customizable message templates** for each notification channel
