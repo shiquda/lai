@@ -321,7 +321,7 @@ func getRequiredConfigKeys(provider string) []string {
 	case "discord_webhook":
 		return []string{"webhook_url"}
 	case "smtp", "gmail":
-		return []string{"host", "username", "password"}
+		return []string{"smtp_host", "username", "password"}
 	case "sendgrid":
 		return []string{"api_key", "from_email"}
 	case "mailgun":

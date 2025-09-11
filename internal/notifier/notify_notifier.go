@@ -271,16 +271,36 @@ func (nn *NotifyNotifier) setupMailgunService(serviceConfig config.ServiceConfig
 
 // setupSMTPService sets up SMTP email service
 func (nn *NotifyNotifier) setupSMTPService(serviceConfig config.ServiceConfig) error {
-	host, ok := serviceConfig.Config["host"].(string)
-	if !ok || host == "" {
+	// Validate required fields for SMTP configuration
+	var host string
+	if h, ok := serviceConfig.Config["host"].(string); ok && h != "" {
+		host = h
+	} else if h, ok := serviceConfig.Config["smtp_host"].(string); ok && h != "" {
+		host = h
+	} else {
 		return fmt.Errorf("smtp host is required")
 	}
 
-	_ = 587
-	if _, ok := serviceConfig.Config["port"].(int); ok {
-		// port configured as int
-	} else if _, ok := serviceConfig.Config["port"].(string); ok {
-		// port configured as string
+	// Validate port (will be properly parsed in createEmailNotifier)
+	var port int
+	if p, ok := serviceConfig.Config["port"].(int); ok {
+		port = p
+	} else if p, ok := serviceConfig.Config["port"].(string); ok {
+		if parsedPort, err := strconv.Atoi(p); err == nil {
+			port = parsedPort
+		} else {
+			port = 587 // default
+		}
+	} else if p, ok := serviceConfig.Config["smtp_port"].(int); ok {
+		port = p
+	} else if p, ok := serviceConfig.Config["smtp_port"].(string); ok {
+		if parsedPort, err := strconv.Atoi(p); err == nil {
+			port = parsedPort
+		} else {
+			port = 587 // default
+		}
+	} else {
+		port = 587 // default SMTP port
 	}
 
 	username, ok := serviceConfig.Config["username"].(string)
@@ -293,11 +313,51 @@ func (nn *NotifyNotifier) setupSMTPService(serviceConfig config.ServiceConfig) e
 		return fmt.Errorf("smtp password is required")
 	}
 
-	// Note: smtp service
-	// smtpService := smtp.New(host, port, username, password)
-	// nn.notifyClient.UseServices(smtpService)
+	// Validate from email
+	fromEmail, ok := serviceConfig.Config["from_email"].(string)
+	if !ok || fromEmail == "" {
+		fromEmail = username // default to username
+	}
 
-	return fmt.Errorf("smtp service requires additional dependency: github.com/nikoksr/notify/service/smtp")
+	// Validate recipient emails
+	var toEmails []string
+	if recipients, ok := serviceConfig.Config["to_emails"].([]interface{}); ok {
+		for _, recipient := range recipients {
+			if email, ok := recipient.(string); ok && email != "" {
+				toEmails = append(toEmails, email)
+			}
+		}
+	} else if recipient, ok := serviceConfig.Config["to_emails"].(string); ok && recipient != "" {
+		toEmails = []string{recipient}
+	}
+
+	if len(toEmails) == 0 {
+		return fmt.Errorf("smtp to_emails is required")
+	}
+
+	// Validate subject exists
+	subject := "Log Summary Notification"
+	if s, ok := serviceConfig.Config["subject"].(string); ok && s != "" {
+		subject = s
+	}
+
+	// Validate TLS setting
+	useTLS := true // default to TLS
+	if tls, ok := serviceConfig.Config["use_tls"].(bool); ok {
+		useTLS = tls
+	}
+
+	// Suppress unused variable warnings (these are validated above)
+	_, _, _, _ = host, port, subject, useTLS
+
+	// Note: We don't need to create the email notifier here since we handle email specially in TestProvider
+	// The email notifier will be created on-demand when needed
+
+	// Add to enabled services
+	nn.enabledServices["email"] = true
+	nn.serviceConfigs["email"] = serviceConfig
+
+	return nil
 }
 
 // setupPushoverService sets up Pushover service
@@ -463,10 +523,111 @@ func (nn *NotifyNotifier) TestProvider(ctx context.Context, providerName string,
 		return fmt.Errorf("provider %s is not enabled", providerName)
 	}
 
+	// Special handling for email service since it's not using the notify library
+	if providerName == "email" {
+		serviceConfig, exists := nn.serviceConfigs[providerName]
+		if !exists {
+			return fmt.Errorf("email service configuration not found")
+		}
+
+		// Create a temporary email notifier for testing
+		emailNotifier, err := nn.createEmailNotifier(serviceConfig)
+		if err != nil {
+			return fmt.Errorf("failed to create email notifier: %w", err)
+		}
+
+		testMessage := fmt.Sprintf("🧪 Test Message from Lai\n\nProvider: %s\nTime: %s\nMessage: %s",
+			providerName, getCurrentTimeNotify(), message)
+
+		return emailNotifier.SendMessage(testMessage)
+	}
+
 	testMessage := fmt.Sprintf("🧪 Test Message from Lai\n\nProvider: %s\nTime: %s\nMessage: %s",
 		providerName, getCurrentTimeNotify(), message)
 
 	return nn.notifyClient.Send(ctx, "🧪 Lai Test Notification", testMessage)
+}
+
+// createEmailNotifier creates an EmailNotifier from service configuration
+func (nn *NotifyNotifier) createEmailNotifier(serviceConfig config.ServiceConfig) (*EmailNotifier, error) {
+	// Get SMTP host
+	var host string
+	if h, ok := serviceConfig.Config["host"].(string); ok && h != "" {
+		host = h
+	} else if h, ok := serviceConfig.Config["smtp_host"].(string); ok && h != "" {
+		host = h
+	} else {
+		return nil, fmt.Errorf("smtp host is required")
+	}
+
+	// Get SMTP port
+	var port int
+	if p, ok := serviceConfig.Config["port"].(int); ok {
+		port = p
+	} else if p, ok := serviceConfig.Config["port"].(string); ok {
+		if parsedPort, err := strconv.Atoi(p); err == nil {
+			port = parsedPort
+		} else {
+			port = 587
+		}
+	} else if p, ok := serviceConfig.Config["smtp_port"].(int); ok {
+		port = p
+	} else if p, ok := serviceConfig.Config["smtp_port"].(string); ok {
+		if parsedPort, err := strconv.Atoi(p); err == nil {
+			port = parsedPort
+		} else {
+			port = 587
+		}
+	} else {
+		port = 587
+	}
+
+	// Get credentials
+	username, ok := serviceConfig.Config["username"].(string)
+	if !ok || username == "" {
+		return nil, fmt.Errorf("smtp username is required")
+	}
+
+	password, ok := serviceConfig.Config["password"].(string)
+	if !ok || password == "" {
+		return nil, fmt.Errorf("smtp password is required")
+	}
+
+	// Get from email
+	fromEmail, ok := serviceConfig.Config["from_email"].(string)
+	if !ok || fromEmail == "" {
+		fromEmail = username
+	}
+
+	// Get recipient emails
+	var toEmails []string
+	if recipients, ok := serviceConfig.Config["to_emails"].([]interface{}); ok {
+		for _, recipient := range recipients {
+			if email, ok := recipient.(string); ok && email != "" {
+				toEmails = append(toEmails, email)
+			}
+		}
+	} else if recipient, ok := serviceConfig.Config["to_emails"].(string); ok && recipient != "" {
+		toEmails = []string{recipient}
+	}
+
+	if len(toEmails) == 0 {
+		return nil, fmt.Errorf("smtp to_emails is required")
+	}
+
+	// Get subject
+	subject := "Log Summary Notification"
+	if s, ok := serviceConfig.Config["subject"].(string); ok && s != "" {
+		subject = s
+	}
+
+	// Get TLS setting
+	useTLS := true
+	if tls, ok := serviceConfig.Config["use_tls"].(bool); ok {
+		useTLS = tls
+	}
+
+	return NewEmailNotifier(host, port, username, password, fromEmail, toEmails, subject, useTLS, nil), nil
 }
 
 // IsServiceEnabled checks if a specific service is enabled
