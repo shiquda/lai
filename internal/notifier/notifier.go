@@ -165,7 +165,7 @@ func RenderTemplate(templateName string, data TemplateData, messageTemplates map
 //
 // Priority order for determining which notifiers to enable:
 // 1. Command line specifications (--notifiers telegram,email)
-// 2. Configuration file defaults (defaults.enabled_notifiers)
+// 2. Provider configuration (notifications.providers.*.enabled)
 // 3. All configured notifiers (if no specification exists)
 //
 // Parameters:

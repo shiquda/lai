@@ -84,7 +84,7 @@ func setFieldByPath(obj interface{}, path, value string) error {
 					}
 				}
 			case reflect.Slice:
-				// Handle string slices (for enabled_notifiers, to_emails, etc.)
+				// Handle string slices (for to_emails, etc.)
 				if field.Type().Elem().Kind() == reflect.String {
 					var strSlice []string
 					if value != "" {

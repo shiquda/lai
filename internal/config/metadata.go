@@ -154,17 +154,7 @@ func GetConfigMetadata() *ConfigMetadata {
 						DefaultValue: "false",
 						Level:        1,
 					},
-					{
-						Key:         "defaults.enabled_notifiers",
-						DisplayName: "Enabled Notifiers",
-						Description: "List of enabled notification services",
-						Type:        TypeStringList,
-						Category:    CategoryDefaults,
-						Required:    false,
-						Examples:    []string{"telegram,email", "discord,slack"},
-						Level:       1,
 					},
-				},
 			},
 			{
 				Name:        "openai",
