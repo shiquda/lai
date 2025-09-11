@@ -39,6 +39,9 @@ type UnifiedNotifier interface {
 	// IsEnabled checks if any notification channels are enabled
 	IsEnabled() bool
 
+	// IsServiceEnabled checks if a specific service is enabled
+	IsServiceEnabled(serviceName string) bool
+
 	// GetEnabledChannels returns the list of enabled notification channels
 	GetEnabledChannels() []string
 }

@@ -469,6 +469,36 @@ func (nn *NotifyNotifier) TestProvider(ctx context.Context, providerName string,
 	return nn.notifyClient.Send(ctx, "🧪 Lai Test Notification", testMessage)
 }
 
+// IsServiceEnabled checks if a specific service is enabled
+func (nn *NotifyNotifier) IsServiceEnabled(serviceName string) bool {
+	return nn.enabledServices[serviceName]
+}
+
+// GetServiceConfig returns the configuration for a specific service
+func (nn *NotifyNotifier) GetServiceConfig(serviceName string) (map[string]interface{}, bool) {
+	serviceConfig, exists := nn.serviceConfigs[serviceName]
+	if !exists {
+		return nil, false
+	}
+	
+	// Convert ServiceConfig to map[string]interface{}
+	config := make(map[string]interface{})
+	config["enabled"] = serviceConfig.Enabled
+	config["provider"] = serviceConfig.Provider
+	
+	// Copy config values
+	for k, v := range serviceConfig.Config {
+		config[k] = v
+	}
+	
+	// Copy defaults
+	for k, v := range serviceConfig.Defaults {
+		config[k] = v
+	}
+	
+	return config, true
+}
+
 // IsEnabled checks if any notification channels are enabled
 func (nn *NotifyNotifier) IsEnabled() bool {
 	return len(nn.enabledServices) > 0
