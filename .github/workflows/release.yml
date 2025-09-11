@@ -54,7 +54,7 @@ jobs:
           GIT_COMMIT: ${{ steps.version.outputs.GIT_COMMIT }}
         run: |
           # Build flags
-          LDFLAGS="-X github.com/shiquda/lai/cmd.Version=${VERSION} -X github.com/shiquda/lai/cmd.BuildTime=${BUILD_TIME} -X github.com/shiquda/lai/cmd.GitCommit=${GIT_COMMIT}"
+          LDFLAGS="-X github.com/shiquda/lai/internal/version.Version=${VERSION} -X github.com/shiquda/lai/internal/version.BuildTime=${BUILD_TIME} -X github.com/shiquda/lai/internal/version.GitCommit=${GIT_COMMIT}"
           
           # Linux AMD64
           GOOS=linux GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o lai-${VERSION}-linux-amd64

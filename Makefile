@@ -81,7 +81,7 @@ install:
 # Quick test run (for development)
 test-quick:
 	@echo "🚀 Running quick tests..."
-	@go test ./... -v
+	go test ./... -v
 
 # Full test suite with coverage and quality checks
 test:
