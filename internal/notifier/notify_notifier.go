@@ -490,6 +490,23 @@ func (nn *NotifyNotifier) SendLogSummary(ctx context.Context, filePath, summary 
 		"time":     getCurrentTimeNotify(),
 	})
 
+	// Special handling for email service since it's not using the notify library
+	if nn.enabledServices["email"] {
+		serviceConfig, exists := nn.serviceConfigs["email"]
+		if !exists {
+			return fmt.Errorf("email service configuration not found")
+		}
+
+		// Create email notifier for sending
+		emailNotifier, err := nn.createEmailNotifier(serviceConfig)
+		if err != nil {
+			return fmt.Errorf("failed to create email notifier: %w", err)
+		}
+
+		// Use the original EmailNotifier's SendLogSummary method for proper HTML rendering
+		return emailNotifier.SendLogSummary(filePath, summary)
+	}
+
 	return nn.notifyClient.Send(ctx, "🚨 Log Summary Notification", message)
 }
 
@@ -497,6 +514,26 @@ func (nn *NotifyNotifier) SendLogSummary(ctx context.Context, filePath, summary 
 func (nn *NotifyNotifier) SendMessage(ctx context.Context, message string) error {
 	if !nn.IsEnabled() {
 		return fmt.Errorf("no notification channels enabled")
+	}
+
+	// Special handling for email service since it's not using the notify library
+	if nn.enabledServices["email"] {
+		serviceConfig, exists := nn.serviceConfigs["email"]
+		if !exists {
+			return fmt.Errorf("email service configuration not found")
+		}
+
+		// Create email notifier for sending
+		emailNotifier, err := nn.createEmailNotifier(serviceConfig)
+		if err != nil {
+			return fmt.Errorf("failed to create email notifier: %w", err)
+		}
+
+		// Convert the plain message to HTML email format
+		// Replace newlines with <br> for better email formatting
+		htmlMessage := strings.ReplaceAll(message, "\n", "<br>")
+		emailMessage := fmt.Sprintf("<html><body><h2>📢 Lai Notification</h2><p>%s</p></body></html>", htmlMessage)
+		return emailNotifier.SendMessage(emailMessage)
 	}
 
 	return nn.notifyClient.Send(ctx, "📢 Lai Notification", message)
@@ -513,6 +550,26 @@ func (nn *NotifyNotifier) SendError(ctx context.Context, filePath, errorMsg stri
 		"errorMsg": errorMsg,
 		"time":     getCurrentTimeNotify(),
 	})
+
+	// Special handling for email service since it's not using the notify library
+	if nn.enabledServices["email"] {
+		serviceConfig, exists := nn.serviceConfigs["email"]
+		if !exists {
+			return fmt.Errorf("email service configuration not found")
+		}
+
+		// Create email notifier for sending
+		emailNotifier, err := nn.createEmailNotifier(serviceConfig)
+		if err != nil {
+			return fmt.Errorf("failed to create email notifier: %w", err)
+		}
+
+		// Convert the formatted message to HTML email format
+		// Replace newlines with <br> for better email formatting
+		htmlMessage := strings.ReplaceAll(message, "\n", "<br>")
+		emailMessage := fmt.Sprintf("<html><body><h2>🚨 Critical Error Alert</h2><p>%s</p></body></html>", htmlMessage)
+		return emailNotifier.SendMessage(emailMessage)
+	}
 
 	return nn.notifyClient.Send(ctx, "🚨 Critical Error Alert", message)
 }

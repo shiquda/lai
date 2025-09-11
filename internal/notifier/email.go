@@ -3,7 +3,6 @@ package notifier
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/russross/blackfriday/v2"
@@ -138,7 +137,7 @@ func (e *EmailNotifier) sendLogSummaryWithHTML(filePath, htmlSummary string) err
 	// Create template data
 	data := TemplateData{
 		FilePath: filePath,
-		Time:     time.Now().Format("2006-01-02 15:04:05"),
+		Time:     getCurrentTime(),
 		Summary:  htmlSummary, // This is already HTML
 	}
 
