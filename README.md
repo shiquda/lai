@@ -2,229 +2,78 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.21+-blue.svg)](https://golang.org/doc/install)
 [![AI Powered](https://img.shields.io/badge/AI-Powered-brightgreen.svg)]()
-[![Telegram](https://img.shields.io/badge/Notifications-Telegram-blue.svg)](https://telegram.org/)
-[![Email](https://img.shields.io/badge/Notifications-Email-red.svg)](mailto:)
 [![License](https://img.shields.io/badge/License-AGPL--3.0-yellow.svg)](LICENSE)
-
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/shiquda/lai)
 
 Stop manually checking logs. Let AI watch, analyze, and notify you when something important happens.
 
-> Note: This project is under active development. Any kind of contributions are welcome!
+> **Note**: This project is under active development. Contributions welcome!
 
-## ✨ Core Features
+## 🚀 5-Minute Quick Start
 
-- **🤖 AI-Powered Analysis**: LLMs automatically summarizes log changes and identifies critical issues
-- **📱 Instant Notifications**: Get smart alerts via Telegram, Email, Discord, or Slack when errors or important events occur
-- **🔄 Universal Monitoring**: Watch any log file or command output (Docker logs, application output, build processes)
-- **🔌 Hot-Pluggable**: No code changes required - works with any existing project or application
-- **📝 Customizable Templates**: Personalize notification messages with custom templates for each channel
-
-## ⚡ Installation
-
-### Option 1: Install from Release (Recommended)
+### 1. Install Lai
 
 ```bash
-# Download latest release for your platform
-# For Linux:
+# Download latest release (Linux)
 wget https://github.com/shiquda/lai/releases/latest/download/lai-v*-linux-amd64
-# For macOS Intel:
-# wget https://github.com/shiquda/lai/releases/latest/download/lai-v*-darwin-amd64
-# For macOS Apple Silicon:
-# wget https://github.com/shiquda/lai/releases/latest/download/lai-v*-darwin-arm64
-
-# Create local bin directory and rename binary
-mkdir -p ~/.local/bin
-mv lai-v*-linux-amd64 ~/.local/bin/lai
-
-# Make executable
+mkdir -p ~/.local/bin && mv lai-v*-linux-amd64 ~/.local/bin/lai
 chmod +x ~/.local/bin/lai
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
 
-# Add to PATH if needed (add to ~/.bashrc or ~/.zshrc)
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-
-# Verify installation
-lai version
+# Or build from source
+git clone https://github.com/shiquda/lai.git && cd lai
+make build && cp lai ~/.local/bin/
 ```
 
-### Option 2: Build from Source
-
-**Prerequisites:**
+### 2. Configure Notifications
 
 ```bash
-# Install Go 1.21+ if not installed
-sudo apt update
-sudo apt install golang-go
+# Set up OpenAI for AI analysis
+lai config set notifications.openai.api_key "sk-your-key"
 
-# Verify Go version
-go version  # Should be 1.21 or higher
+# Configure Telegram (recommended)
+lai config set notifications.providers.telegram.enabled true
+lai config set notifications.providers.telegram.bot_token "123456:ABC-DEF"
+lai config set notifications.providers.telegram.chat_id "-100123456789"
+
+# Or configure Email
+lai config set notifications.providers.email.enabled true
+lai config set notifications.providers.email.smtp_host "smtp.gmail.com"
+lai config set notifications.providers.email.smtp_port "587"
+# ... more email config
 ```
 
-**Build and install:**
+### 3. Start Monitoring
 
 ```bash
-# Clone repository
-git clone https://github.com/shiquda/lai.git
-cd lai
+# Monitor application logs
+lai monitor file /var/log/app.log
 
-# Build the application
-make build
-
-# Install to ~/.local/bin
-mkdir -p ~/.local/bin
-cp lai ~/.local/bin/
-
-# Add to PATH if needed
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-
-# Verify installation
-lai --help
-```
-
-**Requirements**: Go 1.21+, OpenAI API key, Telegram bot token (optional), Email configuration (optional)
-
-## 🚀 Quick Start
-
-### Recommended: Unified Interface
-
-The new `monitor` command provides a unified interface for all monitoring needs:
-
-```bash
-# Monitor a log file
-lai monitor file /path/to/app.log
-
-# Monitor Docker container logs
+# Monitor Docker containers
 lai monitor command "docker logs webapp -f"
 
-# Monitor build process with custom working directory
-lai monitor command "npm run build" -w /path/to/project
-
-# Run as daemon with custom name
+# Run as daemon
 lai monitor file /var/log/nginx/error.log -d -n "nginx-monitor"
 ```
 
-### Legacy Commands (Still Supported)
+## ✨ Key Features
 
-For backward compatibility, the original commands remain available:
+- **🤖 AI-Powered Analysis**: LLMs automatically summarize log changes and identify issues
+- **📱 Smart Notifications**: Get alerts via Telegram, Email, Discord, or Slack
+- **🔄 Universal Monitoring**: Watch any log file or command output
+- **🔌 Zero Integration**: Works with any existing application - no code changes needed
+- **⚡ Real-time Processing**: Instant analysis and notification delivery
 
-```bash
-# Traditional file monitoring
-lai start /path/to/app.log
+## 📖 Use Cases
 
-# Traditional command monitoring
-lai exec "docker logs webapp -f" -d
-
-# Build process monitoring
-lai exec "npm run build" --final-summary
-```
-
-**Real Example**: Monitor your production API logs and get notified when errors spike:
-
-```bash
-lai monitor file /var/log/api/error.log -d -n "api-monitor"
-```
-
-## 🛠️ Setup
-
-### Option 1: Interactive Configuration (Recommended)
-
-Launch the user-friendly TUI interface for guided configuration:
-
-```bash
-lai config interactive
-```
-
-The interactive interface will guide you through:
-
-- Setting up your OpenAI API key
-- Configuring notification providers
-- Customizing monitoring preferences
-- Testing your configuration
-
-### Option 2: Command Line Configuration
-
-1. **Configure OpenAI**:
-
-   ```bash
-   lai config set notifications.openai.api_key "sk-your-key"
-   ```
-
-2. **Configure Notifications** (choose from multiple providers):
-
-   **Telegram Notifications**:
-
-   ```bash
-   lai config set notifications.providers.telegram.bot_token "123456:ABC-DEF"
-   lai config set notifications.providers.telegram.chat_id "-100123456789"
-   ```
-
-   **Email Notifications**:
-
-   ```bash
-   lai config set notifications.providers.email.smtp_host "smtp.gmail.com"
-   lai config set notifications.providers.email.smtp_port "587"
-   lai config set notifications.providers.email.username "your-email@gmail.com"
-   lai config set notifications.providers.email.password "your-app-password"
-   lai config set notifications.providers.email.from_email "your-email@gmail.com"
-   lai config set notifications.providers.email.to_emails '["recipient1@gmail.com", "recipient2@gmail.com"]'
-   lai config set notifications.providers.email.subject "Lai Log Alert"
-   ```
-
-   **Discord Notifications**:
-
-   ```bash
-   lai config set notifications.providers.discord.webhook_url "https://discord.com/api/webhooks/..."
-   ```
-
-   **Slack Notifications**:
-
-   ```bash
-   lai config set notifications.providers.slack.webhook_url "https://hooks.slack.com/services/..."
-   ```
-
-3. **Configure AI response language** (optional):
-
-   ```bash
-   lai config set defaults.language "Chinese"  # Chinese
-   lai config set defaults.language "Spanish"  # Spanish  
-   lai config set defaults.language "English"  # English (default)
-   ```
-
-4. **Start monitoring**:
-
-   ```bash
-   # Use all configured notifiers
-   lai monitor file /path/to/your.log
-   
-   # Use specific notifiers only
-   lai monitor file /path/to/your.log --notifiers telegram,email
-   
-   # Use only email notifications
-   lai monitor file /path/to/your.log --notifiers email
-   
-   # Monitor command output
-   lai monitor command "docker logs myapp -f" --notifiers discord
-   ```
-
-## 📖 Common Use Cases
-
-### Monitor Application Logs
-
+### Application Monitoring
 ```bash
 # Background monitoring with custom name
 lai monitor file /var/log/nginx/error.log -d -n "nginx-errors"
-
-# View what's being monitored
-lai list
-
-# Check monitoring logs
-lai logs nginx-errors -f
+lai list  # View running monitors
+lai logs nginx-errors -f  # Check monitor logs
 ```
 
-### Monitor Docker Containers
-
+### Docker Container Monitoring
 ```bash
 # Monitor specific container
 lai monitor command "docker logs webapp -f" -d -n "webapp-monitor"
@@ -233,8 +82,7 @@ lai monitor command "docker logs webapp -f" -d -n "webapp-monitor"
 lai monitor command "docker logs db -f" --line-threshold 5 --interval 10s
 ```
 
-### Monitor Build/CI Processes
-
+### Build/CI Process Monitoring
 ```bash
 # Get summary when build completes
 lai monitor command "npm run build" --final-summary
@@ -243,8 +91,37 @@ lai monitor command "npm run build" --final-summary
 lai monitor command "npm test" -l 3 -i 15s
 ```
 
-## 🔧 Process Management
+## 🔧 Configuration Options
 
+### Interactive Setup (Recommended)
+```bash
+lai config interactive  # Guided configuration interface
+```
+
+### Command Line Configuration
+```bash
+# View current configuration
+lai config list
+
+# Set OpenAI configuration
+lai config set notifications.openai.api_key "sk-your-key"
+lai config set notifications.openai.model "gpt-3.5-turbo"
+
+# Configure notification providers
+lai config set notifications.providers.telegram.enabled true
+lai config set notifications.providers.telegram.bot_token "your-token"
+lai config set notifications.providers.telegram.chat_id "your-chat-id"
+
+# Set monitoring preferences
+lai config set defaults.line_threshold 10
+lai config set defaults.check_interval "30s"
+lai config set defaults.language "English"
+
+# Reset configuration to defaults
+lai config reset
+```
+
+### Process Management
 ```bash
 lai list           # Show all running monitors
 lai stop <name>    # Stop a monitor
@@ -252,47 +129,67 @@ lai resume <name>  # Restart a stopped monitor
 lai clean          # Remove stopped entries
 ```
 
-## 📚 Documentation
+## 📚 Advanced Topics
 
-- **[Development Guide](docs/DEVELOPMENT.md)** - Building, testing, and contributing
-- **[Configuration Reference](docs/CONFIGURATION.md)** - Complete configuration options
-- **[Architecture Overview](docs/ARCHITECTURE.md)** - Project structure and design
+### Supported Notification Providers
+
+- **Telegram**: Bot token + chat ID
+- **Email**: SMTP configuration with multiple providers (SendGrid, Gmail, etc.)
+- **Discord**: Bot token or webhook
+- **Slack**: Webhook or OAuth token
+- **Pushover**: Mobile notifications
+- **Twilio**: SMS alerts
+- **PagerDuty**: Incident management
+- **DingTalk/WeChat**: Chinese platforms
+
+### Configuration File
+
+The global configuration is stored at `~/.lai/config.yaml`. You can edit this file directly or use the `lai config` commands.
+
+### Advanced Features
+
+- **Error-only mode**: Only notify on errors/exceptions
+- **Final summary**: Get summary when monitoring stops
+- **Custom thresholds**: Adjust sensitivity and check intervals
+- **Multi-language AI responses**: Configure response language
+- **Daemon mode**: Run monitoring processes in background
+
+## 🛠️ Development
+
+### Building from Source
+```bash
+git clone https://github.com/shiquda/lai.git
+cd lai
+make build        # Build the application
+make test-quick   # Run tests
+make test         # Run full test suite with coverage
+```
+
+### Contributing
+1. Fork the repository
+2. Create a feature branch
+3. Write tests for new functionality
+4. Ensure all tests pass: `make test`
+5. Submit a pull request
 
 ## 📋 Roadmap
 
 ### Recently Completed ✅
-
-- [x] **Unified monitoring interface** - Single `monitor` command for all monitoring needs
-- [x] **Interactive configuration TUI** - User-friendly configuration interface
-- [x] **Discord and Slack notifications** - Expanded notification provider support
-- [x] **Unified notification system** - Improved provider configuration system
-- [x] **Cross-platform improvements** - Enhanced Windows compatibility
-- [x] **Configuration metadata system** - Better configuration validation and documentation
+- [x] Unified monitoring interface with single `monitor` command
+- [x] Interactive configuration TUI
+- [x] Multi-provider notification system (Telegram, Email, Discord, Slack)
+- [x] Cross-platform improvements
+- [x] Configuration validation and metadata system
 
 ### Upcoming Features 🚀
-
 - [ ] Webhook notifications support
 - [ ] Advanced log filtering and pattern matching
-- [ ] Integration with popular monitoring tools (Prometheus, Grafana)
-
-### Legacy Features ✅
-
-- [x] **Email notification support** with SMTP configuration
-- [x] **Multi-notifier support** - enable/disable via config or command line
-- [x] **Customizable message templates** for each notification channel
-- [x] Multi-language support for AI responses
-- [x] Error-only notification mode (filter out normal logs, notify only on errors/exceptions)
-
-## 🤝 Contributing
-
-> Note: Usage on Windows platforms are experimental.
-
-1. Fork the repository
-2. Create a feature branch
-3. Write tests for new functionality  
-4. Ensure all tests pass: `make test`
-5. Submit a pull request
+- [ ] Integration with monitoring tools (Prometheus, Grafana)
 
 ## 📄 License
 
-See LICENSE file for details.
+AGPL-3.0 - see LICENSE file for details.
+
+---
+
+**[Documentation](docs/)** | **[Configuration Reference](docs/CONFIGURATION.md)** | **[Architecture](docs/ARCHITECTURE.md)**
