@@ -5,14 +5,18 @@ import (
 	"context"
 	"fmt"
 	"html/template"
+	"strings"
 	"time"
 
 	"github.com/shiquda/lai/internal/config"
 )
 
 // Notifier defines the interface for all notification implementations.
-// Any notifier must implement these two methods to be compatible with the system.
+// Any notifier must implement these methods to be compatible with the system.
 type Notifier interface {
+	// Name returns the name of the notifier (e.g., "telegram", "email", etc.)
+	Name() string
+
 	// SendMessage sends a plain message to the notification channel
 	SendMessage(message string) error
 
@@ -200,6 +204,15 @@ func CreateNotifiers(cfg *config.Config, enabledNotifiers []string) ([]Notifier,
 // but uses the new UnifiedNotifier internally for backward compatibility
 type UniversalNotifier struct {
 	unified UnifiedNotifier
+}
+
+// Name returns the names of enabled notification channels
+func (un *UniversalNotifier) Name() string {
+	channels := un.unified.GetEnabledChannels()
+	if len(channels) == 0 {
+		return "universal"
+	}
+	return strings.Join(channels, ",")
 }
 
 // SendMessage sends a plain message (compatible with legacy interface)

@@ -2,6 +2,7 @@ package collector
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/shiquda/lai/internal/config"
@@ -99,8 +100,8 @@ func (c *MonitorConfig) Validate() error {
 
 	// Check if Telegram is properly configured if enabled
 	if telegramProvider, exists := c.Notifications.Providers["telegram"]; exists && telegramProvider.Enabled {
-		if token, ok := telegramProvider.Config["token"].(string); !ok || token == "" {
-			return fmt.Errorf("telegram.token is required when telegram provider is enabled")
+		if token, ok := telegramProvider.Config["bot_token"].(string); !ok || token == "" {
+			return fmt.Errorf("telegram.bot_token is required when telegram provider is enabled")
 		}
 		if chatID, ok := telegramProvider.Config["chat_id"].(string); !ok || chatID == "" {
 			return fmt.Errorf("telegram.chat_id is required when telegram provider is enabled")
@@ -138,15 +139,23 @@ func NewUnifiedMonitor(cfg *MonitorConfig) (*UnifiedMonitor, error) {
 
 	// Create appropriate collector based on source type
 	var collector LogCollector
-	switch cfg.Source.GetType() {
-	case MonitorTypeFile:
-		collector = New(cfg.Source.GetIdentifier(), cfg.LineThreshold, cfg.CheckInterval)
-	case MonitorTypeCommand:
-		// For command source, we need to extract command and args
-		// This is a simplified version - we'll need to improve it
-		collector = NewStreamCollector("command", []string{}, cfg.LineThreshold, cfg.CheckInterval, cfg.FinalSummary)
-	default:
-		return nil, fmt.Errorf("unsupported monitor type: %s", cfg.Source.GetType())
+	identifier := cfg.Source.GetIdentifier()
+
+	// Check if this is a command source by prefix
+	if strings.HasPrefix(identifier, "COMMAND_SOURCE:") {
+		// Extract the original command string
+		originalCmdStr := strings.TrimPrefix(identifier, "COMMAND_SOURCE:")
+
+		// Parse the command string to extract command and args
+		command, args, err := parseCommandString(originalCmdStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse command: %w", err)
+		}
+
+		collector = NewStreamCollector(command, args, cfg.LineThreshold, cfg.CheckInterval, cfg.FinalSummary)
+	} else {
+		// Regular file monitoring
+		collector = New(identifier, cfg.LineThreshold, cfg.CheckInterval)
 	}
 
 	return &UnifiedMonitor{
@@ -192,7 +201,7 @@ func (m *UnifiedMonitor) Start() error {
 			}
 		}
 
-		logger.Printf("Notification sent to %d notifier(s)\n", len(m.notifiers))
+		// Note: Individual notification status is now logged in sendToAllNotifiers method
 		return nil
 	})
 
@@ -201,7 +210,6 @@ func (m *UnifiedMonitor) Start() error {
 	logger.Printf("Type: %s\n", m.config.Source.GetType())
 	logger.Printf("Line threshold: %d lines\n", m.config.LineThreshold)
 	logger.Printf("Check interval: %v\n", m.config.CheckInterval)
-	logger.Printf("Chat ID: %s\n", m.config.ChatID)
 	if m.config.ErrorOnlyMode {
 		logger.Printf("Error-only mode: ENABLED (will only notify on errors/exceptions)\n")
 	} else {
@@ -238,11 +246,15 @@ func (m *UnifiedMonitor) Stop() {
 // sendToAllNotifiers sends a summary to all configured notifiers
 func (m *UnifiedMonitor) sendToAllNotifiers(summary string) error {
 	var errors []error
+	var successfulNotifiers []string
 
 	for _, n := range m.notifiers {
 		if err := n.SendLogSummary(m.config.Source.GetIdentifier(), summary); err != nil {
 			errors = append(errors, err)
-			logger.Errorf("Failed to send notification to notifier: %v", err)
+			logger.Errorf("Failed to send notification to %s notifier: %v\n", n.Name(), err)
+		} else {
+			successfulNotifiers = append(successfulNotifiers, n.Name())
+			logger.Printf("Notification sent successfully to %s notifier\n", n.Name())
 		}
 	}
 
@@ -251,4 +263,71 @@ func (m *UnifiedMonitor) sendToAllNotifiers(summary string) error {
 	}
 
 	return nil
+}
+
+// parseCommandString parses a command string into command and arguments
+// This is a simplified version that handles quoted arguments
+func parseCommandString(cmdStr string) (command string, args []string, err error) {
+	var words []string
+	var currentWord strings.Builder
+	var inSingleQuote bool
+	var inDoubleQuote bool
+	var escapeNext bool
+
+	for _, r := range cmdStr {
+		if escapeNext {
+			currentWord.WriteRune(r)
+			escapeNext = false
+			continue
+		}
+
+		switch r {
+		case '\\':
+			escapeNext = true
+		case '\'':
+			if inDoubleQuote {
+				currentWord.WriteRune(r)
+			} else {
+				inSingleQuote = !inSingleQuote
+			}
+		case '"':
+			if inSingleQuote {
+				currentWord.WriteRune(r)
+			} else {
+				inDoubleQuote = !inDoubleQuote
+			}
+		case ' ', '\t':
+			if inSingleQuote || inDoubleQuote {
+				currentWord.WriteRune(r)
+			} else {
+				if currentWord.Len() > 0 {
+					words = append(words, currentWord.String())
+					currentWord.Reset()
+				}
+			}
+		default:
+			currentWord.WriteRune(r)
+		}
+	}
+
+	// Add the last word
+	if currentWord.Len() > 0 {
+		words = append(words, currentWord.String())
+	}
+
+	if escapeNext {
+		return "", nil, fmt.Errorf("unterminated escape sequence")
+	}
+	if inSingleQuote {
+		return "", nil, fmt.Errorf("unterminated single quote")
+	}
+	if inDoubleQuote {
+		return "", nil, fmt.Errorf("unterminated double quote")
+	}
+
+	if len(words) == 0 {
+		return "", nil, fmt.Errorf("no command found")
+	}
+
+	return words[0], words[1:], nil
 }

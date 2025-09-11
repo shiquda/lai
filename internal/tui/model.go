@@ -449,7 +449,7 @@ func (m *ConfigModel) renderFieldEdit() string {
 			panelContentWidth = 20
 		}
 		// inputFocusedStyle has border + Padding(0,1) => theoretical extra width = 2(border)+2(padding)=4
-		// 但实际渲染中还会多出 1 列（标题/前置样式或 runewidth 差异），因此再减 1 做补偿
+		// But actual rendering adds 1 extra column (due to title/prefix styles or runewidth differences), so subtract 1 more for compensation
 		inputInnerWidth := panelContentWidth - 5
 		if inputInnerWidth < 10 {
 			inputInnerWidth = 10
@@ -461,7 +461,7 @@ func (m *ConfigModel) renderFieldEdit() string {
 			m.textInput.EchoMode = textinput.EchoNormal
 		}
 		inputField = inputFocusedStyle.Render(m.textInput.View())
-		// 如果仍然溢出（宽度超过 panelContentWidth），递减直到适配
+		// If still overflow (width exceeds panelContentWidth), decrement until it fits
 		for lipgloss.Width(inputField) > panelContentWidth && m.textInput.Width > 5 {
 			m.textInput.Width--
 			inputField = inputFocusedStyle.Render(m.textInput.View())

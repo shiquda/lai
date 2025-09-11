@@ -35,5 +35,7 @@ func Execute() {
 }
 
 func init() {
-
+	// Register new commands
+	rootCmd.AddCommand(NewFileCommand())
+	rootCmd.AddCommand(NewExecCommand())
 }

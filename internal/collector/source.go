@@ -2,7 +2,6 @@ package collector
 
 import (
 	"bufio"
-	"fmt"
 	"os"
 )
 
@@ -131,59 +130,3 @@ func (f *FileSource) Stop() {
 	// File source doesn't need explicit stop
 }
 
-// CommandSource represents a command-based monitoring source
-type CommandSource struct {
-	command       string
-	args          []string
-	workingDir    string
-	lastLineCount int
-}
-
-func NewCommandSource(command string, args []string, workingDir string) *CommandSource {
-	return &CommandSource{
-		command:       command,
-		args:          args,
-		workingDir:    workingDir,
-		lastLineCount: 0,
-	}
-}
-
-func (c *CommandSource) GetType() MonitorType {
-	return MonitorTypeCommand
-}
-
-func (c *CommandSource) GetIdentifier() string {
-	return fmt.Sprintf("%s %v", c.command, c.args)
-}
-
-func (c *CommandSource) GetContent() (string, error) {
-	// This will be implemented with command execution
-	return "", fmt.Errorf("not implemented")
-}
-
-func (c *CommandSource) GetLineCount() (int, error) {
-	// This will be implemented with command execution
-	return 0, fmt.Errorf("not implemented")
-}
-
-func (c *CommandSource) ReadNewLines(fromLine, toLine int) (string, error) {
-	// This will be implemented with command execution
-	return "", fmt.Errorf("not implemented")
-}
-
-func (c *CommandSource) GetLastPosition() int64 {
-	return int64(c.lastLineCount)
-}
-
-func (c *CommandSource) SetLastPosition(pos int64) {
-	c.lastLineCount = int(pos)
-}
-
-func (c *CommandSource) Start() error {
-	// Command source doesn't need explicit start
-	return nil
-}
-
-func (c *CommandSource) Stop() {
-	// Command source doesn't need explicit stop
-}
