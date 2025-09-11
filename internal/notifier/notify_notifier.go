@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -123,6 +124,9 @@ func (nn *NotifyNotifier) setupTelegramService(serviceConfig config.ServiceConfi
 	if err != nil {
 		return fmt.Errorf("failed to create telegram service: %w", err)
 	}
+
+	// Set parse mode to Markdown to enable formatting
+	telegramService.SetParseMode(telegram.ModeMarkdown)
 
 	// Parse and add receivers (supports multiple chat_ids)
 	chatIDs := strings.Split(chatIDStr, ",")
@@ -484,34 +488,76 @@ func (nn *NotifyNotifier) SendLogSummary(ctx context.Context, filePath, summary 
 		return fmt.Errorf("no notification channels enabled")
 	}
 
-	// Convert summary to HTML format for better compatibility
-	// This works for both Telegram (HTML mode) and email
-	htmlSummary := nn.convertToHTML(summary)
-
-	message := nn.formatMessage("log_summary", map[string]interface{}{
-		"filePath": filePath,
-		"summary":  htmlSummary,
-		"time":     getCurrentTimeNotify(),
-	})
+	var errors []error
 
 	// Special handling for email service since it's not using the notify library
 	if nn.enabledServices["email"] {
 		serviceConfig, exists := nn.serviceConfigs["email"]
 		if !exists {
-			return fmt.Errorf("email service configuration not found")
+			errors = append(errors, fmt.Errorf("email service configuration not found"))
+		} else {
+			// Create email notifier for sending
+			emailNotifier, err := nn.createEmailNotifier(serviceConfig)
+			if err != nil {
+				errors = append(errors, fmt.Errorf("failed to create email notifier: %w", err))
+			} else {
+				// Use the original EmailNotifier's SendLogSummary method for proper HTML rendering
+				if err := emailNotifier.SendLogSummary(filePath, summary); err != nil {
+					errors = append(errors, fmt.Errorf("failed to send email notification: %w", err))
+				}
+			}
 		}
-
-		// Create email notifier for sending
-		emailNotifier, err := nn.createEmailNotifier(serviceConfig)
-		if err != nil {
-			return fmt.Errorf("failed to create email notifier: %w", err)
-		}
-
-		// Use the original EmailNotifier's SendLogSummary method for proper HTML rendering
-		return emailNotifier.SendLogSummary(filePath, summary)
 	}
 
-	return nn.notifyClient.Send(ctx, "🚨 Log Summary Notification", message)
+	// Handle notify library services
+	// Check if we have any services that use the notify library
+	hasNotifyServices := false
+	for service := range nn.enabledServices {
+		if service != "email" {
+			hasNotifyServices = true
+			break
+		}
+	}
+
+	if hasNotifyServices {
+		var message string
+		
+		// Choose format based on enabled services
+		if nn.enabledServices["telegram"] {
+			// If Telegram is enabled, use Telegram-friendly format for all notify services
+			// This ensures consistency across platforms
+			telegramSummary := nn.convertToTelegramMarkdown(summary)
+			message = nn.formatMessage("log_summary", map[string]interface{}{
+				"filePath": filePath,
+				"summary":  telegramSummary,
+				"time":     getCurrentTimeNotify(),
+			})
+		} else {
+			// For other services without Telegram, use HTML format
+			htmlSummary := ConvertMarkdownToHTML(summary)
+			message = nn.formatMessage("log_summary", map[string]interface{}{
+				"filePath": filePath,
+				"summary":  htmlSummary,
+				"time":     getCurrentTimeNotify(),
+			})
+		}
+
+		// Send to all notify library services
+		if err := nn.notifyClient.Send(ctx, "🚨 Log Summary Notification", message); err != nil {
+			errors = append(errors, fmt.Errorf("failed to send notify library notification: %w", err))
+		}
+	}
+
+	// Return combined errors if any
+	if len(errors) > 0 {
+		var errorMessages []string
+		for _, err := range errors {
+			errorMessages = append(errorMessages, err.Error())
+		}
+		return fmt.Errorf("notification errors: %s", strings.Join(errorMessages, "; "))
+	}
+
+	return nil
 }
 
 // SendMessage sends a plain message
@@ -750,11 +796,109 @@ func (nn *NotifyNotifier) formatMessage(msgType string, data map[string]interfac
 	}
 }
 
-// convertToHTML converts markdown text to HTML for better display in Telegram and email
-// This reuses the existing email converter for consistency
+// convertToHTML converts markdown text to appropriate format for different platforms
+// Uses Telegram-native markdown for Telegram and full HTML for email
 func (nn *NotifyNotifier) convertToHTML(text string) string {
-	// Use the existing ConvertMarkdownToHTML function from email package
+	// For Telegram, use Telegram-native markdown format
+	if nn.enabledServices["telegram"] {
+		return nn.convertToTelegramMarkdown(text)
+	}
+	
+	// For email, use the full HTML converter
 	return ConvertMarkdownToHTML(text)
+}
+
+// convertToTelegramMarkdown converts markdown to Telegram-compatible Markdown format
+// Uses traditional Telegram Markdown (not MarkdownV2) format
+func (nn *NotifyNotifier) convertToTelegramMarkdown(text string) string {
+	// First escape special characters that need escaping in Telegram Markdown
+	text = nn.escapeTelegramMarkdown(text)
+	
+	// Process line by line to handle different elements
+	lines := strings.Split(text, "\n")
+	var result strings.Builder
+	
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		
+		// Process conversions in order
+		
+		// Convert markdown headings to bold text
+		if regexp.MustCompile(`^#{1,6}\s+`).MatchString(line) {
+			// Extract heading content and make it bold
+			headingContent := regexp.MustCompile(`^#{1,6}\s+(.*)$`).ReplaceAllString(line, "$1")
+			line = "*" + headingContent + "*"
+		} else {
+			// Convert **bold** to *bold* (standard markdown bold to Telegram bold)
+			// Only if this is not already a heading line
+			line = regexp.MustCompile(`\*\*(.*?)\*\*`).ReplaceAllString(line, "*$1*")
+		}
+		
+		// Convert markdown lists to bullet points
+		line = regexp.MustCompile(`^[\*\-\+]\s+(.*)$`).ReplaceAllString(line, "• $1")
+		
+		// Handle code blocks - convert ``` blocks to ` for Telegram
+		// First handle multi-line code blocks (already processed above)
+		if strings.Contains(line, "```") {
+			// Simple replacement for inline code blocks that might span lines
+			line = strings.ReplaceAll(line, "```", "`")
+		}
+		
+		// Add line to result
+		if result.Len() > 0 {
+			result.WriteString("\n")
+		}
+		result.WriteString(line)
+	}
+	
+	return result.String()
+}
+
+// escapeTelegramMarkdown escapes special characters for Telegram Markdown
+// In traditional Telegram Markdown, we need to escape: _ * [ `
+func (nn *NotifyNotifier) escapeTelegramMarkdown(text string) string {
+	// First handle multi-line code blocks before escaping
+	text = regexp.MustCompile("(?s)```([\\s\\S]*?)```").ReplaceAllString(text, "`$1`")
+	
+	// For traditional Telegram Markdown, we need to be careful with escaping
+	// We'll escape characters that might interfere, but preserve intended formatting
+	
+	// Create a map to track positions that should not be escaped
+	// This is a simplified approach - in production you might want more sophisticated parsing
+	
+	// Escape underscore characters that are not part of intended italic formatting
+	// For now, we'll be conservative and only escape underscores that appear to be in code or URLs
+	text = regexp.MustCompile(`_([^*\s][^*]*?)_`).ReplaceAllString(text, "_$1_")  // Keep italic underscores
+	
+	// Escape square brackets that are not part of links
+	linkPattern := regexp.MustCompile(`\[([^\]]+)\]\([^)]+\)`)
+	links := linkPattern.FindAllString(text, -1)
+	
+	// Temporarily replace links to protect them
+	placeholders := make(map[string]string)
+	for i, link := range links {
+		placeholder := fmt.Sprintf("__LINK_PLACEHOLDER_%d__", i)
+		placeholders[placeholder] = link
+		text = strings.Replace(text, link, placeholder, 1)
+	}
+	
+	// Now escape problematic brackets
+	text = strings.ReplaceAll(text, "[", "\\[")
+	text = strings.ReplaceAll(text, "]", "\\]")
+	
+	// Restore links
+	for placeholder, link := range placeholders {
+		text = strings.Replace(text, placeholder, link, 1)
+	}
+	
+	// Escape backticks that are not part of code blocks
+	// This is tricky - we'll preserve single backticks for code
+	// but escape others that might interfere
+	
+	return text
 }
 
 // getCurrentTimeNotify gets current time (notify_notifier specific)
