@@ -112,7 +112,7 @@ func (e *EmailNotifier) SendMessage(message string) error {
 //   - Error if template rendering or email sending fails
 func (e *EmailNotifier) SendLogSummary(filePath, summary string) error {
 	// Convert Markdown to HTML for better email rendering
-	htmlSummary := convertMarkdownToHTML(summary)
+	htmlSummary := ConvertMarkdownToHTML(summary)
 	return e.sendLogSummaryWithHTML(filePath, htmlSummary)
 }
 
@@ -182,7 +182,9 @@ func (e *EmailNotifier) renderEmailTemplate(templateStr string, data TemplateDat
 //
 // Returns:
 //   - Safe HTML string
-func convertMarkdownToHTML(markdown string) string {
+// ConvertMarkdownToHTML converts markdown text to HTML for better display
+// This function is exported for use by other notifiers (e.g., Telegram)
+func ConvertMarkdownToHTML(markdown string) string {
 	// Convert Markdown to HTML with extensions for better formatting
 	unsafeHTML := blackfriday.Run([]byte(markdown), blackfriday.WithExtensions(
 		blackfriday.CommonExtensions|blackfriday.AutoHeadingIDs|blackfriday.Tables|blackfriday.FencedCode,
@@ -210,17 +212,6 @@ func convertMarkdownToHTML(markdown string) string {
 	return string(safeHTML)
 }
 
-// ConvertMarkdownToHTML is a public wrapper for convertMarkdownToHTML.
-// This allows external testing and reuse of the conversion functionality.
-//
-// Parameters:
-//   - markdown: Markdown formatted text
-//
-// Returns:
-//   - Safe HTML string
-func ConvertMarkdownToHTML(markdown string) string {
-	return convertMarkdownToHTML(markdown)
-}
 
 // Note: The following TODO methods were considered but implemented using the common template system:
 // - buildEmailMessage: Handled by gomail.Message construction

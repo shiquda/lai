@@ -484,9 +484,13 @@ func (nn *NotifyNotifier) SendLogSummary(ctx context.Context, filePath, summary 
 		return fmt.Errorf("no notification channels enabled")
 	}
 
+	// Convert summary to HTML format for better compatibility
+	// This works for both Telegram (HTML mode) and email
+	htmlSummary := nn.convertToHTML(summary)
+
 	message := nn.formatMessage("log_summary", map[string]interface{}{
 		"filePath": filePath,
-		"summary":  summary,
+		"summary":  htmlSummary,
 		"time":     getCurrentTimeNotify(),
 	})
 
@@ -744,6 +748,13 @@ func (nn *NotifyNotifier) formatMessage(msgType string, data map[string]interfac
 		return fmt.Sprintf("📢 *Notification*\n\n⏰ *Time:* %s\n\n📝 *Message:*\n%s",
 			data["time"], data["message"])
 	}
+}
+
+// convertToHTML converts markdown text to HTML for better display in Telegram and email
+// This reuses the existing email converter for consistency
+func (nn *NotifyNotifier) convertToHTML(text string) string {
+	// Use the existing ConvertMarkdownToHTML function from email package
+	return ConvertMarkdownToHTML(text)
 }
 
 // getCurrentTimeNotify gets current time (notify_notifier specific)
