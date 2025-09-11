@@ -278,6 +278,7 @@ func GetDefaultGlobalConfig() *GlobalConfig {
 }
 
 // applyGlobalDefaults applies global default values
+// Only applies defaults for fields that are truly missing/empty
 func applyGlobalDefaults(config *GlobalConfig) {
 	if config.Notifications.OpenAI.BaseURL == "" {
 		config.Notifications.OpenAI.BaseURL = "https://api.openai.com/v1"
@@ -294,13 +295,10 @@ func applyGlobalDefaults(config *GlobalConfig) {
 	if config.Defaults.Language == "" {
 		config.Defaults.Language = "English"
 	}
-	// Set FinalSummary to true by default
-	// Since boolean false is the zero-value, we need to check if config was loaded from file
-	// If no explicit setting exists, apply the default
-	if !config.Defaults.FinalSummary {
-		config.Defaults.FinalSummary = true
-	}
-
+	
+	// Note: We no longer force FinalSummary to true here
+	// The migration logic should handle this properly
+	
 	// Apply logging defaults
 	if config.Logging.Level == "" {
 		config.Logging.Level = "info"
@@ -401,14 +399,20 @@ func needsMigration(config *GlobalConfig, rawConfig map[string]interface{}) bool
 		return true
 	}
 
-	// If current config version is dev, always migrate
+	// Handle dev versions more intelligently
+	// Only migrate if default version is not dev and is actually different
 	if config.Version == "dev" {
+		// If default version is also dev, no migration needed
+		if defaultConfig.Version == "dev" {
+			return false
+		}
+		// If default version is a real version, migrate from dev to real version
 		return true
 	}
 
-	// If default config version is dev, always migrate
+	// If default config version is dev, but current is real version, no migration needed
 	if defaultConfig.Version == "dev" {
-		return true
+		return false
 	}
 
 	// If current config version is less than default config version, migrate
@@ -442,9 +446,16 @@ func migrateConfigSilently(config *GlobalConfig, rawConfig map[string]interface{
 	return nil
 }
 
+// MergeConfigsWithReflection merges two configurations using reflection
+// Exported version for testing and external use
+func MergeConfigsWithReflection(existing, defaults *GlobalConfig) *GlobalConfig {
+	return mergeConfigsWithReflection(existing, defaults)
+}
+
 // mergeConfigsWithReflection merges two configurations using reflection
+// Now uses existing config as base and only merges missing default fields
 func mergeConfigsWithReflection(existing, defaults *GlobalConfig) *GlobalConfig {
-	merged := *defaults
+	merged := *existing // Start with existing config as base
 
 	// Use reflection to iterate through all fields
 	existingValue := reflect.ValueOf(existing).Elem()
@@ -456,66 +467,93 @@ func mergeConfigsWithReflection(existing, defaults *GlobalConfig) *GlobalConfig 
 		defaultsField := defaultsValue.Field(i)
 		mergedField := mergedValue.Field(i)
 
-		// Skip version field - always use default version
+		// Always update version to default version
 		if i == 0 { // Version is the first field
+			mergedField.SetString(defaultsField.String())
 			continue
 		}
 
 		// For each field, merge based on type
-		mergeField(existingField, defaultsField, mergedField)
+		mergeFieldPreserveExisting(existingField, defaultsField, mergedField)
 	}
 
 	return &merged
 }
 
-// mergeField recursively merges field values
-func mergeField(existing, defaults, merged reflect.Value) {
+// mergeFieldPreserveExisting merges field values preserving existing configuration
+// Only fills in missing fields from defaults
+func mergeFieldPreserveExisting(existing, defaults, merged reflect.Value) {
 	switch existing.Kind() {
 	case reflect.Struct:
 		// Recursively merge struct fields
 		for i := 0; i < existing.NumField(); i++ {
-			mergeField(existing.Field(i), defaults.Field(i), merged.Field(i))
+			mergeFieldPreserveExisting(existing.Field(i), defaults.Field(i), merged.Field(i))
 		}
 	case reflect.String:
-		if existing.String() != "" {
-			merged.SetString(existing.String())
-		} else {
+		// Only use default if existing is empty
+		if existing.String() == "" {
 			merged.SetString(defaults.String())
 		}
+		// Otherwise keep existing value (already set in merged)
 	case reflect.Int, reflect.Int64:
-		if existing.Int() != 0 {
-			merged.SetInt(existing.Int())
-		} else {
+		// Only use default if existing is 0
+		if existing.Int() == 0 {
 			merged.SetInt(defaults.Int())
 		}
+		// Otherwise keep existing value (already set in merged)
 	case reflect.Bool:
-		// For bool, we need to check if it was explicitly set
-		// This is tricky because false is a valid value
-		// We'll use the existing value if it's different from the default
-		if existing.Bool() != defaults.Bool() {
-			merged.SetBool(existing.Bool())
-		} else {
-			merged.SetBool(defaults.Bool())
-		}
+		// For bool, the existing value should always be preserved
+		// because false is a valid value that users might explicitly set
+		// The merged value already contains the existing value, so we don't need to do anything
+		// Only if we want to implement special logic for certain boolean fields, we should handle them individually
 	case reflect.Slice:
-		if existing.Len() > 0 {
-			merged.Set(existing)
-		} else {
+		// Only use default if existing is empty
+		if existing.Len() == 0 {
 			merged.Set(defaults)
 		}
+		// Otherwise keep existing value (already set in merged)
 	case reflect.Ptr:
-		if !existing.IsNil() {
-			merged.Set(existing)
-		} else {
+		// Only use default if existing is nil
+		if existing.IsNil() {
 			merged.Set(defaults)
+		}
+		// Otherwise keep existing value (already set in merged)
+	case reflect.Map:
+		// Handle map merging specially
+		if existing.IsNil() || existing.Len() == 0 {
+			// If existing map is empty, use default map
+			merged.Set(defaults)
+		} else {
+			// If existing map has values, keep it but merge missing keys from defaults
+			if defaults.Len() > 0 {
+				// Create a new map that combines existing and defaults
+				mergedMap := reflect.MakeMap(existing.Type())
+				
+				// Copy all existing values
+				iter := existing.MapRange()
+				for iter.Next() {
+					mergedMap.SetMapIndex(iter.Key(), iter.Value())
+				}
+				
+				// Add default values for keys not in existing
+				iter = defaults.MapRange()
+				for iter.Next() {
+					key := iter.Key()
+					if !existing.MapIndex(key).IsValid() {
+						mergedMap.SetMapIndex(key, iter.Value())
+					}
+				}
+				
+				merged.Set(mergedMap)
+			}
+			// Otherwise keep existing value (already set in merged)
 		}
 	default:
-		// For other types, use existing if not zero, otherwise use default
-		if !existing.IsZero() {
-			merged.Set(existing)
-		} else {
+		// For other types, only use default if existing is zero
+		if existing.IsZero() {
 			merged.Set(defaults)
 		}
+		// Otherwise keep existing value (already set in merged)
 	}
 }
 
