@@ -105,15 +105,15 @@ type TestResult struct {
 
 // TestStatus represents the overall test status
 type TestStatus struct {
-	TotalServices   int
-	SuccessCount    int
-	FailureCount    int
-	SkippedCount    int
-	TestMode        string
-	TestResults     []TestResult
-	Configuration   *config.Config
-	StartTime       time.Time
-	EndTime         time.Time
+	TotalServices int
+	SuccessCount  int
+	FailureCount  int
+	SkippedCount  int
+	TestMode      string
+	TestResults   []TestResult
+	Configuration *config.Config
+	StartTime     time.Time
+	EndTime       time.Time
 }
 
 func runTestNotifications(enabledNotifiers []string, customMessage string, verbose, connectionOnly, diagnostic, validateOnly bool) error {
@@ -149,7 +149,7 @@ func runTestNotifications(enabledNotifiers []string, customMessage string, verbo
 		return fmt.Errorf("no notification channels configured")
 	}
 
-// Validate and prepare the list of notifiers to test
+	// Validate and prepare the list of notifiers to test
 	testChannels, err := prepareNotifiersToTest(enabledNotifiers, enabledChannels, unifiedNotifier)
 	if err != nil {
 		return fmt.Errorf("failed to prepare notifiers for testing: %w", err)
@@ -167,7 +167,7 @@ func runTestNotifications(enabledNotifiers []string, customMessage string, verbo
 		for _, channel := range enabledChannels {
 			logger.Printf("  - %s\n", channel)
 		}
-		
+
 		if len(enabledNotifiers) > 0 {
 			logger.Printf("Testing specified notifiers: %v\n", enabledNotifiers)
 		}
@@ -180,7 +180,7 @@ func runTestNotifications(enabledNotifiers []string, customMessage string, verbo
 		testMessage = getDefaultTestMessage()
 	}
 
-// Validate configuration if requested
+	// Validate configuration if requested
 	if validateOnly {
 		return validateOnlyTest(cfg, testChannels, status)
 	}
@@ -225,14 +225,13 @@ func getTestMode(connectionOnly, diagnostic, validateOnly bool) string {
 	}
 }
 
-
 // showConfigurationOverview displays configuration information
 func showConfigurationOverview(cfg *config.Config, testChannels []string, testMode string) {
 	logger.Println("📋 Configuration Overview")
 	logger.Println("=====================================")
 	logger.Printf("Test Mode: %s\n", testMode)
 	logger.Printf("Services to Test: %d\n", len(testChannels))
-	
+
 	// Show each service configuration
 	for _, serviceName := range testChannels {
 		serviceConfig, exists := cfg.Notifications.Providers[serviceName]
@@ -245,38 +244,38 @@ func showConfigurationOverview(cfg *config.Config, testChannels []string, testMo
 		if !serviceConfig.Enabled {
 			status = "⚠️"
 		}
-		
+
 		logger.Printf("%s %s: %s\n", status, serviceName, getProviderDescription(serviceConfig.Provider))
-		
+
 		// Show configuration details for enabled services
 		if serviceConfig.Enabled {
 			showServiceConfigurationDetails(serviceName, serviceConfig)
 		}
 	}
-	
+
 	logger.Println()
 }
 
 // getProviderDescription returns a human-readable description of the provider
 func getProviderDescription(provider string) string {
 	descriptions := map[string]string{
-		"telegram": "Telegram Bot",
-		"slack": "Slack",
-		"slack_webhook": "Slack Webhook",
-		"discord": "Discord",
+		"telegram":        "Telegram Bot",
+		"slack":           "Slack",
+		"slack_webhook":   "Slack Webhook",
+		"discord":         "Discord",
 		"discord_webhook": "Discord Webhook",
-		"email": "Email",
-		"smtp": "SMTP Email",
-		"gmail": "Gmail",
-		"sendgrid": "SendGrid",
-		"mailgun": "Mailgun",
-		"pushover": "Pushover",
-		"twilio": "Twilio SMS",
-		"pagerduty": "PagerDuty",
-		"dingtalk": "DingTalk",
-		"wechat": "WeChat",
+		"email":           "Email",
+		"smtp":            "SMTP Email",
+		"gmail":           "Gmail",
+		"sendgrid":        "SendGrid",
+		"mailgun":         "Mailgun",
+		"pushover":        "Pushover",
+		"twilio":          "Twilio SMS",
+		"pagerduty":       "PagerDuty",
+		"dingtalk":        "DingTalk",
+		"wechat":          "WeChat",
 	}
-	
+
 	if desc, exists := descriptions[provider]; exists {
 		return desc
 	}
@@ -287,11 +286,11 @@ func getProviderDescription(provider string) string {
 func showServiceConfigurationDetails(serviceName string, serviceConfig config.ServiceConfig) {
 	logger.Printf("   Status: %s\n", map[bool]string{true: "Enabled", false: "Disabled"}[serviceConfig.Enabled])
 	logger.Printf("   Provider: %s\n", serviceConfig.Provider)
-	
+
 	// Show required configuration keys
 	requiredKeys := getRequiredConfigKeys(serviceConfig.Provider)
 	var missingKeys []string
-	
+
 	for _, key := range requiredKeys {
 		value, exists := serviceConfig.Config[key]
 		if !exists || value == "" {
@@ -302,7 +301,7 @@ func showServiceConfigurationDetails(serviceName string, serviceConfig config.Se
 			logger.Printf("   %s: %s\n", key, maskedValue)
 		}
 	}
-	
+
 	if len(missingKeys) > 0 {
 		logger.Printf("   ⚠️  Missing required keys: %s\n", strings.Join(missingKeys, ", "))
 	}
@@ -345,7 +344,7 @@ func getRequiredConfigKeys(provider string) []string {
 // maskSensitiveValue masks sensitive configuration values
 func maskSensitiveValue(key string, value interface{}) string {
 	sensitiveKeys := []string{"token", "password", "api_key", "secret", "auth_token", "bot_token"}
-	
+
 	for _, sensitiveKey := range sensitiveKeys {
 		if strings.Contains(strings.ToLower(key), sensitiveKey) {
 			if str, ok := value.(string); ok && len(str) > 4 {
@@ -354,7 +353,7 @@ func maskSensitiveValue(key string, value interface{}) string {
 			return "****"
 		}
 	}
-	
+
 	return fmt.Sprintf("%v", value)
 }
 
@@ -362,32 +361,32 @@ func maskSensitiveValue(key string, value interface{}) string {
 func validateOnlyTest(cfg *config.Config, testChannels []string, status *TestStatus) error {
 	logger.Println("🔍 Configuration Validation")
 	logger.Println("=====================================")
-	
+
 	var validationErrors []string
-	
+
 	for _, serviceName := range testChannels {
 		serviceConfig, exists := cfg.Notifications.Providers[serviceName]
 		if !exists {
 			validationErrors = append(validationErrors, fmt.Sprintf("%s: configuration not found", serviceName))
 			continue
 		}
-		
+
 		// Validate service configuration
 		if err := validateServiceConfiguration(serviceName, serviceConfig); err != nil {
 			validationErrors = append(validationErrors, fmt.Sprintf("%s: %v", serviceName, err))
 		}
 	}
-	
+
 	if len(validationErrors) == 0 {
 		logger.Println("✅ All service configurations are valid")
 		return nil
 	}
-	
+
 	logger.Println("❌ Configuration validation failed:")
 	for _, err := range validationErrors {
 		logger.Printf("  - %s\n", err)
 	}
-	
+
 	return fmt.Errorf("configuration validation failed for %d service(s)", len(validationErrors))
 }
 
@@ -396,21 +395,21 @@ func validateServiceConfiguration(serviceName string, serviceConfig config.Servi
 	if !serviceConfig.Enabled {
 		return fmt.Errorf("service is disabled")
 	}
-	
+
 	requiredKeys := getRequiredConfigKeys(serviceConfig.Provider)
 	var missingKeys []string
-	
+
 	for _, key := range requiredKeys {
 		value, exists := serviceConfig.Config[key]
 		if !exists || value == "" {
 			missingKeys = append(missingKeys, key)
 		}
 	}
-	
+
 	if len(missingKeys) > 0 {
 		return fmt.Errorf("missing required configuration keys: %s", strings.Join(missingKeys, ", "))
 	}
-	
+
 	return nil
 }
 
@@ -461,7 +460,7 @@ func testSingleServiceEnhanced(unifiedNotifier notifier.UnifiedNotifier, service
 		result.Status = "failed"
 		result.Error = err
 		result.Details = fmt.Sprintf("Test failed after %v: %v", duration, err)
-		
+
 		if diagnostic {
 			logger.Printf("❌ %s service test failed\n", serviceName)
 			logger.Printf("   Duration: %v\n", duration)
@@ -473,7 +472,7 @@ func testSingleServiceEnhanced(unifiedNotifier notifier.UnifiedNotifier, service
 	} else {
 		result.Status = "success"
 		result.Details = fmt.Sprintf("Test completed successfully in %v", duration)
-		
+
 		if diagnostic {
 			logger.Printf("✅ %s service test succeeded\n", serviceName)
 			logger.Printf("   Duration: %v\n", duration)
@@ -498,12 +497,12 @@ func testConnectionOnly(unifiedNotifier notifier.UnifiedNotifier, serviceName st
 	}
 
 	// For connection testing, we'll validate the configuration
-	// This is a simplified approach - in a real implementation, 
+	// This is a simplified approach - in a real implementation,
 	// you might want to add actual connection testing logic
 	if unifiedNotifier.IsServiceEnabled(serviceName) {
 		result.Status = "success"
 		result.Details = "Connection test passed (configuration valid)"
-		
+
 		if diagnostic {
 			logger.Printf("✅ %s service connection test passed\n", serviceName)
 			logger.Printf("   Configuration validation: OK\n")
@@ -513,7 +512,7 @@ func testConnectionOnly(unifiedNotifier notifier.UnifiedNotifier, serviceName st
 	} else {
 		result.Status = "failed"
 		result.Details = "Service is disabled or configuration invalid"
-		
+
 		if diagnostic {
 			logger.Printf("❌ %s service connection test failed\n", serviceName)
 			logger.Printf("   Reason: Service disabled or invalid configuration\n")
@@ -547,7 +546,7 @@ func showTestProgress(result TestResult, current, total int, verbose, diagnostic
 // showTestSummary displays a comprehensive test summary
 func showTestSummary(status *TestStatus) {
 	duration := status.EndTime.Sub(status.StartTime)
-	
+
 	logger.Println("=====================================")
 	logger.Println("📊 Test Summary")
 	logger.Println("=====================================")
@@ -581,9 +580,9 @@ func showTestSummary(status *TestStatus) {
 // showTroubleshootingTips shows specific troubleshooting tips for common errors
 func showTroubleshootingTips(serviceName string, err error) {
 	errorMsg := err.Error()
-	
+
 	logger.Println("   💡 Troubleshooting Tips:")
-	
+
 	switch {
 	case strings.Contains(errorMsg, "not found"):
 		logger.Printf("   - Service '%s' might not be configured properly\n", serviceName)
@@ -608,19 +607,19 @@ func showTroubleshootingTips(serviceName string, err error) {
 func listAvailableNotifiers() error {
 	logger.Println("📋 Available Notification Channels")
 	logger.Println("=====================================")
-	
+
 	// Load configuration to show what's actually configured
 	cfg, err := config.BuildRuntimeConfig("", nil, nil, nil)
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
-	
+
 	if len(cfg.Notifications.Providers) == 0 {
 		logger.Println("No notification channels configured.")
 		logger.Println("Use 'lai config set' to configure notification channels.")
 		return nil
 	}
-	
+
 	// Group providers by type
 	groupedProviders := make(map[string][]string)
 	for name := range cfg.Notifications.Providers {
@@ -634,10 +633,10 @@ func listAvailableNotifiers() error {
 		} else if strings.Contains(name, "pushover") || strings.Contains(name, "twilio") {
 			group = "SMS/Push"
 		}
-		
+
 		groupedProviders[group] = append(groupedProviders[group], name)
 	}
-	
+
 	// Display grouped providers
 	for group, providers := range groupedProviders {
 		logger.Printf("%s:\n", group)
@@ -651,11 +650,11 @@ func listAvailableNotifiers() error {
 		}
 		logger.Println()
 	}
-	
+
 	logger.Println("To test specific channels:")
 	logger.Println("  lai test --notifiers telegram,email")
 	logger.Println("  lai test --notifiers slack --diagnostic")
-	
+
 	return nil
 }
 
@@ -681,7 +680,7 @@ func prepareNotifiersToTest(userNotifiers []string, enabledChannels []string, un
 		// Validate user-specified notifiers and collect valid ones in original case
 		var validNotifiers []string
 		var invalidNotifiers []string
-		
+
 		for _, notifier := range userNotifiers {
 			lowerNotifier := strings.ToLower(notifier)
 			if originalCase, exists := enabledChannelsMap[lowerNotifier]; exists {

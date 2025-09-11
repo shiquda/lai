@@ -480,22 +480,22 @@ func (nn *NotifyNotifier) GetServiceConfig(serviceName string) (map[string]inter
 	if !exists {
 		return nil, false
 	}
-	
+
 	// Convert ServiceConfig to map[string]interface{}
 	config := make(map[string]interface{})
 	config["enabled"] = serviceConfig.Enabled
 	config["provider"] = serviceConfig.Provider
-	
+
 	// Copy config values
 	for k, v := range serviceConfig.Config {
 		config[k] = v
 	}
-	
+
 	// Copy defaults
 	for k, v := range serviceConfig.Defaults {
 		config[k] = v
 	}
-	
+
 	return config, true
 }
 

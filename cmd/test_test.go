@@ -47,6 +47,15 @@ func (m *MockUnifiedNotifier) GetEnabledChannels() []string {
 	return m.enabledChannels
 }
 
+func (m *MockUnifiedNotifier) IsServiceEnabled(serviceName string) bool {
+	for _, channel := range m.enabledChannels {
+		if channel == serviceName {
+			return true
+		}
+	}
+	return false
+}
+
 func TestRunTestNotifications(t *testing.T) {
 	// Test with successful notifications
 	t.Run("Successful notifications", func(t *testing.T) {
@@ -69,56 +78,56 @@ func TestPrepareNotifiersToTest(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		userNotifiers  []string
+		name            string
+		userNotifiers   []string
 		enabledChannels []string
-		expectedResult []string
-		expectError    bool
-		errorContains  string
+		expectedResult  []string
+		expectError     bool
+		errorContains   string
 	}{
 		{
-			name:           "No user notifiers specified - should return all enabled",
-			userNotifiers:  []string{},
+			name:            "No user notifiers specified - should return all enabled",
+			userNotifiers:   []string{},
 			enabledChannels: []string{"telegram", "email"},
-			expectedResult: []string{"telegram", "email"},
-			expectError:    false,
+			expectedResult:  []string{"telegram", "email"},
+			expectError:     false,
 		},
 		{
-			name:           "Valid user notifiers specified",
-			userNotifiers:  []string{"telegram"},
+			name:            "Valid user notifiers specified",
+			userNotifiers:   []string{"telegram"},
 			enabledChannels: []string{"telegram", "email"},
-			expectedResult: []string{"telegram"},
-			expectError:    false,
+			expectedResult:  []string{"telegram"},
+			expectError:     false,
 		},
 		{
-			name:           "Valid user notifiers with different case",
-			userNotifiers:  []string{"TELEGRAM", "Email"},
+			name:            "Valid user notifiers with different case",
+			userNotifiers:   []string{"TELEGRAM", "Email"},
 			enabledChannels: []string{"telegram", "email"},
-			expectedResult: []string{"telegram", "email"},
-			expectError:    false,
+			expectedResult:  []string{"telegram", "email"},
+			expectError:     false,
 		},
 		{
-			name:           "Invalid user notifiers",
-			userNotifiers:  []string{"invalid", "telegram"},
+			name:            "Invalid user notifiers",
+			userNotifiers:   []string{"invalid", "telegram"},
 			enabledChannels: []string{"telegram", "email"},
-			expectedResult: nil,
-			expectError:    true,
-			errorContains:  "not configured or enabled",
+			expectedResult:  nil,
+			expectError:     true,
+			errorContains:   "not configured or enabled",
 		},
 		{
-			name:           "All invalid user notifiers",
-			userNotifiers:  []string{"invalid1", "invalid2"},
+			name:            "All invalid user notifiers",
+			userNotifiers:   []string{"invalid1", "invalid2"},
 			enabledChannels: []string{"telegram", "email"},
-			expectedResult: nil,
-			expectError:    true,
-			errorContains:  "not configured or enabled",
+			expectedResult:  nil,
+			expectError:     true,
+			errorContains:   "not configured or enabled",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockNotifier.enabledChannels = tt.enabledChannels
-			
+
 			result, err := prepareNotifiersToTest(tt.userNotifiers, tt.enabledChannels, mockNotifier)
 
 			if tt.expectError {
