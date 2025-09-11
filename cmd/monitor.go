@@ -147,7 +147,7 @@ func runUnifiedMonitor(monitorSource collector.MonitorSource, lineThreshold *int
 	}
 
 	// Create unified monitor
-	monitor, err := collector.NewUnifiedMonitor(cfg, enabledNotifiers)
+	monitor, err := collector.NewUnifiedMonitor(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create unified monitor: %w", err)
 	}

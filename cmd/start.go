@@ -26,7 +26,6 @@ var startCmd = &cobra.Command{
 		daemonMode, _ := cmd.Flags().GetBool("daemon")
 		processName, _ := cmd.Flags().GetString("name")
 		errorOnlyMode, _ := cmd.Flags().GetBool("error-only")
-		enabledNotifiers, _ := cmd.Flags().GetStringSlice("notifiers")
 
 		// Parse time interval
 		var checkInterval *time.Duration
@@ -51,11 +50,11 @@ var startCmd = &cobra.Command{
 		}
 
 		if daemonMode {
-			if err := runDaemon(logFile, lineThresholdPtr, checkInterval, processName, errorOnlyModePtr, enabledNotifiers); err != nil {
+			if err := runDaemon(logFile, lineThresholdPtr, checkInterval, processName, errorOnlyModePtr); err != nil {
 				logger.Fatalf("Daemon startup failed: %v", err)
 			}
 		} else {
-			if err := runMonitor(logFile, lineThresholdPtr, checkInterval, errorOnlyModePtr, enabledNotifiers); err != nil {
+			if err := runMonitor(logFile, lineThresholdPtr, checkInterval, errorOnlyModePtr); err != nil {
 				logger.Fatalf("Monitor failed: %v", err)
 			}
 		}
@@ -71,10 +70,9 @@ func init() {
 	startCmd.Flags().BoolP("daemon", "d", false, "Run in daemon mode (background)")
 	startCmd.Flags().StringP("name", "n", "", "Custom process name (used in daemon mode)")
 	startCmd.Flags().BoolP("error-only", "E", false, "Only send notifications for errors and exceptions")
-	startCmd.Flags().StringSlice("notifiers", []string{}, "Enable specific notifiers (comma-separated: telegram,email)")
 }
 
-func runMonitor(logFile string, lineThreshold *int, checkInterval *time.Duration, errorOnlyMode *bool, enabledNotifiers []string) error {
+func runMonitor(logFile string, lineThreshold *int, checkInterval *time.Duration, errorOnlyMode *bool) error {
 	// Create file monitor source
 	monitorSource := collector.NewFileSource(logFile)
 
@@ -90,7 +88,7 @@ func runMonitor(logFile string, lineThreshold *int, checkInterval *time.Duration
 	}
 
 	// Create unified monitor
-	monitor, err := collector.NewUnifiedMonitor(cfg, enabledNotifiers)
+	monitor, err := collector.NewUnifiedMonitor(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create unified monitor: %w", err)
 	}
@@ -99,7 +97,7 @@ func runMonitor(logFile string, lineThreshold *int, checkInterval *time.Duration
 	return monitor.Start()
 }
 
-func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration, processName string, errorOnlyMode *bool, enabledNotifiers []string) error {
+func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration, processName string, errorOnlyMode *bool) error {
 	// Create daemon manager
 	manager, err := daemon.NewManager()
 	if err != nil {
@@ -206,5 +204,5 @@ func runDaemon(logFile string, lineThreshold *int, checkInterval *time.Duration,
 	}()
 
 	// Run the actual monitoring
-	return runMonitor(logFile, lineThreshold, checkInterval, errorOnlyMode, enabledNotifiers)
+	return runMonitor(logFile, lineThreshold, checkInterval, errorOnlyMode)
 }

@@ -44,7 +44,6 @@ type DefaultsConfig struct {
 	FinalSummaryOnly bool          `mapstructure:"final_summary_only" yaml:"final_summary_only"`
 	ErrorOnlyMode    bool          `mapstructure:"error_only_mode" yaml:"error_only_mode"`
 	Language         string        `mapstructure:"language" yaml:"language"`
-	EnabledNotifiers []string      `mapstructure:"enabled_notifiers" yaml:"enabled_notifiers"`
 }
 
 // Config represents the runtime configuration (merged final configuration)
@@ -53,7 +52,6 @@ type Config struct {
 	LineThreshold    int           `mapstructure:"line_threshold" yaml:"line_threshold"`
 	CheckInterval    time.Duration `mapstructure:"check_interval" yaml:"check_interval"`
 	Language         string        `mapstructure:"language" yaml:"language"`
-	EnabledNotifiers []string      `mapstructure:"enabled_notifiers" yaml:"enabled_notifiers"`
 
 	// Command execution parameters (for stream monitoring)
 	Command     string   `mapstructure:"command" yaml:"command"`
@@ -588,7 +586,6 @@ func BuildRuntimeConfig(logFile string, lineThreshold *int, checkInterval *time.
 		CheckInterval:    globalConfig.Defaults.CheckInterval,
 		Language:         globalConfig.Defaults.Language,
 		ErrorOnlyMode:    globalConfig.Defaults.ErrorOnlyMode,
-		EnabledNotifiers: globalConfig.Defaults.EnabledNotifiers,
 		OpenAI:           globalConfig.Notifications.OpenAI,
 		Notifications:    globalConfig.Notifications,
 	}
@@ -628,7 +625,6 @@ func BuildStreamConfig(command string, args []string, lineThreshold *int, checkI
 		LineThreshold:    globalConfig.Defaults.LineThreshold,
 		CheckInterval:    globalConfig.Defaults.CheckInterval,
 		Language:         globalConfig.Defaults.Language,
-		EnabledNotifiers: globalConfig.Defaults.EnabledNotifiers,
 		FinalSummary:     globalConfig.Defaults.FinalSummary,
 		FinalSummaryOnly: globalConfig.Defaults.FinalSummaryOnly,
 		ErrorOnlyMode:    globalConfig.Defaults.ErrorOnlyMode,

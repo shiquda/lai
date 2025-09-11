@@ -158,7 +158,6 @@ defaults:
   final_summary_only: false  # Only send final summary (disable intermediate notifications)
   error_only_mode: false     # Only send notifications for error logs
   language: "English"        # Language for AI responses
-  enabled_notifiers: ["telegram", "email"]  # Default enabled providers
 
 # Logging configuration
 logging:

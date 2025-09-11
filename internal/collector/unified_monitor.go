@@ -18,7 +18,6 @@ type MonitorConfig struct {
 	CheckInterval    time.Duration
 	ChatID           string
 	Language         string
-	EnabledNotifiers []string
 	ErrorOnlyMode    bool
 	FinalSummary     bool
 	FinalSummaryOnly bool
@@ -45,7 +44,6 @@ func BuildMonitorConfig(source MonitorSource, lineThreshold *int, checkInterval 
 		LineThreshold:    globalConfig.Defaults.LineThreshold,
 		CheckInterval:    globalConfig.Defaults.CheckInterval,
 		Language:         globalConfig.Defaults.Language,
-		EnabledNotifiers: globalConfig.Defaults.EnabledNotifiers,
 		FinalSummary:     globalConfig.Defaults.FinalSummary,
 		FinalSummaryOnly: globalConfig.Defaults.FinalSummaryOnly,
 		ErrorOnlyMode:    globalConfig.Defaults.ErrorOnlyMode,
@@ -123,18 +121,17 @@ type UnifiedMonitor struct {
 }
 
 // NewUnifiedMonitor creates a new unified monitor
-func NewUnifiedMonitor(cfg *MonitorConfig, enabledNotifiers []string) (*UnifiedMonitor, error) {
+func NewUnifiedMonitor(cfg *MonitorConfig) (*UnifiedMonitor, error) {
 	// Create OpenAI client
 	openaiClient := summarizer.NewOpenAIClient(cfg.OpenAI.APIKey, cfg.OpenAI.BaseURL, cfg.OpenAI.Model)
 
 	// Create notifiers
 	// Create a temporary config object for notifier creation
 	tempConfig := &config.Config{
-		Notifications:    cfg.Notifications,
-		EnabledNotifiers: cfg.EnabledNotifiers,
+		Notifications: cfg.Notifications,
 	}
 
-	notifiers, err := notifier.CreateNotifiers(tempConfig, enabledNotifiers)
+	notifiers, err := notifier.CreateNotifiers(tempConfig, []string{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create notifiers: %w", err)
 	}
