@@ -194,6 +194,8 @@ func (sc *StreamCollector) runThresholdChecker() {
 	for {
 		select {
 		case <-sc.stopCh:
+			// Before exiting, check if there are any unprocessed lines
+			sc.processRemainingLines(lastProcessedCount)
 			return
 		case <-ticker.C:
 			sc.lineMutex.RLock()
@@ -223,6 +225,32 @@ func (sc *StreamCollector) runThresholdChecker() {
 				lastProcessedCount = currentCount
 			}
 		}
+	}
+}
+
+// processRemainingLines processes any unprocessed lines when stopping
+func (sc *StreamCollector) processRemainingLines(lastProcessedCount int) {
+	sc.lineMutex.RLock()
+	currentCount := sc.lineCount
+	
+	// If there are unprocessed lines and we meet the threshold
+	if currentCount > lastProcessedCount && (currentCount-lastProcessedCount) >= sc.lineThreshold {
+		var newContent strings.Builder
+		for i := lastProcessedCount; i < currentCount && i < len(sc.lines); i++ {
+			newContent.WriteString(sc.lines[i])
+			newContent.WriteString("\n")
+		}
+		contentStr := newContent.String()
+		sc.lineMutex.RUnlock()
+
+		// Call the trigger handler one final time
+		if sc.onTrigger != nil && contentStr != "" {
+			if err := sc.onTrigger(contentStr); err != nil {
+				logger.Errorf("Error in final trigger handler: %v", err)
+			}
+		}
+	} else {
+		sc.lineMutex.RUnlock()
 	}
 }
 

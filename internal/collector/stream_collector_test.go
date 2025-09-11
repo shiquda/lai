@@ -39,8 +39,8 @@ func getSimpleEchoCommand(text string) (string, []string) {
 		// Add a very small delay on Windows using ping for consistency
 		return "cmd", []string{"/c", "echo " + text + " & ping -n 1 127.0.0.1 >nul"}
 	}
-	// Keep it simple on Unix systems - no sleep needed
-	return "sh", []string{"-c", "echo " + text}
+	// Add a small delay on Unix systems too to ensure threshold checker has time to process
+	return "sh", []string{"-c", "echo " + text + " && sleep 0.1"}
 }
 
 func TestNewStreamCollector(t *testing.T) {
