@@ -59,7 +59,7 @@ func cleanSingleProcess(manager *daemon.Manager, processID string) error {
 		return fmt.Errorf("failed to remove process info: %w", err)
 	}
 
-	logger.UserSuccessf("Cleaned up process: %s\n", processID)
+	logger.UserSuccessf("Cleaned up process: %s", processID)
 	return nil
 }
 
@@ -76,7 +76,7 @@ func cleanAllStoppedProcesses(manager *daemon.Manager) error {
 				logger.Errorf("Failed to clean process %s: %v", proc.ID, err)
 				continue
 			}
-			logger.UserSuccessf("Cleaned up process: %s\n", proc.ID)
+			logger.UserSuccessf("Cleaned up process: %s", proc.ID)
 			cleanedCount++
 		}
 	}
@@ -84,7 +84,7 @@ func cleanAllStoppedProcesses(manager *daemon.Manager) error {
 	if cleanedCount == 0 {
 		logger.UserInfo("No stopped processes to clean")
 	} else {
-		logger.UserSuccessf("Cleaned up %d stopped processes\n", cleanedCount)
+		logger.UserSuccessf("Cleaned up %d stopped processes", cleanedCount)
 	}
 
 	return nil

@@ -18,7 +18,7 @@ const (
 
 // UserOutput interface for user-facing output
 type UserOutput interface {
-	// Basic output methods
+	// Basic output methods (with automatic newlines)
 	Info(args ...interface{})
 	Infof(format string, args ...interface{})
 	Success(args ...interface{})
@@ -27,6 +27,8 @@ type UserOutput interface {
 	Warningf(format string, args ...interface{})
 	Error(args ...interface{})
 	Errorf(format string, args ...interface{})
+	// Print methods (without automatic newlines for special cases)
+	Print(args ...interface{})
 	Printf(format string, args ...interface{})
 }
 
@@ -50,9 +52,9 @@ func NewConsoleOutputWithWriter(writer io.Writer) *ConsoleOutput {
 	}
 }
 
-// Info outputs info-level user message
+// Info outputs info-level user message with automatic newline
 func (c *ConsoleOutput) Info(args ...interface{}) {
-	fmt.Fprint(c.writer, args...)
+	fmt.Fprintln(c.writer, args...)
 }
 
 // Infof outputs formatted info-level user message
@@ -60,9 +62,9 @@ func (c *ConsoleOutput) Infof(format string, args ...interface{}) {
 	fmt.Fprintf(c.writer, format, args...)
 }
 
-// Success outputs success-level user message
+// Success outputs success-level user message with automatic newline
 func (c *ConsoleOutput) Success(args ...interface{}) {
-	fmt.Fprint(c.writer, args...)
+	fmt.Fprintln(c.writer, args...)
 }
 
 // Successf outputs formatted success-level user message
@@ -70,9 +72,9 @@ func (c *ConsoleOutput) Successf(format string, args ...interface{}) {
 	fmt.Fprintf(c.writer, format, args...)
 }
 
-// Warning outputs warning-level user message
+// Warning outputs warning-level user message with automatic newline
 func (c *ConsoleOutput) Warning(args ...interface{}) {
-	fmt.Fprint(c.writer, args...)
+	fmt.Fprintln(c.writer, args...)
 }
 
 // Warningf outputs formatted warning-level user message
@@ -80,9 +82,9 @@ func (c *ConsoleOutput) Warningf(format string, args ...interface{}) {
 	fmt.Fprintf(c.writer, format, args...)
 }
 
-// Error outputs error-level user message
+// Error outputs error-level user message with automatic newline
 func (c *ConsoleOutput) Error(args ...interface{}) {
-	fmt.Fprint(c.writer, args...)
+	fmt.Fprintln(c.writer, args...)
 }
 
 // Errorf outputs formatted error-level user message
@@ -90,7 +92,12 @@ func (c *ConsoleOutput) Errorf(format string, args ...interface{}) {
 	fmt.Fprintf(c.writer, format, args...)
 }
 
-// Printf outputs formatted text for special cases like command output
+// Print outputs text without automatic newline for special cases
+func (c *ConsoleOutput) Print(args ...interface{}) {
+	fmt.Fprint(c.writer, args...)
+}
+
+// Printf outputs formatted text without automatic newline for special cases like command output
 func (c *ConsoleOutput) Printf(format string, args ...interface{}) {
 	fmt.Fprintf(c.writer, format, args...)
 }
@@ -149,7 +156,12 @@ func UserErrorf(format string, args ...interface{}) {
 	GetDefaultUserOutput().Errorf(format, args...)
 }
 
-// UserPrintf outputs formatted text for special cases like config listing and command output
+// UserPrint outputs text without automatic newline for special cases
+func UserPrint(args ...interface{}) {
+	GetDefaultUserOutput().Print(args...)
+}
+
+// UserPrintf outputs formatted text without automatic newline for special cases like config listing and command output
 func UserPrintf(format string, args ...interface{}) {
 	GetDefaultUserOutput().Printf(format, args...)
 }

@@ -53,11 +53,11 @@ var configSetCmd = &cobra.Command{
 		value := args[1]
 
 		if err := setConfigValue(key, value); err != nil {
-			logger.UserErrorf("Error setting config: %v\n", err)
+			logger.UserErrorf("Error setting config: %v", err)
 			os.Exit(1)
 		}
 
-		logger.UserSuccessf("Set %s = %s\n", key, value)
+		logger.UserSuccessf("Set %s = %s", key, value)
 	},
 }
 
@@ -75,7 +75,7 @@ var configGetCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		logger.UserInfof("%s = %s\n", key, value)
+		logger.UserInfof("%s = %s", key, value)
 	},
 }
 
@@ -539,15 +539,15 @@ func printSlice(path string, slice []interface{}, depth int) {
 		return
 	}
 
-	logger.UserPrintf("%s:\n", path)
+	logger.UserPrintf("%s:", path)
 	indent := strings.Repeat("  ", depth+1)
 	for i, item := range slice {
 		switch v := item.(type) {
 		case map[string]interface{}:
-			logger.UserPrintf("%s[%d]:\n", indent, i)
+			logger.UserPrintf("%s[%d]:", indent, i)
 			printNestedMap(path, v, depth+2)
 		default:
-			logger.UserPrintf("%s- %v\n", indent, item)
+			logger.UserPrintf("%s- %v", indent, item)
 		}
 	}
 }
@@ -559,10 +559,10 @@ func printStringSlice(path string, slice []string, depth int) {
 		return
 	}
 
-	logger.UserPrintf("%s:\n", path)
+	logger.UserPrintf("%s:", path)
 	indent := strings.Repeat("  ", depth+1)
 	for _, item := range slice {
-		logger.UserPrintf("%s- %s\n", indent, item)
+		logger.UserPrintf("%s- %s", indent, item)
 	}
 }
 
