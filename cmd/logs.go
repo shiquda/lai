@@ -83,7 +83,7 @@ func showLastLines(filePath string, numLines int) error {
 	}
 
 	for i := start; i < len(lines); i++ {
-		logger.Println(lines[i])
+		logger.UserInfo(lines[i])
 	}
 
 	return nil
@@ -95,7 +95,7 @@ func tailFile(filePath string) error {
 		return err
 	}
 
-	logger.Println("==> Following log file (Ctrl+C to stop) <==")
+	logger.UserInfo("==> Following log file (Ctrl+C to stop) <==")
 
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -110,7 +110,7 @@ func tailFile(filePath string) error {
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		logger.Println(scanner.Text())
+		logger.UserInfo(scanner.Text())
 	}
 
 	return scanner.Err()

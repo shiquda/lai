@@ -99,11 +99,11 @@ func resumeProcess(manager *daemon.Manager, processID string) error {
 		logger.Warnf("Warning: failed to update process info: %v", err)
 	}
 
-	logger.Printf("Resumed daemon with process ID: %s (PID: %d)\n", processID, process.Pid)
-	logger.Printf("Log file: %s\n", daemonLogPath)
-	logger.Printf("Use 'lai list' to see running processes\n")
-	logger.Printf("Use 'lai logs %s' to view logs\n", processID)
-	logger.Printf("Use 'lai stop %s' to stop the process\n", processID)
+	logger.UserSuccessf("Resumed daemon with process ID: %s (PID: %d)\n", processID, process.Pid)
+	logger.UserInfof("Log file: %s\n", daemonLogPath)
+	logger.UserInfo("Use 'lai list' to see running processes")
+	logger.UserInfof("Use 'lai logs %s' to view logs", processID)
+	logger.UserInfof("Use 'lai stop %s' to stop the process", processID)
 
 	return nil
 }

@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"fmt"
 	"os"
 
 	"go.uber.org/zap"
@@ -146,18 +145,21 @@ func (l *Logger) Fatalf(template string, args ...interface{}) {
 }
 
 // Printf compatible interface with fmt.Printf for user interaction output
+// Deprecated: Use UserOutput methods instead for better output management
 func (l *Logger) Printf(format string, args ...interface{}) {
-	fmt.Printf(format, args...)
+	GetDefaultUserOutput().Printf(format, args...)
 }
 
 // Print compatible interface with fmt.Print for user interaction output
+// Deprecated: Use UserOutput methods instead for better output management
 func (l *Logger) Print(args ...interface{}) {
-	fmt.Print(args...)
+	GetDefaultUserOutput().Print(args...)
 }
 
 // Println compatible interface with fmt.Println for user interaction output
+// Deprecated: Use UserOutput methods instead for better output management
 func (l *Logger) Println(args ...interface{}) {
-	fmt.Println(args...)
+	GetDefaultUserOutput().Println(args...)
 }
 
 // Sync log buffer
@@ -233,16 +235,19 @@ func Fatalf(template string, args ...interface{}) {
 }
 
 // Printf global function compatible with fmt.Printf
+// Deprecated: Use UserOutput methods instead for better output management
 func Printf(format string, args ...interface{}) {
-	GetDefaultLogger().Printf(format, args...)
+	GetDefaultUserOutput().Printf(format, args...)
 }
 
 // Print global function compatible with fmt.Print
+// Deprecated: Use UserOutput methods instead for better output management
 func Print(args ...interface{}) {
-	GetDefaultLogger().Print(args...)
+	GetDefaultUserOutput().Print(args...)
 }
 
 // Println global function compatible with fmt.Println
+// Deprecated: Use UserOutput methods instead for better output management
 func Println(args ...interface{}) {
-	GetDefaultLogger().Println(args...)
+	GetDefaultUserOutput().Println(args...)
 }

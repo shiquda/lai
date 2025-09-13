@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/shiquda/lai/internal/daemon"
+	"github.com/shiquda/lai/internal/logger"
 )
 
 func TestShowLastLines(t *testing.T) {
@@ -67,24 +69,21 @@ func TestShowLastLines(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Capture output by redirecting stdout
-			origStdout := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
+			// Create a buffer to capture output
+			var buf bytes.Buffer
+			customOutput := logger.NewConsoleOutputWithWriter(&buf)
+
+			// Set custom output for testing
+			oldOutput := logger.GetDefaultUserOutput()
+			defer logger.SetDefaultUserOutput(oldOutput)
+			logger.SetDefaultUserOutput(customOutput)
 
 			err := showLastLines(testFile, tt.numLines)
 			if err != nil {
 				t.Fatalf("showLastLines failed: %v", err)
 			}
 
-			w.Close()
-			os.Stdout = origStdout
-
-			// Read captured output
-			buf := make([]byte, 1024)
-			n, _ := r.Read(buf)
-			output := string(buf[:n])
-			r.Close()
+			output := buf.String()
 
 			// Verify output contains expected lines
 			if len(tt.expected) == 0 {

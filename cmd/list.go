@@ -24,16 +24,16 @@ var listCmd = &cobra.Command{
 		}
 
 		if len(processes) == 0 {
-			logger.Println("No daemon processes found")
+			logger.UserInfo("No daemon processes found")
 			return
 		}
 
-		logger.Printf("%-20s %-8s %-10s %-20s %s\n", "PROCESS ID", "PID", "STATUS", "START TIME", "LOG FILE")
-		logger.Printf("%-20s %-8s %-10s %-20s %s\n", "----------", "---", "------", "----------", "--------")
+		logger.UserInfof("%-20s %-8s %-10s %-20s %s\n", "PROCESS ID", "PID", "STATUS", "START TIME", "LOG FILE")
+		logger.UserInfof("%-20s %-8s %-10s %-20s %s\n", "----------", "---", "------", "----------", "--------")
 
 		for _, proc := range processes {
 			startTime := proc.StartTime.Format("2006-01-02 15:04:05")
-			logger.Printf("%-20s %-8d %-10s %-20s %s\n",
+			logger.UserInfof("%-20s %-8d %-10s %-20s %s\n",
 				proc.ID, proc.PID, proc.Status, startTime, proc.LogFile)
 		}
 	},

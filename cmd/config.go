@@ -46,11 +46,11 @@ var configSetCmd = &cobra.Command{
 		value := args[1]
 
 		if err := setConfigValue(key, value); err != nil {
-			logger.Printf("Error setting config: %v\n", err)
+			logger.UserErrorf("Error setting config: %v\n", err)
 			os.Exit(1)
 		}
 
-		logger.Printf("Set %s = %s\n", key, value)
+		logger.UserSuccessf("Set %s = %s\n", key, value)
 	},
 }
 
@@ -68,7 +68,7 @@ var configGetCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		logger.Printf("%s = %s\n", key, value)
+		logger.UserInfof("%s = %s\n", key, value)
 	},
 }
 
@@ -94,7 +94,7 @@ var configResetCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		logger.Println("Configuration reset to defaults")
+		logger.UserSuccess("Configuration reset to defaults")
 	},
 }
 
@@ -278,7 +278,7 @@ func printConfig(obj interface{}, prefix string) {
 		if field.Kind() == reflect.Struct {
 			printConfig(field.Addr().Interface(), fullPath)
 		} else {
-			logger.Printf("%s = %v\n", fullPath, field.Interface())
+			logger.UserInfof("%s = %v\n", fullPath, field.Interface())
 		}
 	}
 }
@@ -373,6 +373,6 @@ func runInteractiveConfig() error {
 		}
 	}
 
-	logger.Println("Interactive configuration completed successfully")
+	logger.UserSuccess("Interactive configuration completed successfully")
 	return nil
 }

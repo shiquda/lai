@@ -32,7 +32,7 @@ var cleanCmd = &cobra.Command{
 				logger.Errorf("Failed to clean process %s: %v", processID, err)
 			}
 		} else {
-			logger.Println("Please specify a process ID or use --all flag")
+			logger.UserError("Please specify a process ID or use --all flag")
 		}
 	},
 }
@@ -59,7 +59,7 @@ func cleanSingleProcess(manager *daemon.Manager, processID string) error {
 		return fmt.Errorf("failed to remove process info: %w", err)
 	}
 
-	logger.Printf("Cleaned up process: %s\n", processID)
+	logger.UserSuccessf("Cleaned up process: %s\n", processID)
 	return nil
 }
 
@@ -76,15 +76,15 @@ func cleanAllStoppedProcesses(manager *daemon.Manager) error {
 				logger.Errorf("Failed to clean process %s: %v", proc.ID, err)
 				continue
 			}
-			logger.Printf("Cleaned up process: %s\n", proc.ID)
+			logger.UserSuccessf("Cleaned up process: %s\n", proc.ID)
 			cleanedCount++
 		}
 	}
 
 	if cleanedCount == 0 {
-		logger.Println("No stopped processes to clean")
+		logger.UserInfo("No stopped processes to clean")
 	} else {
-		logger.Printf("Cleaned up %d stopped processes\n", cleanedCount)
+		logger.UserSuccessf("Cleaned up %d stopped processes\n", cleanedCount)
 	}
 
 	return nil

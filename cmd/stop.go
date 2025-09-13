@@ -21,17 +21,17 @@ var stopCmd = &cobra.Command{
 		}
 
 		if all {
-			logger.Println("Stopping all daemon processes...")
+			logger.UserInfo("Stopping all daemon processes...")
 			if err := manager.StopAllProcesses(); err != nil {
 				logger.Errorf("Failed to stop all processes: %v", err)
 				return
 			}
-			logger.Println("All processes stopped successfully")
+			logger.UserSuccess("All processes stopped successfully")
 			return
 		}
 
 		if len(args) == 0 {
-			logger.Println("Error: process-id is required (or use --all flag)")
+			logger.UserError("Error: process-id is required (or use --all flag)")
 			cmd.Usage()
 			return
 		}
@@ -45,14 +45,14 @@ var stopCmd = &cobra.Command{
 			return
 		}
 
-		logger.Printf("Stopping process: %s (PID: %d)\n", processID, processInfo.PID)
+		logger.UserInfof("Stopping process: %s (PID: %d)\n", processID, processInfo.PID)
 
 		if err := manager.StopProcess(processID); err != nil {
 			logger.Errorf("Failed to stop process: %v", err)
 			return
 		}
 
-		logger.Printf("Process %s stopped successfully\n", processID)
+		logger.UserSuccessf("Process %s stopped successfully\n", processID)
 	},
 }
 
