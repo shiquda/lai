@@ -811,94 +811,132 @@ func (nn *NotifyNotifier) convertToHTML(text string) string {
 // convertToTelegramMarkdown converts markdown to Telegram-compatible Markdown format
 // Uses traditional Telegram Markdown (not MarkdownV2) format
 func (nn *NotifyNotifier) convertToTelegramMarkdown(text string) string {
-	// First escape special characters that need escaping in Telegram Markdown
-	text = nn.escapeTelegramMarkdown(text)
-	
 	// Process line by line to handle different elements
 	lines := strings.Split(text, "\n")
 	var result strings.Builder
-	
+
 	for _, line := range lines {
+		originalLine := line
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		
+
 		// Process conversions in order
-		
+
 		// Convert markdown headings to bold text
 		if regexp.MustCompile(`^#{1,6}\s+`).MatchString(line) {
 			// Extract heading content and make it bold
 			headingContent := regexp.MustCompile(`^#{1,6}\s+(.*)$`).ReplaceAllString(line, "$1")
-			line = "*" + headingContent + "*"
+			line = "*" + nn.escapeTelegramMarkdownContent(headingContent) + "*"
 		} else {
 			// Convert **bold** to *bold* (standard markdown bold to Telegram bold)
 			// Only if this is not already a heading line
-			line = regexp.MustCompile(`\*\*(.*?)\*\*`).ReplaceAllString(line, "*$1*")
+			boldPattern := regexp.MustCompile(`\*\*(.*?)\*\*`)
+			line = boldPattern.ReplaceAllStringFunc(line, func(match string) string {
+				content := boldPattern.FindStringSubmatch(match)[1]
+				return "*" + nn.escapeTelegramMarkdownContent(content) + "*"
+			})
 		}
-		
+
+		// Convert _italic_ to _italic_ (ensure proper escaping)
+		italicPattern := regexp.MustCompile(`_([^_]+)_`)
+		line = italicPattern.ReplaceAllStringFunc(line, func(match string) string {
+			content := italicPattern.FindStringSubmatch(match)[1]
+			return "_" + nn.escapeTelegramMarkdownContent(content) + "_"
+		})
+
 		// Convert markdown lists to bullet points
-		line = regexp.MustCompile(`^[\*\-\+]\s+(.*)$`).ReplaceAllString(line, "• $1")
-		
-		// Handle code blocks - convert ``` blocks to ` for Telegram
-		// First handle multi-line code blocks (already processed above)
-		if strings.Contains(line, "```") {
-			// Simple replacement for inline code blocks that might span lines
-			line = strings.ReplaceAll(line, "```", "`")
+		listPattern := regexp.MustCompile(`^[\*\-\+]\s+(.*)$`)
+		if listPattern.MatchString(line) {
+			content := listPattern.FindStringSubmatch(line)[1]
+			line = "• " + nn.escapeTelegramMarkdownContent(content)
 		}
-		
+
+		// Handle code blocks - convert ``` blocks to ` for Telegram
+		if strings.Contains(line, "```") {
+			// Find code block content
+			codePattern := regexp.MustCompile("```([^`]+)```")
+			line = codePattern.ReplaceAllStringFunc(line, func(match string) string {
+				content := codePattern.FindStringSubmatch(match)[1]
+				return "`" + nn.escapeTelegramCodeContent(content) + "`"
+			})
+		}
+
+		// Handle inline code `code`
+		codePattern := regexp.MustCompile("`([^`]+)`")
+		line = codePattern.ReplaceAllStringFunc(line, func(match string) string {
+			content := codePattern.FindStringSubmatch(match)[1]
+			return "`" + nn.escapeTelegramCodeContent(content) + "`"
+		})
+
+		// Handle links [text](url)
+		linkPattern := regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
+		line = linkPattern.ReplaceAllStringFunc(line, func(match string) string {
+			text := linkPattern.FindStringSubmatch(match)[1]
+			url := linkPattern.FindStringSubmatch(match)[2]
+			return "[" + text + "](" + url + ")"
+		})
+
+		// Check if any markdown formatting was applied by comparing the processed line with a version that only has markdown patterns
+		hasMarkdown := regexp.MustCompile(`\*\*.*\*\*`).MatchString(originalLine) ||
+			regexp.MustCompile(`_.*_`).MatchString(originalLine) ||
+			regexp.MustCompile(`^#{1,6}\s+`).MatchString(originalLine) ||
+			regexp.MustCompile("`.*`").MatchString(originalLine) ||
+			regexp.MustCompile(`\[.*\]\(.*\)`).MatchString(originalLine) ||
+			regexp.MustCompile(`^[\*\-\+]\s+`).MatchString(originalLine)
+
+		// If no markdown formatting was applied, escape the entire line
+		if !hasMarkdown {
+			line = nn.escapeTelegramMarkdownContent(line)
+		}
+
 		// Add line to result
 		if result.Len() > 0 {
 			result.WriteString("\n")
 		}
 		result.WriteString(line)
 	}
-	
+
 	return result.String()
 }
 
-// escapeTelegramMarkdown escapes special characters for Telegram Markdown
-// In traditional Telegram Markdown, we need to escape: _ * [ `
-func (nn *NotifyNotifier) escapeTelegramMarkdown(text string) string {
-	// First handle multi-line code blocks before escaping
-	text = regexp.MustCompile("(?s)```([\\s\\S]*?)```").ReplaceAllString(text, "`$1`")
-	
-	// For traditional Telegram Markdown, we need to be careful with escaping
-	// We'll escape characters that might interfere, but preserve intended formatting
-	
-	// Create a map to track positions that should not be escaped
-	// This is a simplified approach - in production you might want more sophisticated parsing
-	
-	// Escape underscore characters that are not part of intended italic formatting
-	// For now, we'll be conservative and only escape underscores that appear to be in code or URLs
-	text = regexp.MustCompile(`_([^*\s][^*]*?)_`).ReplaceAllString(text, "_$1_")  // Keep italic underscores
-	
-	// Escape square brackets that are not part of links
-	linkPattern := regexp.MustCompile(`\[([^\]]+)\]\([^)]+\)`)
-	links := linkPattern.FindAllString(text, -1)
-	
-	// Temporarily replace links to protect them
-	placeholders := make(map[string]string)
-	for i, link := range links {
-		placeholder := fmt.Sprintf("__LINK_PLACEHOLDER_%d__", i)
-		placeholders[placeholder] = link
-		text = strings.Replace(text, link, placeholder, 1)
-	}
-	
-	// Now escape problematic brackets
+// escapeTelegramMarkdownContent escapes special characters for Telegram Markdown content
+// This escapes characters that could interfere with markdown formatting: _ * [ `
+func (nn *NotifyNotifier) escapeTelegramMarkdownContent(text string) string {
+	// Escape special characters that need escaping in Telegram Markdown
+	// We need to escape: _ * [ `
+	// But only when they're not part of valid markdown entities
+
+	// Escape underscores
+	text = strings.ReplaceAll(text, "_", "\\_")
+
+	// Escape asterisks
+	text = strings.ReplaceAll(text, "*", "\\*")
+
+	// Escape backticks
+	text = strings.ReplaceAll(text, "`", "\\`")
+
+	// Escape square brackets
 	text = strings.ReplaceAll(text, "[", "\\[")
 	text = strings.ReplaceAll(text, "]", "\\]")
-	
-	// Restore links
-	for placeholder, link := range placeholders {
-		text = strings.Replace(text, placeholder, link, 1)
-	}
-	
-	// Escape backticks that are not part of code blocks
-	// This is tricky - we'll preserve single backticks for code
-	// but escape others that might interfere
-	
+
 	return text
+}
+
+// escapeTelegramCodeContent escapes special characters for Telegram code content
+// In code blocks, we need to be careful about what gets escaped
+func (nn *NotifyNotifier) escapeTelegramCodeContent(text string) string {
+	// In code blocks, most characters don't need escaping
+	// But we should ensure the content doesn't contain characters that could break the code block
+	// Remove backticks that could break the inline code format
+	return strings.ReplaceAll(text, "`", "'")
+}
+
+// escapeTelegramMarkdown is the legacy function (kept for compatibility)
+// Deprecated: Use escapeTelegramMarkdownContent instead
+func (nn *NotifyNotifier) escapeTelegramMarkdown(text string) string {
+	return nn.escapeTelegramMarkdownContent(text)
 }
 
 // getCurrentTimeNotify gets current time (notify_notifier specific)
