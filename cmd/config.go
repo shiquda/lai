@@ -484,6 +484,22 @@ func printStringSlice(path string, slice []string, depth int) {
 	}
 }
 
+// maskSensitiveValue masks sensitive configuration values
+func maskSensitiveValue(key string, value interface{}) string {
+	sensitiveKeys := []string{"token", "password", "api_key", "secret", "auth_token", "bot_token"}
+
+	for _, sensitiveKey := range sensitiveKeys {
+		if strings.Contains(strings.ToLower(key), sensitiveKey) {
+			if str, ok := value.(string); ok && len(str) > 4 {
+				return str[:4] + "****" + str[len(str)-4:]
+			}
+			return "****"
+		}
+	}
+
+	return fmt.Sprintf("%v", value)
+}
+
 // toCamelCase converts snake_case to CamelCase (with special handling for common acronyms)
 func toCamelCase(s string) string {
 	// Handle special compound words first

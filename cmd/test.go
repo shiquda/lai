@@ -341,22 +341,6 @@ func getRequiredConfigKeys(provider string) []string {
 	}
 }
 
-// maskSensitiveValue masks sensitive configuration values
-func maskSensitiveValue(key string, value interface{}) string {
-	sensitiveKeys := []string{"token", "password", "api_key", "secret", "auth_token", "bot_token"}
-
-	for _, sensitiveKey := range sensitiveKeys {
-		if strings.Contains(strings.ToLower(key), sensitiveKey) {
-			if str, ok := value.(string); ok && len(str) > 4 {
-				return str[:4] + "****" + str[len(str)-4:]
-			}
-			return "****"
-		}
-	}
-
-	return fmt.Sprintf("%v", value)
-}
-
 // validateOnlyTest validates configuration without performing actual tests
 func validateOnlyTest(cfg *config.Config, testChannels []string, status *TestStatus) error {
 	logger.UserInfo("🔍 Configuration Validation")
