@@ -320,3 +320,184 @@ func (s *SummarizerTestSuite) TestSummarize_PromptGeneration() {
 	assert.Contains(s.T(), capturedRequest.Messages[0].Content, "analyze the following log content")
 	assert.Contains(s.T(), capturedRequest.Messages[0].Content, logContent)
 }
+
+func (s *SummarizerTestSuite) TestSummarizeWithTemplate_CustomTemplate() {
+	logContent := "2024-01-15 ERROR Database connection failed"
+	customTemplate := "Analyze these logs for {{app_name}}: {{log_content}} in {{language}}"
+
+	// Create server to capture the request
+	var capturedRequest ChatCompletionRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&capturedRequest)
+
+		response := ChatCompletionResponse{
+			Choices: []Choice{
+				{
+					Message: Message{
+						Role:    "assistant",
+						Content: "Custom analysis result",
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	client := NewOpenAIClient("test-api-key", server.URL, "gpt-4")
+	client.client = server.Client()
+
+	summary, err := client.SummarizeWithTemplate(logContent, "Chinese", customTemplate)
+
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), "Custom analysis result", summary)
+	// The template should contain {{app_name}} since we didn't pass it as a variable
+	assert.Contains(s.T(), capturedRequest.Messages[0].Content, "Analyze these logs for {{app_name}}:")
+	assert.Contains(s.T(), capturedRequest.Messages[0].Content, "2024-01-15 ERROR Database connection failed")
+	assert.Contains(s.T(), capturedRequest.Messages[0].Content, "in Chinese")
+}
+
+func (s *SummarizerTestSuite) TestSummarizeWithTemplate_EmptyTemplate() {
+	logContent := "test log content"
+
+	// Create server to capture the request
+	var capturedRequest ChatCompletionRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&capturedRequest)
+
+		response := ChatCompletionResponse{
+			Choices: []Choice{
+				{
+					Message: Message{
+						Role:    "assistant",
+						Content: "Built-in template result",
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	client := NewOpenAIClient("test-api-key", server.URL, "gpt-4")
+	client.client = server.Client()
+
+	summary, err := client.SummarizeWithTemplate(logContent, "English", "")
+
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), "Built-in template result", summary)
+	// Should use built-in template when custom template is empty
+	assert.Contains(s.T(), capturedRequest.Messages[0].Content, "Please analyze the following log content")
+}
+
+func (s *SummarizerTestSuite) TestSummarizeWithTemplate_WithBuiltinVariables() {
+	logContent := "2024-01-15 INFO Application started"
+	customTemplate := "Analyze logs for {{system}}: {{log_content}} in {{language}}"
+
+	// Create server to capture the request
+	var capturedRequest ChatCompletionRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&capturedRequest)
+
+		response := ChatCompletionResponse{
+			Choices: []Choice{
+				{
+					Message: Message{
+						Role:    "assistant",
+						Content: "Built-in variable test result",
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	client := NewOpenAIClient("test-api-key", server.URL, "gpt-4")
+	client.client = server.Client()
+
+	summary, err := client.SummarizeWithTemplate(logContent, "Spanish", customTemplate)
+
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), "Built-in variable test result", summary)
+	// Built-in variables should be replaced
+	assert.Contains(s.T(), capturedRequest.Messages[0].Content, "Analyze logs for Lai Log Monitor:")
+	assert.Contains(s.T(), capturedRequest.Messages[0].Content, "2024-01-15 INFO Application started")
+	assert.Contains(s.T(), capturedRequest.Messages[0].Content, "in Spanish")
+}
+
+func (s *SummarizerTestSuite) TestAnalyzeForErrorsWithTemplate_CustomTemplate() {
+	logContent := "2024-01-15 ERROR Connection failed"
+	customTemplate := `Check for errors in {{app_name}} logs: {{log_content}}
+Respond with JSON: {"has_error": boolean, "severity": "string", "summary": "string in {{language}}"}`
+
+	// Create server to capture the request
+	var capturedRequest ChatCompletionRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&capturedRequest)
+
+		response := ChatCompletionResponse{
+			Choices: []Choice{
+				{
+					Message: Message{
+						Role:    "assistant",
+						Content: `{"has_error": true, "severity": "error", "summary": "Connection failed in MyApp"}`,
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	client := NewOpenAIClient("test-api-key", server.URL, "gpt-4")
+	client.client = server.Client()
+
+	analysis, err := client.AnalyzeForErrorsWithTemplate(logContent, "English", customTemplate)
+
+	assert.NoError(s.T(), err)
+	assert.True(s.T(), analysis.HasError)
+	assert.Equal(s.T(), "error", analysis.Severity)
+	assert.Contains(s.T(), analysis.Summary, "Connection failed")
+	// {{app_name}} should remain as-is since it's not a built-in variable
+	assert.Contains(s.T(), capturedRequest.Messages[0].Content, "Check for errors in {{app_name}} logs")
+}
+
+func (s *SummarizerTestSuite) TestAnalyzeForErrorsWithTemplate_EmptyTemplate() {
+	logContent := "test log content"
+
+	// Create server to capture the request
+	var capturedRequest ChatCompletionRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&capturedRequest)
+
+		response := ChatCompletionResponse{
+			Choices: []Choice{
+				{
+					Message: Message{
+						Role:    "assistant",
+						Content: `{"has_error": false, "severity": "info", "summary": "No errors detected"}`,
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	client := NewOpenAIClient("test-api-key", server.URL, "gpt-4")
+	client.client = server.Client()
+
+	analysis, err := client.AnalyzeForErrorsWithTemplate(logContent, "English", "")
+
+	assert.NoError(s.T(), err)
+	assert.False(s.T(), analysis.HasError)
+	assert.Equal(s.T(), "info", analysis.Severity)
+	// Should use built-in template when custom template is empty
+	assert.Contains(s.T(), capturedRequest.Messages[0].Content, "Please analyze the following log content and determine if it contains errors")
+}

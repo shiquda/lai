@@ -159,6 +159,24 @@ defaults:
   error_only_mode: false     # Only send notifications for error logs
   language: "English"        # Language for AI responses
 
+# Custom prompt templates for AI summarization
+# When empty, built-in templates are used
+prompt_templates:
+  # Custom summarization template (optional)
+  # Available variables: {{language}}, {{log_content}}, {{system}}, $timestamp, etc.
+  summarize_template: ""
+
+  # Custom error analysis template (optional)
+  # Available variables: {{language}}, {{log_content}}, {{system}}, $timestamp, etc.
+  error_analysis_template: ""
+
+  # Custom variables that can be used in templates
+  custom_variables:
+    # Example custom variables:
+    # app_name: "MyApplication"
+    # environment: "production"
+    # team_name: "DevOps"
+
 # Logging configuration
 logging:
   level: "info"  # Log level: debug, info, warn, error, fatal
@@ -197,3 +215,47 @@ display:
 #     config:
 #       token: "abc123"
 #       user: "user456"
+
+# Example custom prompt templates:
+#
+# prompt_templates:
+#   summarize_template: |
+#     You are analyzing logs for {{app_name}} in {{environment}} environment.
+#     Please analyze the following log content and generate a comprehensive summary in {{language}}:
+#
+#     Focus areas:
+#     1. Identify errors, warnings, and critical events
+#     2. Count the number of each type of event
+#     3. Highlight any performance issues or anomalies
+#     4. Provide actionable recommendations if issues are found
+#     5. Include timestamp analysis if temporal patterns are evident
+#
+#     Log content:
+#     {{log_content}}
+#
+#     Please provide the summary in {{language}} with clear sections for:
+#     - Executive Summary
+#     - Detailed Analysis
+#     - Recommendations
+#
+#   error_analysis_template: |
+#     Analyze the following log content from {{app_name}} for errors and issues.
+#     Respond with a valid JSON object in this format:
+#     {
+#       "has_error": true/false,
+#       "severity": "error"/"warning"/"info",
+#       "summary": "Brief description in {{language}}",
+#       "error_count": number,
+#       "warning_count": number
+#     }
+#
+#     Consider these as errors: stack traces, exceptions, fatal errors, critical failures
+#     Consider these as warnings: timeout warnings, connection issues, deprecated usage
+#
+#     Log content:
+#     {{log_content}}
+#
+#   custom_variables:
+#     app_name: "MyWebApp"
+#     environment: "production"
+#     team_name: "Platform Engineering"

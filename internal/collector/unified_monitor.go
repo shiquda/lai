@@ -25,6 +25,7 @@ type MonitorConfig struct {
 	FinalSummaryOnly bool
 	OpenAI           config.OpenAIConfig
 	Notifications    config.NotificationsConfig
+	PromptTemplates  config.PromptTemplatesConfig
 	Display          config.DisplayConfig
 }
 
@@ -52,6 +53,7 @@ func BuildMonitorConfig(source MonitorSource, lineThreshold *int, checkInterval 
 		ErrorOnlyMode:    globalConfig.Defaults.ErrorOnlyMode,
 		OpenAI:           globalConfig.Notifications.OpenAI,
 		Notifications:    globalConfig.Notifications,
+		PromptTemplates:  globalConfig.PromptTemplates,
 		Display:          globalConfig.Display,
 	}
 
@@ -180,7 +182,16 @@ func (m *UnifiedMonitor) Start() error {
 
 		if m.config.ErrorOnlyMode {
 			// Error-only mode: first check if content contains errors
-			analysis, err := m.summarizer.AnalyzeForErrors(newContent, m.config.Language)
+			var analysis *summarizer.ErrorAnalysisResult
+			var err error
+
+			// Use custom template if available, otherwise use built-in
+			if m.config.PromptTemplates.ErrorAnalysisTemplate != "" {
+				analysis, err = m.summarizer.AnalyzeForErrorsWithTemplate(newContent, m.config.Language, m.config.PromptTemplates.ErrorAnalysisTemplate)
+			} else {
+				analysis, err = m.summarizer.AnalyzeForErrors(newContent, m.config.Language)
+			}
+
 			if err != nil {
 				return fmt.Errorf("failed to analyze errors: %w", err)
 			}
@@ -197,7 +208,16 @@ func (m *UnifiedMonitor) Start() error {
 		} else {
 			// Normal mode: generate summary and send notification
 			logger.Info("Generating summary...")
-			summary, err := m.summarizer.Summarize(newContent, m.config.Language)
+			var summary string
+			var err error
+
+			// Use custom template if available, otherwise use built-in
+			if m.config.PromptTemplates.SummarizeTemplate != "" {
+				summary, err = m.summarizer.SummarizeWithTemplate(newContent, m.config.Language, m.config.PromptTemplates.SummarizeTemplate)
+			} else {
+				summary, err = m.summarizer.Summarize(newContent, m.config.Language)
+			}
+
 			if err != nil {
 				return fmt.Errorf("failed to generate summary: %w", err)
 			}

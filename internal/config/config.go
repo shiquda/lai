@@ -14,16 +14,18 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/shiquda/lai/internal/logger"
+	"github.com/shiquda/lai/internal/summarizer"
 	"github.com/shiquda/lai/internal/version"
 )
 
 // GlobalConfig represents the global configuration structure
 type GlobalConfig struct {
-	Version       string              `mapstructure:"version" yaml:"version"`
-	Notifications NotificationsConfig `mapstructure:"notifications" yaml:"notifications"`
-	Defaults      DefaultsConfig      `mapstructure:"defaults" yaml:"defaults"`
-	Logging       LoggingConfig       `mapstructure:"logging" yaml:"logging"`
-	Display       DisplayConfig       `mapstructure:"display" yaml:"display"`
+	Version          string               `mapstructure:"version" yaml:"version"`
+	Notifications    NotificationsConfig   `mapstructure:"notifications" yaml:"notifications"`
+	Defaults         DefaultsConfig       `mapstructure:"defaults" yaml:"defaults"`
+	PromptTemplates  PromptTemplatesConfig `mapstructure:"prompt_templates" yaml:"prompt_templates"`
+	Logging          LoggingConfig        `mapstructure:"logging" yaml:"logging"`
+	Display          DisplayConfig        `mapstructure:"display" yaml:"display"`
 }
 
 // NotificationsConfig contains the new unified notification configuration
@@ -60,12 +62,24 @@ type DefaultsConfig struct {
 	Language         string        `mapstructure:"language" yaml:"language"`
 }
 
+// PromptTemplatesConfig contains custom prompt templates for AI summarization
+type PromptTemplatesConfig struct {
+	// SummarizeTemplate is used for general log summarization
+	SummarizeTemplate string `mapstructure:"summarize_template" yaml:"summarize_template"`
+
+	// ErrorAnalysisTemplate is used for error detection and analysis
+	ErrorAnalysisTemplate string `mapstructure:"error_analysis_template" yaml:"error_analysis_template"`
+
+	// CustomVariables contains user-defined variables that can be used in templates
+	CustomVariables map[string]string `mapstructure:"custom_variables" yaml:"custom_variables"`
+}
+
 // Config represents the runtime configuration (merged final configuration)
 type Config struct {
-	LogFile       string        `mapstructure:"log_file" yaml:"log_file"`
-	LineThreshold int           `mapstructure:"line_threshold" yaml:"line_threshold"`
-	CheckInterval time.Duration `mapstructure:"check_interval" yaml:"check_interval"`
-	Language      string        `mapstructure:"language" yaml:"language"`
+	LogFile       string                `mapstructure:"log_file" yaml:"log_file"`
+	LineThreshold int                   `mapstructure:"line_threshold" yaml:"line_threshold"`
+	CheckInterval time.Duration         `mapstructure:"check_interval" yaml:"check_interval"`
+	Language      string                `mapstructure:"language" yaml:"language"`
 
 	// Command execution parameters (for stream monitoring)
 	Command     string   `mapstructure:"command" yaml:"command"`
@@ -79,9 +93,10 @@ type Config struct {
 	// Error detection options
 	ErrorOnlyMode bool `mapstructure:"error_only_mode" yaml:"error_only_mode"`
 
-	OpenAI        OpenAIConfig        `mapstructure:"openai" yaml:"openai"`
-	Notifications NotificationsConfig `mapstructure:"notifications" yaml:"notifications"`
-	Display       DisplayConfig       `mapstructure:"display" yaml:"display"`
+	OpenAI          OpenAIConfig          `mapstructure:"openai" yaml:"openai"`
+	Notifications   NotificationsConfig  `mapstructure:"notifications" yaml:"notifications"`
+	PromptTemplates PromptTemplatesConfig `mapstructure:"prompt_templates" yaml:"prompt_templates"`
+	Display         DisplayConfig         `mapstructure:"display" yaml:"display"`
 }
 
 type OpenAIConfig struct {
@@ -280,6 +295,14 @@ func getDefaultGlobalConfig() *GlobalConfig {
 			CheckInterval: 30 * time.Second,
 			FinalSummary:  true,      // Default to sending final summary
 			Language:      "English", // Default language for AI responses
+		},
+		PromptTemplates: PromptTemplatesConfig{
+			// Default summarize template (empty means use built-in template)
+			SummarizeTemplate: "",
+			// Default error analysis template (empty means use built-in template)
+			ErrorAnalysisTemplate: "",
+			// No custom variables by default
+			CustomVariables: make(map[string]string),
 		},
 		Logging: LoggingConfig{
 			Level: "info",
@@ -530,6 +553,9 @@ func smartMergeConfigs(existing, defaults *GlobalConfig) *GlobalConfig {
 	// Smart merge for Display section
 	merged.Display = smartMergeDisplay(existing.Display, defaults.Display)
 
+	// Smart merge for PromptTemplates section
+	merged.PromptTemplates = smartMergePromptTemplates(existing.PromptTemplates, defaults.PromptTemplates)
+
 	return &merged
 }
 
@@ -685,6 +711,34 @@ func smartMergeFallback(existing, defaults *FallbackConfig) *FallbackConfig {
 	}
 
 	return &merged
+}
+
+// smartMergePromptTemplates merges prompt template configurations
+func smartMergePromptTemplates(existing, defaults PromptTemplatesConfig) PromptTemplatesConfig {
+	merged := existing
+
+	// Only fill missing template values from defaults
+	// Empty strings mean "use built-in template", so we preserve that
+	if merged.SummarizeTemplate == "" && defaults.SummarizeTemplate != "" {
+		merged.SummarizeTemplate = defaults.SummarizeTemplate
+	}
+	if merged.ErrorAnalysisTemplate == "" && defaults.ErrorAnalysisTemplate != "" {
+		merged.ErrorAnalysisTemplate = defaults.ErrorAnalysisTemplate
+	}
+
+	// Merge custom variables - preserve existing variables, add missing defaults
+	if merged.CustomVariables == nil {
+		merged.CustomVariables = make(map[string]string)
+	}
+	if defaults.CustomVariables != nil {
+		for key, value := range defaults.CustomVariables {
+			if _, exists := merged.CustomVariables[key]; !exists {
+				merged.CustomVariables[key] = value
+			}
+		}
+	}
+
+	return merged
 }
 
 // mergeFieldPreserveExisting merges field values preserving existing configuration
@@ -939,14 +993,15 @@ func BuildRuntimeConfig(logFile string, lineThreshold *int, checkInterval *time.
 
 	// Build runtime configuration
 	config := &Config{
-		LogFile:       logFile,
-		LineThreshold: globalConfig.Defaults.LineThreshold,
-		CheckInterval: globalConfig.Defaults.CheckInterval,
-		Language:      globalConfig.Defaults.Language,
-		ErrorOnlyMode: globalConfig.Defaults.ErrorOnlyMode,
-		OpenAI:        globalConfig.Notifications.OpenAI,
-		Notifications: globalConfig.Notifications,
-		Display:       globalConfig.Display,
+		LogFile:        logFile,
+		LineThreshold:  globalConfig.Defaults.LineThreshold,
+		CheckInterval:  globalConfig.Defaults.CheckInterval,
+		Language:       globalConfig.Defaults.Language,
+		ErrorOnlyMode:  globalConfig.Defaults.ErrorOnlyMode,
+		OpenAI:         globalConfig.Notifications.OpenAI,
+		Notifications:  globalConfig.Notifications,
+		PromptTemplates: globalConfig.PromptTemplates,
+		Display:        globalConfig.Display,
 	}
 
 	// Apply command line parameter overrides
@@ -989,6 +1044,7 @@ func BuildStreamConfig(command string, args []string, lineThreshold *int, checkI
 		ErrorOnlyMode:    globalConfig.Defaults.ErrorOnlyMode,
 		OpenAI:           globalConfig.Notifications.OpenAI,
 		Notifications:    globalConfig.Notifications,
+		PromptTemplates:  globalConfig.PromptTemplates,
 		Display:          globalConfig.Display,
 	}
 
@@ -1115,6 +1171,47 @@ func (c *Config) Validate() error {
 	}
 	if !providerEnabled {
 		return fmt.Errorf("at least one notification provider must be enabled")
+	}
+
+	// Validate prompt templates if they are provided
+	if err := c.validatePromptTemplates(); err != nil {
+		return fmt.Errorf("prompt template validation failed: %w", err)
+	}
+
+	return nil
+}
+
+// validatePromptTemplates validates the prompt templates configuration
+func (c *Config) validatePromptTemplates() error {
+	// Create a template engine for validation
+	engine := summarizer.NewTemplateEngine()
+
+	// Define allowed variables for templates
+	allowedVariables := map[string]bool{
+		"log_content":   true,
+		"language":      true,
+		"system":        true,
+		"version":       true,
+		"timestamp":     true,
+	}
+
+	// Add custom variables to allowed list
+	for key := range c.PromptTemplates.CustomVariables {
+		allowedVariables[key] = true
+	}
+
+	// Validate summarize template if provided
+	if c.PromptTemplates.SummarizeTemplate != "" {
+		if err := engine.ValidateTemplate(c.PromptTemplates.SummarizeTemplate, allowedVariables); err != nil {
+			return fmt.Errorf("summarize template validation failed: %w", err)
+		}
+	}
+
+	// Validate error analysis template if provided
+	if c.PromptTemplates.ErrorAnalysisTemplate != "" {
+		if err := engine.ValidateTemplate(c.PromptTemplates.ErrorAnalysisTemplate, allowedVariables); err != nil {
+			return fmt.Errorf("error analysis template validation failed: %w", err)
+		}
 	}
 
 	return nil

@@ -65,15 +65,45 @@ func (c *OpenAIClient) Summarize(logContent string, language string) (string, er
 		language = "English"
 	}
 
-	prompt := fmt.Sprintf(`Please analyze the following log content and generate a summary in %s:
+	return c.SummarizeWithTemplate(logContent, language, "")
+}
+
+// SummarizeWithTemplate summarizes log content using a custom template
+func (c *OpenAIClient) SummarizeWithTemplate(logContent, language, customTemplate string) (string, error) {
+	if language == "" {
+		language = "English"
+	}
+
+	// Determine which template to use
+	var template string
+	if customTemplate != "" {
+		template = customTemplate
+	} else {
+		// Use built-in template
+		template = `Please analyze the following log content and generate a summary in {{language}}:
 
 1. Identify key events and errors
 2. Count important metrics
 3. Mark anomalies or issues that need attention
-4. Provide a concise summary in %s
+4. Provide a concise summary in {{language}}
 
 Log content:
-%s`, language, language, logContent)
+{{log_content}}`
+	}
+
+	// Create template engine and render template
+	engine := NewTemplateEngine()
+	engine.SetBuiltinVariable("language", language)
+
+	variables := map[string]string{
+		"log_content": logContent,
+		"language":    language,
+	}
+
+	prompt, err := engine.RenderTemplate(template, variables)
+	if err != nil {
+		return "", fmt.Errorf("failed to render prompt template: %w", err)
+	}
 
 	req := ChatCompletionRequest{
 		Model: c.model,
@@ -126,13 +156,28 @@ func (c *OpenAIClient) AnalyzeForErrors(logContent string, language string) (*Er
 		language = "English"
 	}
 
-	prompt := fmt.Sprintf(`Please analyze the following log content and determine if it contains errors, exceptions, or warnings that require attention.
+	return c.AnalyzeForErrorsWithTemplate(logContent, language, "")
+}
+
+// AnalyzeForErrorsWithTemplate analyzes log content using a custom template
+func (c *OpenAIClient) AnalyzeForErrorsWithTemplate(logContent, language, customTemplate string) (*ErrorAnalysisResult, error) {
+	if language == "" {
+		language = "English"
+	}
+
+	// Determine which template to use
+	var template string
+	if customTemplate != "" {
+		template = customTemplate
+	} else {
+		// Use built-in template
+		template = `Please analyze the following log content and determine if it contains errors, exceptions, or warnings that require attention.
 
 Respond with a valid JSON object in the following format:
 {
   "has_error": true/false,
   "severity": "error"/"warning"/"info",
-  "summary": "Brief description of the issue in %s or 'No errors detected'"
+  "summary": "Brief description of the issue in {{language}} or 'No errors detected'"
 }
 
 Guidelines:
@@ -145,10 +190,25 @@ Guidelines:
   - "error" for critical errors, exceptions, crashes
   - "warning" for warnings that need attention but don't break functionality
   - "info" for normal informational messages
-- Provide a concise summary in %s
+- Provide a concise summary in {{language}}
 
 Log content:
-%s`, language, language, logContent)
+{{log_content}}`
+	}
+
+	// Create template engine and render template
+	engine := NewTemplateEngine()
+	engine.SetBuiltinVariable("language", language)
+
+	variables := map[string]string{
+		"log_content": logContent,
+		"language":    language,
+	}
+
+	prompt, err := engine.RenderTemplate(template, variables)
+	if err != nil {
+		return nil, fmt.Errorf("failed to render error analysis template: %w", err)
+	}
 
 	req := ChatCompletionRequest{
 		Model: c.model,
