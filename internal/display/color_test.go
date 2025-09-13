@@ -53,8 +53,8 @@ func TestGetColorByName(t *testing.T) {
 		{"Valid color - gray", "gray", false},
 		{"Valid color - grey", "grey", false},
 		{"Valid color - blue", "blue", false},
-		{"Invalid color", "invalid_color", true},
-		{"Empty string", "", true},
+		{"Invalid color - defaults to gray", "invalid_color", false},
+		{"Empty string - defaults to gray", "", false},
 	}
 
 	for _, tt := range tests {

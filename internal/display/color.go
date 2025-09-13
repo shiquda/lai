@@ -7,7 +7,6 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/shiquda/lai/internal/config"
-	"golang.org/x/sys/windows"
 )
 
 // ColorPrinter provides colored output functionality with graceful degradation
@@ -59,12 +58,6 @@ func isTerminalSupported() bool {
 		return false
 	}
 
-	// Check environment variables that indicate color support
-	term := strings.ToLower(os.Getenv("TERM"))
-	if term == "" || term == "dumb" {
-		return false
-	}
-
 	// Check if explicitly disabled
 	if os.Getenv("NO_COLOR") != "" {
 		return false
@@ -75,52 +68,21 @@ func isTerminalSupported() bool {
 		return true
 	}
 
-	// Windows-specific ANSI color support check
+	// Windows-specific handling - don't check TERM variable on Windows
 	if runtime.GOOS == "windows" {
 		return enableWindowsANSI()
+	}
+
+	// On Unix-like systems, check TERM environment variable
+	term := strings.ToLower(os.Getenv("TERM"))
+	if term == "" || term == "dumb" {
+		return false
 	}
 
 	// Most modern terminals support color
 	return true
 }
 
-// enableWindowsANSI enables ANSI color support on Windows 10+
-func enableWindowsANSI() bool {
-	// Only try to enable on Windows
-	if runtime.GOOS != "windows" {
-		return true
-	}
-
-	// Try to enable ANSI support on Windows console
-	var mode uint32
-	stdout := windows.Handle(os.Stdout.Fd())
-	if err := windows.GetConsoleMode(stdout, &mode); err != nil {
-		// Not a console, probably redirected output
-		return true
-	}
-
-	// Check if virtual terminal processing is already enabled
-	if mode&windows.ENABLE_VIRTUAL_TERMINAL_PROCESSING != 0 {
-		return true
-	}
-
-	// Try to enable virtual terminal processing
-	mode |= windows.ENABLE_VIRTUAL_TERMINAL_PROCESSING
-	if err := windows.SetConsoleMode(stdout, mode); err != nil {
-		// Failed to enable, but we'll still allow color output
-		// Some Windows terminals support ANSI without explicit enabling
-		return true
-	}
-
-	// Also try to enable for stderr
-	stderr := windows.Handle(os.Stderr.Fd())
-	if err := windows.GetConsoleMode(stderr, &mode); err == nil {
-		mode |= windows.ENABLE_VIRTUAL_TERMINAL_PROCESSING
-		windows.SetConsoleMode(stderr, mode)
-	}
-
-	return true
-}
 
 // isatty checks if the file descriptor is a terminal
 func isatty(f *os.File) bool {
@@ -139,6 +101,11 @@ func isatty(f *os.File) bool {
 
 // getColorByName returns a color.Color based on color name
 func getColorByName(colorName string) *color.Color {
+	// Handle empty string by defaulting to gray
+	if colorName == "" {
+		return color.New(color.FgHiBlack) // Default to gray for empty string
+	}
+
 	switch strings.ToLower(colorName) {
 	case "black":
 		return color.New(color.FgBlack)
@@ -173,8 +140,8 @@ func getColorByName(colorName string) *color.Color {
 	case "bright_white":
 		return color.New(color.FgHiWhite)
 	default:
-		// Default to no color if name is not recognized
-		return nil
+		// Default to gray if name is not recognized
+		return color.New(color.FgHiBlack)
 	}
 }
 
