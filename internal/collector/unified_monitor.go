@@ -176,7 +176,7 @@ func NewUnifiedMonitor(cfg *MonitorConfig) (*UnifiedMonitor, error) {
 func (m *UnifiedMonitor) Start() error {
 	// Set trigger handler
 	m.collector.SetTriggerHandler(func(newContent string) error {
-		logger.Printf("Changes detected, processing...\n")
+		logger.Info("Changes detected, processing...")
 
 		if m.config.ErrorOnlyMode {
 			// Error-only mode: first check if content contains errors
@@ -186,17 +186,17 @@ func (m *UnifiedMonitor) Start() error {
 			}
 
 			if !analysis.HasError {
-				logger.Printf("No errors detected, skipping notification (error-only mode)\n")
+				logger.Info("No errors detected, skipping notification (error-only mode)")
 				return nil
 			}
 
-			logger.Printf("Error detected (severity: %s), sending notification\n", analysis.Severity)
+			logger.Infof("Error detected (severity: %s), sending notification", analysis.Severity)
 			if err := m.sendToAllNotifiers(analysis.Summary); err != nil {
 				return fmt.Errorf("failed to send notification: %w", err)
 			}
 		} else {
 			// Normal mode: generate summary and send notification
-			logger.Printf("Generating summary...\n")
+			logger.Info("Generating summary...")
 			summary, err := m.summarizer.Summarize(newContent, m.config.Language)
 			if err != nil {
 				return fmt.Errorf("failed to generate summary: %w", err)
@@ -212,14 +212,14 @@ func (m *UnifiedMonitor) Start() error {
 	})
 
 	// Display startup information
-	logger.Printf("Starting monitoring: %s\n", m.config.Source.GetIdentifier())
-	logger.Printf("Type: %s\n", m.config.Source.GetType())
-	logger.Printf("Line threshold: %d lines\n", m.config.LineThreshold)
-	logger.Printf("Check interval: %v\n", m.config.CheckInterval)
+	logger.Infof("Starting monitoring: %s", m.config.Source.GetIdentifier())
+	logger.Infof("Type: %s", m.config.Source.GetType())
+	logger.Infof("Line threshold: %d lines", m.config.LineThreshold)
+	logger.Infof("Check interval: %v", m.config.CheckInterval)
 	if m.config.ErrorOnlyMode {
-		logger.Printf("Error-only mode: ENABLED (will only notify on errors/exceptions)\n")
+		logger.Info("Error-only mode: ENABLED (will only notify on errors/exceptions)")
 	} else {
-		logger.Printf("Error-only mode: DISABLED (will notify on all changes)\n")
+		logger.Info("Error-only mode: DISABLED (will notify on all changes)")
 	}
 
 	// Setup signal handling
@@ -235,7 +235,7 @@ func (m *UnifiedMonitor) Start() error {
 	// Wait for signal or error
 	select {
 	case <-sigChan:
-		logger.Println("\nReceived stop signal, shutting down...")
+		logger.Info("\nReceived stop signal, shutting down...")
 		return nil
 	case err := <-errChan:
 		return err
@@ -260,7 +260,7 @@ func (m *UnifiedMonitor) sendToAllNotifiers(summary string) error {
 			logger.Errorf("Failed to send notification to %s notifier: %v\n", n.Name(), err)
 		} else {
 			successfulNotifiers = append(successfulNotifiers, n.Name())
-			logger.Printf("Notification sent successfully to %s notifier\n", n.Name())
+			logger.Infof("Notification sent successfully to %s notifier", n.Name())
 		}
 	}
 

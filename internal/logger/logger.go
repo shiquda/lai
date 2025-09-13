@@ -144,23 +144,6 @@ func (l *Logger) Fatalf(template string, args ...interface{}) {
 	l.sugar.Fatalf(template, args...)
 }
 
-// Printf compatible interface with fmt.Printf for user interaction output
-// Deprecated: Use UserOutput methods instead for better output management
-func (l *Logger) Printf(format string, args ...interface{}) {
-	GetDefaultUserOutput().Printf(format, args...)
-}
-
-// Print compatible interface with fmt.Print for user interaction output
-// Deprecated: Use UserOutput methods instead for better output management
-func (l *Logger) Print(args ...interface{}) {
-	GetDefaultUserOutput().Print(args...)
-}
-
-// Println compatible interface with fmt.Println for user interaction output
-// Deprecated: Use UserOutput methods instead for better output management
-func (l *Logger) Println(args ...interface{}) {
-	GetDefaultUserOutput().Println(args...)
-}
 
 // Sync log buffer
 func (l *Logger) Sync() error {
@@ -234,20 +217,3 @@ func Fatalf(template string, args ...interface{}) {
 	GetDefaultLogger().Fatalf(template, args...)
 }
 
-// Printf global function compatible with fmt.Printf
-// Deprecated: Use UserOutput methods instead for better output management
-func Printf(format string, args ...interface{}) {
-	GetDefaultUserOutput().Printf(format, args...)
-}
-
-// Print global function compatible with fmt.Print
-// Deprecated: Use UserOutput methods instead for better output management
-func Print(args ...interface{}) {
-	GetDefaultUserOutput().Print(args...)
-}
-
-// Println global function compatible with fmt.Println
-// Deprecated: Use UserOutput methods instead for better output management
-func Println(args ...interface{}) {
-	GetDefaultUserOutput().Println(args...)
-}

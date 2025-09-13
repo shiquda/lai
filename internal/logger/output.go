@@ -27,12 +27,9 @@ type UserOutput interface {
 	Warningf(format string, args ...interface{})
 	Error(args ...interface{})
 	Errorf(format string, args ...interface{})
-
-	// Raw output methods (for backward compatibility)
-	Print(args ...interface{})
 	Printf(format string, args ...interface{})
-	Println(args ...interface{})
-}
+
+	}
 
 // ConsoleOutput implements UserOutput for console output
 type ConsoleOutput struct {
@@ -94,20 +91,11 @@ func (c *ConsoleOutput) Errorf(format string, args ...interface{}) {
 	fmt.Fprintf(c.writer, format, args...)
 }
 
-// Print outputs raw text (backward compatibility)
-func (c *ConsoleOutput) Print(args ...interface{}) {
-	fmt.Fprint(c.writer, args...)
-}
-
-// Printf outputs formatted raw text (backward compatibility)
+// Printf outputs formatted text for special cases like command output
 func (c *ConsoleOutput) Printf(format string, args ...interface{}) {
 	fmt.Fprintf(c.writer, format, args...)
 }
 
-// Println outputs raw text with newline (backward compatibility)
-func (c *ConsoleOutput) Println(args ...interface{}) {
-	fmt.Fprintln(c.writer, args...)
-}
 
 // Global user output instance
 var defaultUserOutput UserOutput
@@ -161,4 +149,9 @@ func UserError(args ...interface{}) {
 
 func UserErrorf(format string, args ...interface{}) {
 	GetDefaultUserOutput().Errorf(format, args...)
+}
+
+// UserPrintf outputs formatted text for special cases like config listing and command output
+func UserPrintf(format string, args ...interface{}) {
+	GetDefaultUserOutput().Printf(format, args...)
 }

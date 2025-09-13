@@ -3,7 +3,6 @@ package notifier
 import (
 	"context"
 	"fmt"
-	"log"
 	"regexp"
 	"strconv"
 	"strings"
@@ -14,6 +13,7 @@ import (
 	"github.com/nikoksr/notify/service/slack"
 	"github.com/nikoksr/notify/service/telegram"
 	"github.com/shiquda/lai/internal/config"
+	"github.com/shiquda/lai/internal/logger"
 )
 
 // NotifyNotifier is a universal notifier implemented using the notify library
@@ -50,7 +50,7 @@ func (nn *NotifyNotifier) setupServices() error {
 
 	for providerName, serviceConfig := range nn.config.Providers {
 		if !serviceConfig.Enabled {
-			log.Printf("Info: provider %s is disabled, skipping\n", providerName)
+			logger.Infof("Provider %s is disabled, skipping", providerName)
 			continue
 		}
 
@@ -58,18 +58,18 @@ func (nn *NotifyNotifier) setupServices() error {
 		nn.serviceConfigs[providerName] = serviceConfig
 
 		if err := nn.setupProvider(providerName, serviceConfig); err != nil {
-			log.Printf("Warning: failed to setup %s service: %v\n", providerName, err)
+			logger.Warnf("Failed to setup %s service: %v", providerName, err)
 			continue
 		}
 
 		nn.enabledServices[providerName] = true
-		log.Printf("Info: successfully enabled %s service\n", providerName)
+		logger.Infof("Successfully enabled %s service", providerName)
 	}
 
 	// Setup fallback service
 	if nn.config.Fallback != nil && nn.config.Fallback.Enabled {
 		if err := nn.setupFallback(); err != nil {
-			log.Printf("Warning: failed to setup fallback service: %v\n", err)
+			logger.Warnf("Failed to setup fallback service: %v", err)
 		}
 	}
 

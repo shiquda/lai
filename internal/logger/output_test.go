@@ -63,24 +63,7 @@ func TestConsoleOutput(t *testing.T) {
 	}
 	buf.Reset()
 
-	// Test backward compatibility methods
-	output.Print("print message")
-	if !strings.Contains(buf.String(), "print message") {
-		t.Errorf("Print() failed to output message")
 	}
-	buf.Reset()
-
-	output.Printf("print %s", "formatted")
-	if !strings.Contains(buf.String(), "print formatted") {
-		t.Errorf("Printf() failed to format and output message")
-	}
-	buf.Reset()
-
-	output.Println("println message")
-	if !strings.Contains(buf.String(), "println message") || !strings.Contains(buf.String(), "\n") {
-		t.Errorf("Println() failed to output message with newline")
-	}
-}
 
 func TestGlobalUserOutputFunctions(t *testing.T) {
 	// Create a buffer to capture output
@@ -176,57 +159,10 @@ func TestBackwardCompatibilityThroughLogger(t *testing.T) {
 	SetDefaultUserOutput(customOutput)
 
 	// Create logger
-	logger, err := NewLogger(DefaultLogConfig())
+	_, err := NewLogger(DefaultLogConfig())
 	if err != nil {
 		t.Fatalf("Failed to create logger: %v", err)
 	}
 
-	// Test backward compatibility methods through logger
-	logger.Print("logger print")
-	if !strings.Contains(buf.String(), "logger print") {
-		t.Errorf("Logger.Print() failed to output message")
 	}
-	buf.Reset()
 
-	logger.Printf("logger %s", "printf")
-	if !strings.Contains(buf.String(), "logger printf") {
-		t.Errorf("Logger.Printf() failed to format and output message")
-	}
-	buf.Reset()
-
-	logger.Println("logger println")
-	if !strings.Contains(buf.String(), "logger println") || !strings.Contains(buf.String(), "\n") {
-		t.Errorf("Logger.Println() failed to output message with newline")
-	}
-}
-
-func TestGlobalBackwardCompatibilityFunctions(t *testing.T) {
-	// Create a buffer to capture output
-	var buf bytes.Buffer
-	customOutput := NewConsoleOutputWithWriter(&buf)
-
-	// Set custom output for testing
-	oldOutput := defaultUserOutput
-	defer func() {
-		defaultUserOutput = oldOutput
-	}()
-	SetDefaultUserOutput(customOutput)
-
-	// Test global backward compatibility functions
-	Print("global print")
-	if !strings.Contains(buf.String(), "global print") {
-		t.Errorf("Global Print() failed to output message")
-	}
-	buf.Reset()
-
-	Printf("global %s", "printf")
-	if !strings.Contains(buf.String(), "global printf") {
-		t.Errorf("Global Printf() failed to format and output message")
-	}
-	buf.Reset()
-
-	Println("global println")
-	if !strings.Contains(buf.String(), "global println") || !strings.Contains(buf.String(), "\n") {
-		t.Errorf("Global Println() failed to output message with newline")
-	}
-}

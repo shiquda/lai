@@ -86,7 +86,7 @@ func (sc *StreamCollector) Start() error {
 		return fmt.Errorf("failed to start command: %w", err)
 	}
 
-	logger.Printf("Started command: %s %s (PID: %d)\n", sc.command, strings.Join(sc.args, " "), sc.cmd.Process.Pid)
+	logger.Infof("Started command: %s %s (PID: %d)", sc.command, strings.Join(sc.args, " "), sc.cmd.Process.Pid)
 
 	// Create wait groups for goroutines
 	var wg sync.WaitGroup
@@ -126,15 +126,15 @@ func (sc *StreamCollector) Start() error {
 			sc.cmd.Process.Kill()
 		}
 		<-cmdDone // Wait for command to actually exit
-		logger.Printf("Command stopped by user\n")
+		logger.Info("Command stopped by user")
 	case err := <-cmdDone:
 		// Command finished - signal threshold checker to stop
 		close(sc.stopCh)
 		commandError = err
 		if err != nil {
-			logger.Printf("Command finished with error: %v\n", err)
+			logger.Errorf("Command finished with error: %v", err)
 		} else {
-			logger.Printf("Command finished successfully\n")
+			logger.Info("Command finished successfully")
 		}
 	}
 
@@ -193,7 +193,7 @@ func (sc *StreamCollector) monitorStream(stream io.ReadCloser, streamType string
 			coloredOutput = line
 		}
 
-		logger.Printf("[%s] %s\n", streamType, coloredOutput)
+		logger.UserPrintf("[%s] %s\n", streamType, coloredOutput)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -332,10 +332,10 @@ func (sc *StreamCollector) sendFinalSummary(commandError error) {
 	finalContent := summaryBuilder.String()
 
 	// Send the final summary
-	logger.Printf("Generating final summary...\n")
+	logger.Info("Generating final summary...")
 	if err := sc.onTrigger(finalContent); err != nil {
 		logger.Errorf("Failed to send final summary: %v", err)
 	} else {
-		logger.Printf("Final summary sent successfully\n")
+		logger.Info("Final summary sent successfully")
 	}
 }

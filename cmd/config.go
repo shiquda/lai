@@ -368,25 +368,25 @@ func printConfigValue(path string, value interface{}) {
 		if v != nil {
 			printFallbackConfig(path, *v)
 		} else {
-			logger.Printf("%s = <nil>\n", path)
+			logger.UserPrintf("%s = <nil>\n", path)
 		}
 	case *interface{}:
 		if v != nil {
 			printConfigValue(path, *v)
 		} else {
-			logger.Printf("%s = <nil>\n", path)
+			logger.UserPrintf("%s = <nil>\n", path)
 		}
 	default:
 		// Handle sensitive information masking
 		maskedValue := maskSensitiveValue(path, value)
-		logger.Printf("%s = %s\n", path, maskedValue)
+		logger.UserPrintf("%s = %s\n", path, maskedValue)
 	}
 }
 
 // printServiceConfigMap prints a map of service configurations
 func printServiceConfigMap(basePath string, serviceMap map[string]config.ServiceConfig) {
 	if len(serviceMap) == 0 {
-		logger.Printf("%s = {}\n", basePath)
+		logger.UserPrintf("%s = {}\n", basePath)
 		return
 	}
 
@@ -398,15 +398,15 @@ func printServiceConfigMap(basePath string, serviceMap map[string]config.Service
 
 // printServiceConfig prints a single service configuration with proper structure
 func printServiceConfig(path string, service config.ServiceConfig) {
-	logger.Printf("%s.enabled = %t\n", path, service.Enabled)
-	logger.Printf("%s.provider = %s\n", path, service.Provider)
+	logger.UserPrintf("%s.enabled = %t\n", path, service.Enabled)
+	logger.UserPrintf("%s.provider = %s\n", path, service.Provider)
 
 	// Print config map
 	if len(service.Config) > 0 {
 		configPath := path + ".config"
 		printNestedMap(configPath, service.Config, 0)
 	} else {
-		logger.Printf("%s.config = {}\n", path)
+		logger.UserPrintf("%s.config = {}\n", path)
 	}
 
 	// Print defaults map
@@ -414,20 +414,20 @@ func printServiceConfig(path string, service config.ServiceConfig) {
 		defaultsPath := path + ".defaults"
 		printNestedMap(defaultsPath, service.Defaults, 0)
 	} else {
-		logger.Printf("%s.defaults = {}\n", path)
+		logger.UserPrintf("%s.defaults = {}\n", path)
 	}
 }
 
 // printFallbackConfig prints fallback configuration
 func printFallbackConfig(path string, fallback config.FallbackConfig) {
-	logger.Printf("%s.enabled = %t\n", path, fallback.Enabled)
-	logger.Printf("%s.provider = %s\n", path, fallback.Provider)
+	logger.UserPrintf("%s.enabled = %t\n", path, fallback.Enabled)
+	logger.UserPrintf("%s.provider = %s\n", path, fallback.Provider)
 
 	if len(fallback.Config) > 0 {
 		configPath := path + ".config"
 		printNestedMap(configPath, fallback.Config, 0)
 	} else {
-		logger.Printf("%s.config = {}\n", path)
+		logger.UserPrintf("%s.config = {}\n", path)
 	}
 }
 
@@ -445,7 +445,7 @@ func printNestedMap(basePath string, m map[string]interface{}, depth int) {
 			printStringSlice(fullPath, v, depth+1)
 		default:
 			maskedValue := maskSensitiveValue(fullPath, value)
-			logger.Printf("%s = %s\n", fullPath, maskedValue)
+			logger.UserPrintf("%s = %s\n", fullPath, maskedValue)
 		}
 	}
 }
@@ -453,19 +453,19 @@ func printNestedMap(basePath string, m map[string]interface{}, depth int) {
 // printSlice prints a slice with proper formatting
 func printSlice(path string, slice []interface{}, depth int) {
 	if len(slice) == 0 {
-		logger.Printf("%s = []\n", path)
+		logger.UserPrintf("%s = []\n", path)
 		return
 	}
 
-	logger.Printf("%s:\n", path)
+	logger.UserPrintf("%s:\n", path)
 	indent := strings.Repeat("  ", depth+1)
 	for i, item := range slice {
 		switch v := item.(type) {
 		case map[string]interface{}:
-			logger.Printf("%s[%d]:\n", indent, i)
+			logger.UserPrintf("%s[%d]:\n", indent, i)
 			printNestedMap(path, v, depth+2)
 		default:
-			logger.Printf("%s- %v\n", indent, item)
+			logger.UserPrintf("%s- %v\n", indent, item)
 		}
 	}
 }
@@ -473,14 +473,14 @@ func printSlice(path string, slice []interface{}, depth int) {
 // printStringSlice prints a string slice with proper formatting
 func printStringSlice(path string, slice []string, depth int) {
 	if len(slice) == 0 {
-		logger.Printf("%s = []\n", path)
+		logger.UserPrintf("%s = []\n", path)
 		return
 	}
 
-	logger.Printf("%s:\n", path)
+	logger.UserPrintf("%s:\n", path)
 	indent := strings.Repeat("  ", depth+1)
 	for _, item := range slice {
-		logger.Printf("%s- %s\n", indent, item)
+		logger.UserPrintf("%s- %s\n", indent, item)
 	}
 }
 

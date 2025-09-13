@@ -379,7 +379,7 @@ func EnsureGlobalConfig() error {
 		if err := SaveGlobalConfig(defaultConfig); err != nil {
 			return fmt.Errorf("failed to create default config: %w", err)
 		}
-		logger.Printf("Created default config file: %s\n", configPath)
+		logger.Infof("Created default config file: %s", configPath)
 	}
 
 	// Validate existing config
