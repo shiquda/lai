@@ -189,55 +189,108 @@ func setFieldByPath(obj interface{}, path, value string) error {
 	for i, part := range parts {
 		if i == len(parts)-1 {
 			// Last part - set the value
-			field := v.FieldByName(toCamelCase(part))
-			if !field.IsValid() {
-				return fmt.Errorf("field %s not found", part)
-			}
-			if !field.CanSet() {
-				return fmt.Errorf("field %s cannot be set", part)
-			}
+			if v.Kind() == reflect.Map {
+				// Handle map types
+				if v.IsNil() {
+					v.Set(reflect.MakeMap(v.Type()))
+				}
+				key := reflect.ValueOf(part)
+				switch v.Type().Elem().Kind() {
+				case reflect.String:
+					v.SetMapIndex(key, reflect.ValueOf(value))
+				case reflect.Bool:
+					if boolVal, err := strconv.ParseBool(value); err == nil {
+						v.SetMapIndex(key, reflect.ValueOf(boolVal))
+					} else {
+						return fmt.Errorf("invalid bool value: %s", value)
+					}
+				case reflect.Interface:
+					// For interface{} maps, determine type from value
+					if boolVal, err := strconv.ParseBool(value); err == nil {
+						v.SetMapIndex(key, reflect.ValueOf(boolVal))
+					} else if intVal, err := strconv.Atoi(value); err == nil {
+						v.SetMapIndex(key, reflect.ValueOf(intVal))
+					} else {
+						v.SetMapIndex(key, reflect.ValueOf(value))
+					}
+				default:
+					return fmt.Errorf("unsupported map value type: %s", v.Type().Elem().Kind())
+				}
+			} else {
+				// Handle struct fields
+				field := v.FieldByName(toCamelCase(part))
+				if !field.IsValid() {
+					return fmt.Errorf("field %s not found", part)
+				}
+				if !field.CanSet() {
+					return fmt.Errorf("field %s cannot be set", part)
+				}
 
-			// Convert string value to appropriate type
-			switch field.Kind() {
-			case reflect.String:
-				field.SetString(value)
-			case reflect.Bool:
-				if boolVal, err := strconv.ParseBool(value); err == nil {
-					field.SetBool(boolVal)
-				} else {
-					return fmt.Errorf("invalid bool value: %s", value)
-				}
-			case reflect.Int:
-				if intVal, err := strconv.Atoi(value); err == nil {
-					field.SetInt(int64(intVal))
-				} else {
-					return fmt.Errorf("invalid int value: %s", value)
-				}
-			case reflect.Int64:
-				// Handle time.Duration (which is int64)
-				if field.Type() == reflect.TypeOf(time.Duration(0)) {
-					if duration, err := time.ParseDuration(value); err == nil {
-						field.SetInt(int64(duration))
+				// Convert string value to appropriate type
+				switch field.Kind() {
+				case reflect.String:
+					field.SetString(value)
+				case reflect.Bool:
+					if boolVal, err := strconv.ParseBool(value); err == nil {
+						field.SetBool(boolVal)
 					} else {
-						return fmt.Errorf("invalid duration value: %s", value)
+						return fmt.Errorf("invalid bool value: %s", value)
 					}
-				} else {
-					if intVal, err := strconv.ParseInt(value, 10, 64); err == nil {
-						field.SetInt(intVal)
+				case reflect.Int:
+					if intVal, err := strconv.Atoi(value); err == nil {
+						field.SetInt(int64(intVal))
 					} else {
-						return fmt.Errorf("invalid int64 value: %s", value)
+						return fmt.Errorf("invalid int value: %s", value)
 					}
+				case reflect.Int64:
+					// Handle time.Duration (which is int64)
+					if field.Type() == reflect.TypeOf(time.Duration(0)) {
+						if duration, err := time.ParseDuration(value); err == nil {
+							field.SetInt(int64(duration))
+						} else {
+							return fmt.Errorf("invalid duration value: %s", value)
+						}
+					} else {
+						if intVal, err := strconv.ParseInt(value, 10, 64); err == nil {
+							field.SetInt(intVal)
+						} else {
+							return fmt.Errorf("invalid int64 value: %s", value)
+						}
+					}
+				default:
+					return fmt.Errorf("unsupported field type: %s", field.Kind())
 				}
-			default:
-				return fmt.Errorf("unsupported field type: %s", field.Kind())
 			}
 		} else {
-			// Navigate to nested struct
-			field := v.FieldByName(toCamelCase(part))
-			if !field.IsValid() {
-				return fmt.Errorf("field %s not found", part)
+			// Navigate to nested struct or map
+			if v.Kind() == reflect.Map {
+				// Handle map navigation
+				key := reflect.ValueOf(part)
+				mapValue := v.MapIndex(key)
+				if !mapValue.IsValid() {
+					// Create nested map or struct if it doesn't exist
+					elemType := v.Type().Elem()
+					if elemType.Kind() == reflect.Interface {
+						// Create a new map[string]interface{}
+						newMap := make(map[string]interface{})
+						v.SetMapIndex(key, reflect.ValueOf(newMap))
+						mapValue = v.MapIndex(key)
+					} else {
+						return fmt.Errorf("cannot create nested value for path: %s", strings.Join(parts[:i+1], "."))
+					}
+				}
+				v = mapValue
+				if v.Kind() == reflect.Interface {
+					v = v.Elem()
+				}
+			} else {
+				// Handle struct navigation
+				field := v.FieldByName(toCamelCase(part))
+				if !field.IsValid() {
+					return fmt.Errorf("field %s not found", part)
+				}
+				v = field
 			}
-			v = field
 		}
 	}
 
@@ -250,17 +303,31 @@ func getFieldByPath(obj interface{}, path string) (string, error) {
 	v := reflect.ValueOf(obj).Elem()
 
 	for _, part := range parts {
-		field := v.FieldByName(toCamelCase(part))
-		if !field.IsValid() {
-			return "", fmt.Errorf("field %s not found", part)
+		if v.Kind() == reflect.Map {
+			// Handle map navigation
+			key := reflect.ValueOf(part)
+			mapValue := v.MapIndex(key)
+			if !mapValue.IsValid() {
+				return "", fmt.Errorf("key %s not found in map", part)
+			}
+			v = mapValue
+			if v.Kind() == reflect.Interface {
+				v = v.Elem()
+			}
+		} else {
+			// Handle struct navigation
+			field := v.FieldByName(toCamelCase(part))
+			if !field.IsValid() {
+				return "", fmt.Errorf("field %s not found", part)
+			}
+			v = field
 		}
-		v = field
 	}
 
 	return fmt.Sprintf("%v", v.Interface()), nil
 }
 
-// printConfig recursively prints all configuration values
+// printConfig recursively prints all configuration values with improved formatting
 func printConfig(obj interface{}, prefix string) {
 	v := reflect.ValueOf(obj).Elem()
 	t := reflect.TypeOf(obj).Elem()
@@ -278,8 +345,142 @@ func printConfig(obj interface{}, prefix string) {
 		if field.Kind() == reflect.Struct {
 			printConfig(field.Addr().Interface(), fullPath)
 		} else {
-			logger.UserInfof("%s = %v\n", fullPath, field.Interface())
+			printConfigValue(fullPath, field.Interface())
 		}
+	}
+}
+
+// printConfigValue prints a single configuration value with improved formatting for complex types
+func printConfigValue(path string, value interface{}) {
+	// Add import for config package types
+	switch v := value.(type) {
+	case map[string]config.ServiceConfig:
+		printServiceConfigMap(path, v)
+	case config.ServiceConfig:
+		printServiceConfig(path, v)
+	case map[string]interface{}:
+		printNestedMap(path, v, 0)
+	case []interface{}:
+		printSlice(path, v, 0)
+	case []string:
+		printStringSlice(path, v, 0)
+	case *config.FallbackConfig:
+		if v != nil {
+			printFallbackConfig(path, *v)
+		} else {
+			logger.Printf("%s = <nil>\n", path)
+		}
+	case *interface{}:
+		if v != nil {
+			printConfigValue(path, *v)
+		} else {
+			logger.Printf("%s = <nil>\n", path)
+		}
+	default:
+		// Handle sensitive information masking
+		maskedValue := maskSensitiveValue(path, value)
+		logger.Printf("%s = %s\n", path, maskedValue)
+	}
+}
+
+// printServiceConfigMap prints a map of service configurations
+func printServiceConfigMap(basePath string, serviceMap map[string]config.ServiceConfig) {
+	if len(serviceMap) == 0 {
+		logger.Printf("%s = {}\n", basePath)
+		return
+	}
+
+	for serviceName, serviceConfig := range serviceMap {
+		fullPath := basePath + "." + serviceName
+		printServiceConfig(fullPath, serviceConfig)
+	}
+}
+
+// printServiceConfig prints a single service configuration with proper structure
+func printServiceConfig(path string, service config.ServiceConfig) {
+	logger.Printf("%s.enabled = %t\n", path, service.Enabled)
+	logger.Printf("%s.provider = %s\n", path, service.Provider)
+
+	// Print config map
+	if len(service.Config) > 0 {
+		configPath := path + ".config"
+		printNestedMap(configPath, service.Config, 0)
+	} else {
+		logger.Printf("%s.config = {}\n", path)
+	}
+
+	// Print defaults map
+	if len(service.Defaults) > 0 {
+		defaultsPath := path + ".defaults"
+		printNestedMap(defaultsPath, service.Defaults, 0)
+	} else {
+		logger.Printf("%s.defaults = {}\n", path)
+	}
+}
+
+// printFallbackConfig prints fallback configuration
+func printFallbackConfig(path string, fallback config.FallbackConfig) {
+	logger.Printf("%s.enabled = %t\n", path, fallback.Enabled)
+	logger.Printf("%s.provider = %s\n", path, fallback.Provider)
+
+	if len(fallback.Config) > 0 {
+		configPath := path + ".config"
+		printNestedMap(configPath, fallback.Config, 0)
+	} else {
+		logger.Printf("%s.config = {}\n", path)
+	}
+}
+
+// printNestedMap prints a map with proper indentation and structure
+func printNestedMap(basePath string, m map[string]interface{}, depth int) {
+	for key, value := range m {
+		fullPath := basePath + "." + key
+
+		switch v := value.(type) {
+		case map[string]interface{}:
+			printNestedMap(fullPath, v, depth+1)
+		case []interface{}:
+			printSlice(fullPath, v, depth+1)
+		case []string:
+			printStringSlice(fullPath, v, depth+1)
+		default:
+			maskedValue := maskSensitiveValue(fullPath, value)
+			logger.Printf("%s = %s\n", fullPath, maskedValue)
+		}
+	}
+}
+
+// printSlice prints a slice with proper formatting
+func printSlice(path string, slice []interface{}, depth int) {
+	if len(slice) == 0 {
+		logger.Printf("%s = []\n", path)
+		return
+	}
+
+	logger.Printf("%s:\n", path)
+	indent := strings.Repeat("  ", depth+1)
+	for i, item := range slice {
+		switch v := item.(type) {
+		case map[string]interface{}:
+			logger.Printf("%s[%d]:\n", indent, i)
+			printNestedMap(path, v, depth+2)
+		default:
+			logger.Printf("%s- %v\n", indent, item)
+		}
+	}
+}
+
+// printStringSlice prints a string slice with proper formatting
+func printStringSlice(path string, slice []string, depth int) {
+	if len(slice) == 0 {
+		logger.Printf("%s = []\n", path)
+		return
+	}
+
+	logger.Printf("%s:\n", path)
+	indent := strings.Repeat("  ", depth+1)
+	for _, item := range slice {
+		logger.Printf("%s- %s\n", indent, item)
 	}
 }
 
