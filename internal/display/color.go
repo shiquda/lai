@@ -83,7 +83,6 @@ func isTerminalSupported() bool {
 	return true
 }
 
-
 // isatty checks if the file descriptor is a terminal
 func isatty(f *os.File) bool {
 	if f == nil {

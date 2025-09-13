@@ -19,10 +19,10 @@ import (
 // NotifyNotifier is a universal notifier implemented using the notify library
 // Supports all services provided by the notify library
 type NotifyNotifier struct {
-	notifyClient      *notify.Notify
-	config            *config.NotificationsConfig
-	enabledServices   map[string]bool
-	serviceConfigs    map[string]config.ServiceConfig
+	notifyClient    *notify.Notify
+	config          *config.NotificationsConfig
+	enabledServices map[string]bool
+	serviceConfigs  map[string]config.ServiceConfig
 }
 
 // NewNotifyNotifier creates a new notify notifier
