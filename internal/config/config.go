@@ -22,6 +22,7 @@ type GlobalConfig struct {
 	Notifications NotificationsConfig `mapstructure:"notifications" yaml:"notifications"`
 	Defaults      DefaultsConfig      `mapstructure:"defaults" yaml:"defaults"`
 	Logging       LoggingConfig       `mapstructure:"logging" yaml:"logging"`
+	Display       DisplayConfig       `mapstructure:"display" yaml:"display"`
 }
 
 // NotificationsConfig contains the new unified notification configuration
@@ -34,6 +35,18 @@ type NotificationsConfig struct {
 // LoggingConfig contains logging configuration
 type LoggingConfig struct {
 	Level string `mapstructure:"level" yaml:"level"`
+}
+
+// DisplayConfig contains display and output formatting configuration
+type DisplayConfig struct {
+	Colors ColorsConfig `mapstructure:"colors" yaml:"colors"`
+}
+
+// ColorsConfig contains color output configuration
+type ColorsConfig struct {
+	Enabled bool   `mapstructure:"enabled" yaml:"enabled"`
+	Stdout  string `mapstructure:"stdout" yaml:"stdout"`
+	Stderr  string `mapstructure:"stderr" yaml:"stderr"`
 }
 
 // DefaultsConfig contains default configuration values
@@ -67,6 +80,7 @@ type Config struct {
 
 	OpenAI        OpenAIConfig        `mapstructure:"openai" yaml:"openai"`
 	Notifications NotificationsConfig `mapstructure:"notifications" yaml:"notifications"`
+	Display       DisplayConfig       `mapstructure:"display" yaml:"display"`
 }
 
 type OpenAIConfig struct {
@@ -268,6 +282,13 @@ func getDefaultGlobalConfig() *GlobalConfig {
 		},
 		Logging: LoggingConfig{
 			Level: "info",
+		},
+		Display: DisplayConfig{
+			Colors: ColorsConfig{
+				Enabled: true,    // Enable colors by default
+				Stdout:  "gray",  // Gray for stdout
+				Stderr:  "red",   // Red for stderr
+			},
 		},
 	}
 }
@@ -626,6 +647,7 @@ func BuildRuntimeConfig(logFile string, lineThreshold *int, checkInterval *time.
 		ErrorOnlyMode: globalConfig.Defaults.ErrorOnlyMode,
 		OpenAI:        globalConfig.Notifications.OpenAI,
 		Notifications: globalConfig.Notifications,
+		Display:       globalConfig.Display,
 	}
 
 	// Apply command line parameter overrides
@@ -668,6 +690,7 @@ func BuildStreamConfig(command string, args []string, lineThreshold *int, checkI
 		ErrorOnlyMode:    globalConfig.Defaults.ErrorOnlyMode,
 		OpenAI:           globalConfig.Notifications.OpenAI,
 		Notifications:    globalConfig.Notifications,
+		Display:          globalConfig.Display,
 	}
 
 	// Apply command line parameter overrides

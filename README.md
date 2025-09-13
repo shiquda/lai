@@ -60,6 +60,7 @@ lai monitor file /var/log/nginx/error.log -d -n "nginx-monitor"
 - **🤖 AI-Powered Analysis**: LLMs automatically summarize log changes and identify issues
 - **📱 Smart Notifications**: Get alerts via Telegram, Email, Discord, or Slack
 - **🔄 Universal Monitoring**: Watch any log file or command output
+- **🎨 Colored Output**: Distinguish stdout/stderr with configurable colors in exec mode
 - **🔌 Zero Integration**: Works with any existing application - no code changes needed
 - **⚡ Real-time Processing**: Instant analysis and notification delivery
 
@@ -89,6 +90,12 @@ lai monitor command "npm run build" --final-summary
 
 # Monitor tests with error detection
 lai monitor command "npm test" -l 3 -i 15s
+
+# Monitor command output with colored display (stdout: gray, stderr: red)
+lai exec "npm run build" --final-summary
+
+# Monitor long-running processes
+lai exec "python train_model.py" -d -n "model-training"
 ```
 
 ## 🔧 Configuration Options
@@ -116,6 +123,11 @@ lai config set notifications.providers.telegram.chat_id "your-chat-id"
 lai config set defaults.line_threshold 10
 lai config set defaults.check_interval "30s"
 lai config set defaults.language "English"
+
+# Configure colored output for exec command
+lai config set display.colors.enabled true
+lai config set display.colors.stdout "gray"
+lai config set display.colors.stderr "red"
 
 # Reset configuration to defaults
 lai config reset

@@ -5,7 +5,20 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/shiquda/lai/internal/config"
+	"github.com/shiquda/lai/internal/display"
 )
+
+// getTestColorPrinter returns a color printer for testing
+func getTestColorPrinter() *display.ColorPrinter {
+	cfg := config.ColorsConfig{
+		Enabled: true,
+		Stdout:  "gray",
+		Stderr:  "red",
+	}
+	return display.NewColorPrinter(cfg)
+}
 
 // getTestCommand returns a platform-appropriate command for testing
 func getTestCommand() (string, []string) {
@@ -50,7 +63,7 @@ func TestNewStreamCollector(t *testing.T) {
 	checkInterval := 1 * time.Second
 	finalSummary := true
 
-	sc := NewStreamCollector(command, args, lineThreshold, checkInterval, finalSummary)
+	sc := NewStreamCollector(command, args, lineThreshold, checkInterval, finalSummary, getTestColorPrinter())
 
 	if sc.command != command {
 		t.Errorf("Expected command %s, got %s", command, sc.command)
@@ -72,7 +85,7 @@ func TestNewStreamCollector(t *testing.T) {
 func TestStreamCollectorSimpleCommand(t *testing.T) {
 	// Test with a simple cross-platform command
 	cmd, args := getTestCommand()
-	sc := NewStreamCollector(cmd, args, 2, 100*time.Millisecond, false)
+	sc := NewStreamCollector(cmd, args, 2, 100*time.Millisecond, false, getTestColorPrinter())
 
 	sc.SetTriggerHandler(func(content string) error {
 		// Just capture that trigger was called
@@ -122,7 +135,7 @@ func TestStreamCollectorMultiLineCommand(t *testing.T) {
 	// Test with a command that outputs multiple lines with delay to allow threshold checking
 	cmd, args := getMultiLineTestCommand()
 	// Use smaller check interval to catch output before command finishes
-	sc := NewStreamCollector(cmd, args, 3, 10*time.Millisecond, false)
+	sc := NewStreamCollector(cmd, args, 3, 10*time.Millisecond, false, getTestColorPrinter())
 
 	triggerCount := 0
 	sc.SetTriggerHandler(func(content string) error {
@@ -165,7 +178,7 @@ func TestStreamCollectorMultiLineCommand(t *testing.T) {
 }
 
 func TestStreamCollectorInvalidCommand(t *testing.T) {
-	sc := NewStreamCollector("nonexistentcommand", []string{}, 1, 100*time.Millisecond, false)
+	sc := NewStreamCollector("nonexistentcommand", []string{}, 1, 100*time.Millisecond, false, getTestColorPrinter())
 
 	err := sc.Start()
 	if err == nil {
@@ -176,7 +189,7 @@ func TestStreamCollectorInvalidCommand(t *testing.T) {
 func TestStreamCollectorStop(t *testing.T) {
 	// Test with a long-running command
 	cmd, args := getSleepCommand()
-	sc := NewStreamCollector(cmd, args, 10, 100*time.Millisecond, false)
+	sc := NewStreamCollector(cmd, args, 10, 100*time.Millisecond, false, getTestColorPrinter())
 
 	done := make(chan error, 1)
 	go func() {
@@ -202,7 +215,7 @@ func TestStreamCollectorTriggerHandler(t *testing.T) {
 	// Use a simple command to allow threshold checking
 	cmd, args := getSimpleEchoCommand("test content")
 	// Use smaller check interval to catch output before command finishes
-	sc := NewStreamCollector(cmd, args, 1, 10*time.Millisecond, false)
+	sc := NewStreamCollector(cmd, args, 1, 10*time.Millisecond, false, getTestColorPrinter())
 
 	triggerCalled := false
 	var receivedContent string
@@ -248,7 +261,7 @@ func TestStreamCollectorTriggerHandler(t *testing.T) {
 
 func TestStreamCollectorGetters(t *testing.T) {
 	cmd, args := getSimpleEchoCommand("test")
-	sc := NewStreamCollector(cmd, args, 1, 100*time.Millisecond, false)
+	sc := NewStreamCollector(cmd, args, 1, 100*time.Millisecond, false, getTestColorPrinter())
 
 	// Initially should have no lines
 	if sc.GetLineCount() != 0 {
@@ -282,7 +295,7 @@ func TestStreamCollectorGetters(t *testing.T) {
 
 func TestStreamCollectorFinalSummary(t *testing.T) {
 	cmd, args := getSimpleEchoCommand("test final summary")
-	sc := NewStreamCollector(cmd, args, 10, 50*time.Millisecond, true)
+	sc := NewStreamCollector(cmd, args, 10, 50*time.Millisecond, true, getTestColorPrinter())
 
 	finalSummaryCalled := false
 	var finalContent string

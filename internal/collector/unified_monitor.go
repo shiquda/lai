@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/shiquda/lai/internal/config"
+	"github.com/shiquda/lai/internal/display"
 	"github.com/shiquda/lai/internal/logger"
 	"github.com/shiquda/lai/internal/notifier"
 	"github.com/shiquda/lai/internal/platform"
@@ -24,6 +25,7 @@ type MonitorConfig struct {
 	FinalSummaryOnly bool
 	OpenAI           config.OpenAIConfig
 	Notifications    config.NotificationsConfig
+	Display          config.DisplayConfig
 }
 
 // BuildMonitorConfig builds unified monitoring configuration
@@ -50,6 +52,7 @@ func BuildMonitorConfig(source MonitorSource, lineThreshold *int, checkInterval 
 		ErrorOnlyMode:    globalConfig.Defaults.ErrorOnlyMode,
 		OpenAI:           globalConfig.Notifications.OpenAI,
 		Notifications:    globalConfig.Notifications,
+		Display:          globalConfig.Display,
 	}
 
 	// Apply command line parameter overrides
@@ -152,7 +155,10 @@ func NewUnifiedMonitor(cfg *MonitorConfig) (*UnifiedMonitor, error) {
 			return nil, fmt.Errorf("failed to parse command: %w", err)
 		}
 
-		collector = NewStreamCollector(command, args, cfg.LineThreshold, cfg.CheckInterval, cfg.FinalSummary)
+		// Create color printer for command output
+		colorPrinter := display.NewColorPrinter(cfg.Display.Colors)
+
+		collector = NewStreamCollector(command, args, cfg.LineThreshold, cfg.CheckInterval, cfg.FinalSummary, colorPrinter)
 	} else {
 		// Regular file monitoring
 		collector = New(identifier, cfg.LineThreshold, cfg.CheckInterval)

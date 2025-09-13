@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/shiquda/lai/internal/display"
 	"github.com/shiquda/lai/internal/logger"
 )
 
@@ -21,6 +22,7 @@ type StreamCollector struct {
 	checkInterval time.Duration
 	onTrigger     func(newContent string) error
 	finalSummary  bool
+	colorPrinter  *display.ColorPrinter
 
 	cmd       *exec.Cmd
 	lines     []string
@@ -32,13 +34,14 @@ type StreamCollector struct {
 }
 
 // NewStreamCollector creates a new stream collector for command output
-func NewStreamCollector(command string, args []string, lineThreshold int, checkInterval time.Duration, finalSummary bool) *StreamCollector {
+func NewStreamCollector(command string, args []string, lineThreshold int, checkInterval time.Duration, finalSummary bool, colorPrinter *display.ColorPrinter) *StreamCollector {
 	return &StreamCollector{
 		command:       command,
 		args:          args,
 		lineThreshold: lineThreshold,
 		checkInterval: checkInterval,
 		finalSummary:  finalSummary,
+		colorPrinter:  colorPrinter,
 		lines:         make([]string, 0),
 		stopCh:        make(chan struct{}),
 	}
@@ -175,8 +178,22 @@ func (sc *StreamCollector) monitorStream(stream io.ReadCloser, streamType string
 		sc.lineCount++
 		sc.lineMutex.Unlock()
 
-		// Print to console for immediate feedback
-		logger.Printf("[%s] %s\n", streamType, line)
+		// Print to console for immediate feedback with appropriate coloring
+		var coloredOutput string
+		if sc.colorPrinter != nil {
+			switch streamType {
+			case "stdout":
+				coloredOutput = sc.colorPrinter.PrintStdout(line)
+			case "stderr":
+				coloredOutput = sc.colorPrinter.PrintStderr(line)
+			default:
+				coloredOutput = line
+			}
+		} else {
+			coloredOutput = line
+		}
+
+		logger.Printf("[%s] %s\n", streamType, coloredOutput)
 	}
 
 	if err := scanner.Err(); err != nil {

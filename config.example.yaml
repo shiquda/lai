@@ -163,6 +163,13 @@ defaults:
 logging:
   level: "info"  # Log level: debug, info, warn, error, fatal
 
+# Display and output formatting configuration
+display:
+  colors:
+    enabled: true     # Enable colored output for exec command streams
+    stdout: "gray"    # Color for stdout output (supported: black, red, green, yellow, blue, magenta, cyan, white, gray/grey, bright_*)
+    stderr: "red"     # Color for stderr output (supported: black, red, green, yellow, blue, magenta, cyan, white, gray/grey, bright_*)
+
 # Example configuration for enabling multiple providers:
 #
 # providers:
