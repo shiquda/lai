@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -26,13 +27,19 @@ Available commands:
   get          Get a configuration value
   list         List all configuration values
   reset        Reset configuration to defaults
+  backup       Create a backup of current configuration
+  restore      Restore configuration from a backup
+  list-backups List all configuration backups
 
 Examples:
   lai config interactive       # Launch interactive config interface
   lai config set notifications.openai.api_key "sk-your-key"
   lai config get notifications.openai.api_key
   lai config list
-  lai config reset`,
+  lai config reset
+  lai config backup            # Create backup
+  lai config list-backups      # List backups
+  lai config restore backup.yaml # Restore from backup`,
 }
 
 var configSetCmd = &cobra.Command{
@@ -98,6 +105,78 @@ var configResetCmd = &cobra.Command{
 	},
 }
 
+var configBackupCmd = &cobra.Command{
+	Use:   "backup",
+	Short: "Create a backup of the current configuration",
+	Long:  "Create a backup of the current global configuration with version information",
+	Run: func(cmd *cobra.Command, args []string) {
+		configPath, err := config.GetGlobalConfigPath()
+		if err != nil {
+			logger.Errorf("Error getting config path: %v", err)
+			os.Exit(1)
+		}
+
+		backupPath, err := config.BackupConfig(configPath)
+		if err != nil {
+			logger.Errorf("Error creating backup: %v", err)
+			os.Exit(1)
+		}
+
+		logger.UserSuccessf("Configuration backup created: %s", backupPath)
+	},
+}
+
+var configRestoreCmd = &cobra.Command{
+	Use:   "restore [backup-file]",
+	Short: "Restore configuration from a backup",
+	Long:  "Restore the global configuration from a backup file",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		backupPath := args[0]
+		configPath, err := config.GetGlobalConfigPath()
+		if err != nil {
+			logger.Errorf("Error getting config path: %v", err)
+			os.Exit(1)
+		}
+
+		if err := config.RestoreConfig(backupPath, configPath); err != nil {
+			logger.Errorf("Error restoring config: %v", err)
+			os.Exit(1)
+		}
+
+		logger.UserSuccessf("Configuration restored from: %s", backupPath)
+	},
+}
+
+var configListBackupsCmd = &cobra.Command{
+	Use:   "list-backups",
+	Short: "List all configuration backups",
+	Long:  "List all available configuration backup files",
+	Run: func(cmd *cobra.Command, args []string) {
+		configPath, err := config.GetGlobalConfigPath()
+		if err != nil {
+			logger.Errorf("Error getting config path: %v", err)
+			os.Exit(1)
+		}
+
+		backups, err := config.ListBackups(configPath)
+		if err != nil {
+			logger.Errorf("Error listing backups: %v", err)
+			os.Exit(1)
+		}
+
+		if len(backups) == 0 {
+			logger.UserSuccess("No configuration backups found")
+			return
+		}
+
+		logger.UserSuccessf("Found %d configuration backups:", len(backups))
+		for i, backup := range backups {
+			logger.UserInfof("%2d. %s", i+1, filepath.Base(backup))
+		}
+	},
+}
+
 var configInteractiveCmd = &cobra.Command{
 	Use:     "interactive",
 	Short:   "Launch interactive configuration interface",
@@ -118,6 +197,9 @@ func init() {
 	configCmd.AddCommand(configGetCmd)
 	configCmd.AddCommand(configListCmd)
 	configCmd.AddCommand(configResetCmd)
+	configCmd.AddCommand(configBackupCmd)
+	configCmd.AddCommand(configRestoreCmd)
+	configCmd.AddCommand(configListBackupsCmd)
 	configCmd.AddCommand(configInteractiveCmd)
 }
 

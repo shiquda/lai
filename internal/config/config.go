@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -442,26 +443,34 @@ func needsMigration(config *GlobalConfig, rawConfig map[string]interface{}) bool
 
 // migrateConfigSilently migrates the configuration without user interaction
 func migrateConfigSilently(config *GlobalConfig, rawConfig map[string]interface{}) error {
-	// Create backup of existing config
+	// Create backup of existing config using the new backup function
 	configPath, err := GetGlobalConfigPath()
 	if err != nil {
 		return err
 	}
 
-	backupPath := configPath + ".backup." + time.Now().Format("20060102-150405")
-	if err := copyFile(configPath, backupPath); err != nil {
-		return fmt.Errorf("failed to create backup: %w", err)
+	backupPath, err := BackupConfig(configPath)
+	if err != nil {
+		logger.Warnf("Failed to create backup: %v", err)
+		// Continue with migration even if backup fails
+	} else {
+		logger.Infof("Created config backup: %s", backupPath)
 	}
 
 	// Get default config
 	defaultConfig := getDefaultGlobalConfig()
 
-	// Use reflection to merge configurations elegantly
-	mergedConfig := mergeConfigsWithReflection(config, defaultConfig)
+	// Use intelligent configuration merging
+	mergedConfig := smartMergeConfigs(config, defaultConfig)
 
 	// Save merged config
 	if err := SaveGlobalConfig(mergedConfig); err != nil {
 		return fmt.Errorf("failed to save merged config: %w", err)
+	}
+
+	// Clean up old backups (keep only last 5)
+	if err := CleanupOldBackups(configPath, 5); err != nil {
+		logger.Warnf("Failed to clean up old backups: %v", err)
 	}
 
 	return nil
@@ -496,6 +505,183 @@ func mergeConfigsWithReflection(existing, defaults *GlobalConfig) *GlobalConfig 
 
 		// For each field, merge based on type
 		mergeFieldPreserveExisting(existingField, defaultsField, mergedField)
+	}
+
+	return &merged
+}
+
+// smartMergeConfigs performs intelligent configuration merging
+// This is the new improved merge logic that handles complex nested structures properly
+func smartMergeConfigs(existing, defaults *GlobalConfig) *GlobalConfig {
+	merged := *existing // Start with existing config as base
+
+	// Always update version
+	merged.Version = defaults.Version
+
+	// Smart merge for Notifications section
+	merged.Notifications = smartMergeNotifications(existing.Notifications, defaults.Notifications)
+
+	// Smart merge for Defaults section
+	merged.Defaults = smartMergeDefaults(existing.Defaults, defaults.Defaults)
+
+	// Smart merge for Logging section
+	merged.Logging = smartMergeLogging(existing.Logging, defaults.Logging)
+
+	// Smart merge for Display section
+	merged.Display = smartMergeDisplay(existing.Display, defaults.Display)
+
+	return &merged
+}
+
+// smartMergeNotifications intelligently merges notification configurations
+func smartMergeNotifications(existing, defaults NotificationsConfig) NotificationsConfig {
+	merged := existing
+
+	// Merge OpenAI config (preserve user settings, fill missing from defaults)
+	merged.OpenAI = smartMergeOpenAI(existing.OpenAI, defaults.OpenAI)
+
+	// Smart merge providers - this is the key fix!
+	merged.Providers = smartMergeProviders(existing.Providers, defaults.Providers)
+
+	// Merge fallback config
+	merged.Fallback = smartMergeFallback(existing.Fallback, defaults.Fallback)
+
+	return merged
+}
+
+// smartMergeProviders intelligently merges provider configurations
+// This is the core fix for the configuration loss issue
+func smartMergeProviders(existing, defaults map[string]ServiceConfig) map[string]ServiceConfig {
+	if existing == nil {
+		return defaults
+	}
+
+	merged := make(map[string]ServiceConfig)
+
+	// First, copy all existing providers (preserve user configurations)
+	for name, config := range existing {
+		merged[name] = config
+	}
+
+	// Then, add missing providers from defaults (don't override existing ones)
+	for name, defaultConfig := range defaults {
+		if _, exists := merged[name]; !exists {
+			merged[name] = defaultConfig
+		}
+	}
+
+	return merged
+}
+
+// smartMergeOpenAI merges OpenAI configuration preserving user settings
+func smartMergeOpenAI(existing, defaults OpenAIConfig) OpenAIConfig {
+	merged := existing
+
+	// Only fill missing values from defaults
+	if merged.APIKey == "" {
+		merged.APIKey = defaults.APIKey
+	}
+	if merged.BaseURL == "" {
+		merged.BaseURL = defaults.BaseURL
+	}
+	if merged.Model == "" {
+		merged.Model = defaults.Model
+	}
+
+	return merged
+}
+
+// smartMergeDefaults merges default configurations preserving user settings
+func smartMergeDefaults(existing, defaults DefaultsConfig) DefaultsConfig {
+	merged := existing
+
+	// Only fill missing/zero values from defaults
+	if merged.LineThreshold == 0 {
+		merged.LineThreshold = defaults.LineThreshold
+	}
+	if merged.CheckInterval == 0 {
+		merged.CheckInterval = defaults.CheckInterval
+	}
+	if merged.Language == "" {
+		merged.Language = defaults.Language
+	}
+
+	// For boolean values, we need to be careful - false is a valid user choice
+	// Only override if the existing value is the zero value (false for bools)
+	// But we should handle this based on context - some bools should always preserve user choice
+
+	return merged
+}
+
+// smartMergeLogging merges logging configurations
+func smartMergeLogging(existing, defaults LoggingConfig) LoggingConfig {
+	merged := existing
+
+	if merged.Level == "" {
+		merged.Level = defaults.Level
+	}
+
+	return merged
+}
+
+// smartMergeDisplay merges display configurations
+func smartMergeDisplay(existing, defaults DisplayConfig) DisplayConfig {
+	merged := existing
+
+	// Merge colors config
+	merged.Colors = smartMergeColors(existing.Colors, defaults.Colors)
+
+	return merged
+}
+
+// smartMergeColors merges color configurations
+func smartMergeColors(existing, defaults ColorsConfig) ColorsConfig {
+	merged := existing
+
+	// Preserve user's color choices, only fill missing
+	if !merged.Enabled && defaults.Enabled {
+		// If user disabled colors, respect that choice
+		merged.Enabled = existing.Enabled
+	}
+	if merged.Stdout == "" {
+		merged.Stdout = defaults.Stdout
+	}
+	if merged.Stderr == "" {
+		merged.Stderr = defaults.Stderr
+	}
+
+	return merged
+}
+
+// smartMergeFallback merges fallback configurations
+func smartMergeFallback(existing, defaults *FallbackConfig) *FallbackConfig {
+	if existing == nil {
+		return defaults
+	}
+
+	merged := *existing
+
+	// Only fill missing values from defaults
+	if !merged.Enabled && defaults != nil && defaults.Enabled {
+		merged.Enabled = defaults.Enabled
+	}
+	if merged.Provider == "" && defaults != nil {
+		merged.Provider = defaults.Provider
+	}
+
+	// Smart merge config maps
+	if merged.Config == nil && defaults != nil {
+		merged.Config = defaults.Config
+	} else if defaults != nil && defaults.Config != nil {
+		// Merge config maps, preserving existing keys
+		for key, value := range defaults.Config {
+			if _, exists := merged.Config[key]; !exists {
+				if merged.Config == nil {
+					merged.Config = make(map[string]interface{})
+				}
+				merged.Config[key] = value
+			}
+		}
 	}
 
 	return &merged
@@ -585,6 +771,119 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	return os.WriteFile(dst, data, 0644)
+}
+
+// BackupConfig creates a backup of the current configuration with version information
+func BackupConfig(configPath string) (string, error) {
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("config file does not exist: %s", configPath)
+	}
+
+	// Read current config to get version information
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read config for backup: %w", err)
+	}
+
+	var rawConfig map[string]interface{}
+	if err := yaml.Unmarshal(data, &rawConfig); err != nil {
+		return "", fmt.Errorf("failed to parse config for backup: %w", err)
+	}
+
+	// Get version from config or use "unknown"
+	configVersion := "unknown"
+	if version, exists := rawConfig["version"]; exists {
+		if versionStr, ok := version.(string); ok {
+			configVersion = versionStr
+		}
+	}
+
+	// Create backup filename with timestamp and version
+	timestamp := time.Now().Format("20060102-150405")
+	backupFilename := fmt.Sprintf("config.v%s.%s.backup.yaml", configVersion, timestamp)
+
+	configDir := filepath.Dir(configPath)
+	backupPath := filepath.Join(configDir, backupFilename)
+
+	// Copy the file
+	if err := copyFile(configPath, backupPath); err != nil {
+		return "", fmt.Errorf("failed to create backup: %w", err)
+	}
+
+	return backupPath, nil
+}
+
+// RestoreConfig restores configuration from a backup file
+func RestoreConfig(backupPath, configPath string) error {
+	if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+		return fmt.Errorf("backup file does not exist: %s", backupPath)
+	}
+
+	// Validate that backup is a valid config file
+	data, err := os.ReadFile(backupPath)
+	if err != nil {
+		return fmt.Errorf("failed to read backup file: %w", err)
+	}
+
+	var testConfig GlobalConfig
+	if err := yaml.Unmarshal(data, &testConfig); err != nil {
+		return fmt.Errorf("backup file is not a valid config: %w", err)
+	}
+
+	// Ensure config directory exists
+	configDir := filepath.Dir(configPath)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	// Copy backup to config location
+	if err := os.WriteFile(configPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to restore config: %w", err)
+	}
+
+	return nil
+}
+
+// ListBackups lists all available backup files for a config
+func ListBackups(configPath string) ([]string, error) {
+	configDir := filepath.Dir(configPath)
+
+	entries, err := os.ReadDir(configDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config directory: %w", err)
+	}
+
+	var backups []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".backup.yaml") {
+			backups = append(backups, filepath.Join(configDir, entry.Name()))
+		}
+	}
+
+	// Sort backups by name (which includes timestamp)
+	sort.Strings(backups)
+	return backups, nil
+}
+
+// CleanupOldBackups removes old backup files, keeping only the most recent ones
+func CleanupOldBackups(configPath string, keepCount int) error {
+	backups, err := ListBackups(configPath)
+	if err != nil {
+		return err
+	}
+
+	if len(backups) <= keepCount {
+		return nil // Nothing to clean up
+	}
+
+	// Remove oldest backups
+	for i := 0; i < len(backups)-keepCount; i++ {
+		if err := os.Remove(backups[i]); err != nil {
+			logger.Warnf("Failed to remove old backup %s: %v", backups[i], err)
+		}
+	}
+
+	return nil
 }
 
 // compareVersions compares two version strings (e.g., "1.0.0")
