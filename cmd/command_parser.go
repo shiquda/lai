@@ -12,7 +12,6 @@ import (
 func ParseCommand(commandStr string) (command string, args []string, err error) {
 	// Parse the command using shell parser
 	parser := syntax.NewParser()
-	var words []*syntax.Word
 
 	// Create a simple command statement
 	stmt, err := parser.Parse(strings.NewReader(commandStr), "")
@@ -21,6 +20,7 @@ func ParseCommand(commandStr string) (command string, args []string, err error) 
 	}
 
 	// Extract command and arguments from the parsed statement
+	var words []string
 	if len(stmt.Stmts) > 0 {
 		if cmd, ok := stmt.Stmts[0].Cmd.(*syntax.CallExpr); ok {
 			for _, word := range cmd.Args {
@@ -29,9 +29,8 @@ func ParseCommand(commandStr string) (command string, args []string, err error) 
 				if err != nil {
 					return "", nil, fmt.Errorf("failed to convert argument: %w", err)
 				}
-				if argStr != "" {
-					words = append(words, word)
-				}
+				// Include all arguments, even empty ones (for quoted empty strings)
+				words = append(words, argStr)
 			}
 		}
 	}
@@ -40,20 +39,10 @@ func ParseCommand(commandStr string) (command string, args []string, err error) 
 		return "", nil, fmt.Errorf("no command found")
 	}
 
-	// Convert first word to command
-	command, err = wordToString(words[0])
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to convert command: %w", err)
-	}
-
-	// Convert remaining words to arguments
-	for i := 1; i < len(words); i++ {
-		arg, err := wordToString(words[i])
-		if err != nil {
-			return "", nil, fmt.Errorf("failed to convert argument %d: %w", i, err)
-		}
-		args = append(args, arg)
-	}
+	// First word is the command
+	command = words[0]
+	// Remaining words are arguments
+	args = words[1:]
 
 	return command, args, nil
 }
@@ -99,6 +88,7 @@ func SimpleParseCommand(commandStr string) (command string, args []string, err e
 	var inSingleQuote bool
 	var inDoubleQuote bool
 	var escapeNext bool
+	var hasQuotes bool // Track if we've seen quotes in current word
 
 	for _, r := range commandStr {
 		if escapeNext {
@@ -128,20 +118,24 @@ func SimpleParseCommand(commandStr string) (command string, args []string, err e
 				currentWord.WriteRune(r)
 			} else {
 				inSingleQuote = !inSingleQuote
+				hasQuotes = true
 			}
 		case '"':
 			if inSingleQuote {
 				currentWord.WriteRune(r)
 			} else {
 				inDoubleQuote = !inDoubleQuote
+				hasQuotes = true
 			}
 		case ' ', '\t':
 			if inSingleQuote || inDoubleQuote {
 				currentWord.WriteRune(r)
 			} else {
-				if currentWord.Len() > 0 {
+				// Add word if it has content OR if it had quotes (for empty quoted strings)
+				if currentWord.Len() > 0 || hasQuotes {
 					words = append(words, currentWord.String())
 					currentWord.Reset()
+					hasQuotes = false
 				}
 			}
 		default:
@@ -149,8 +143,8 @@ func SimpleParseCommand(commandStr string) (command string, args []string, err e
 		}
 	}
 
-	// Add the last word
-	if currentWord.Len() > 0 {
+	// Add the last word if it has content OR if it had quotes
+	if currentWord.Len() > 0 || hasQuotes {
 		words = append(words, currentWord.String())
 	}
 
