@@ -105,6 +105,9 @@ func (sc *StreamCollector) Start() error {
 		sc.monitorStream(stderr, "stderr")
 	}()
 
+	// Small delay to ensure monitoring goroutines are ready before command might finish
+	time.Sleep(10 * time.Millisecond)
+
 	// Start threshold checker
 	wg.Add(1)
 	go func() {
@@ -197,7 +200,11 @@ func (sc *StreamCollector) monitorStream(stream io.ReadCloser, streamType string
 	}
 
 	if err := scanner.Err(); err != nil {
-		logger.Errorf("Error reading from %s: %v", streamType, err)
+		// Don't log "file already closed" errors as they are expected when the command finishes
+		if !strings.Contains(err.Error(), "file already closed") &&
+		   !strings.Contains(err.Error(), "file closed") {
+			logger.Errorf("Error reading from %s: %v", streamType, err)
+		}
 	}
 }
 
