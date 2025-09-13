@@ -2,10 +2,12 @@ package display
 
 import (
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/fatih/color"
 	"github.com/shiquda/lai/internal/config"
+	"golang.org/x/sys/windows"
 )
 
 // ColorPrinter provides colored output functionality with graceful degradation
@@ -73,7 +75,50 @@ func isTerminalSupported() bool {
 		return true
 	}
 
+	// Windows-specific ANSI color support check
+	if runtime.GOOS == "windows" {
+		return enableWindowsANSI()
+	}
+
 	// Most modern terminals support color
+	return true
+}
+
+// enableWindowsANSI enables ANSI color support on Windows 10+
+func enableWindowsANSI() bool {
+	// Only try to enable on Windows
+	if runtime.GOOS != "windows" {
+		return true
+	}
+
+	// Try to enable ANSI support on Windows console
+	var mode uint32
+	stdout := windows.Handle(os.Stdout.Fd())
+	if err := windows.GetConsoleMode(stdout, &mode); err != nil {
+		// Not a console, probably redirected output
+		return true
+	}
+
+	// Check if virtual terminal processing is already enabled
+	if mode&windows.ENABLE_VIRTUAL_TERMINAL_PROCESSING != 0 {
+		return true
+	}
+
+	// Try to enable virtual terminal processing
+	mode |= windows.ENABLE_VIRTUAL_TERMINAL_PROCESSING
+	if err := windows.SetConsoleMode(stdout, mode); err != nil {
+		// Failed to enable, but we'll still allow color output
+		// Some Windows terminals support ANSI without explicit enabling
+		return true
+	}
+
+	// Also try to enable for stderr
+	stderr := windows.Handle(os.Stderr.Fd())
+	if err := windows.GetConsoleMode(stderr, &mode); err == nil {
+		mode |= windows.ENABLE_VIRTUAL_TERMINAL_PROCESSING
+		windows.SetConsoleMode(stderr, mode)
+	}
+
 	return true
 }
 
