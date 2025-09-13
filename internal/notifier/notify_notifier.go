@@ -19,10 +19,10 @@ import (
 // NotifyNotifier is a universal notifier implemented using the notify library
 // Supports all services provided by the notify library
 type NotifyNotifier struct {
-	notifyClient    *notify.Notify
-	config          *config.NotificationsConfig
-	enabledServices map[string]bool
-	serviceConfigs  map[string]config.ServiceConfig
+	notifyClient      *notify.Notify
+	config            *config.NotificationsConfig
+	enabledServices   map[string]bool
+	serviceConfigs    map[string]config.ServiceConfig
 }
 
 // NewNotifyNotifier creates a new notify notifier
@@ -107,7 +107,7 @@ func (nn *NotifyNotifier) setupProvider(providerName string, serviceConfig confi
 	}
 }
 
-// setupTelegramService sets up Telegram service
+// setupTelegramService sets up Telegram service using notify library
 func (nn *NotifyNotifier) setupTelegramService(serviceConfig config.ServiceConfig) error {
 	token, ok := serviceConfig.Config["bot_token"].(string)
 	if !ok || token == "" {
@@ -125,23 +125,28 @@ func (nn *NotifyNotifier) setupTelegramService(serviceConfig config.ServiceConfi
 		return fmt.Errorf("failed to create telegram service: %w", err)
 	}
 
-	// Set parse mode to Markdown to enable formatting
-	telegramService.SetParseMode(telegram.ModeMarkdown)
-
-	// Parse and add receivers (supports multiple chat_ids)
-	chatIDs := strings.Split(chatIDStr, ",")
-	for _, chatID := range chatIDs {
+	// Parse chat IDs (supports multiple chat_ids)
+	var chatIDs []string
+	for _, chatID := range strings.Split(chatIDStr, ",") {
 		chatID = strings.TrimSpace(chatID)
 		if chatID != "" {
-			chatIDInt, err := strconv.ParseInt(chatID, 10, 64)
-			if err != nil {
-				return fmt.Errorf("failed to parse chat ID '%s': %w", chatID, err)
-			}
-			telegramService.AddReceivers(chatIDInt)
+			chatIDs = append(chatIDs, chatID)
 		}
 	}
 
+	// Add chat IDs as receivers
+	for _, chatID := range chatIDs {
+		// Convert string chat ID to int64
+		chatIDInt, err := strconv.ParseInt(chatID, 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid chat_id format '%s': %w", chatID, err)
+		}
+		telegramService.AddReceivers(chatIDInt)
+	}
+
+	// Add the service to notifyClient
 	nn.notifyClient.UseServices(telegramService)
+
 	return nil
 }
 
@@ -509,41 +514,35 @@ func (nn *NotifyNotifier) SendLogSummary(ctx context.Context, filePath, summary 
 		}
 	}
 
-	// Handle notify library services
-	// Check if we have any services that use the notify library
+	// Check if we have any services that use the notify library (including Telegram now)
 	hasNotifyServices := false
 	for service := range nn.enabledServices {
-		if service != "email" {
+		if service != "email" { // Only skip email
 			hasNotifyServices = true
 			break
 		}
 	}
 
 	if hasNotifyServices {
+		// Format message for notify library services
+		// For Telegram, we need to convert Markdown to a format it can handle
 		var message string
 
-		// Choose format based on enabled services
 		if nn.enabledServices["telegram"] {
-			// If Telegram is enabled, use Telegram-friendly format for all notify services
-			// This ensures consistency across platforms
-			telegramSummary := nn.convertToTelegramMarkdown(summary)
-			message = nn.formatMessage("log_summary", map[string]interface{}{
-				"filePath": filePath,
-				"summary":  telegramSummary,
-				"time":     getCurrentTimeNotify(),
-			})
+			// Convert Markdown to HTML format for Telegram
+			htmlFormattedSummary := nn.convertMarkdownToTelegramHTML(summary)
+			htmlSafeFilePath := nn.makeHTMLSafe(filePath)
+
+			message = fmt.Sprintf("🚨 <b>Log Summary Notification</b>\n\n📁 <b>File:</b> %s\n⏰ <b>Time:</b> %s\n\n📋 <b>Summary:</b>\n%s",
+				htmlSafeFilePath, getCurrentTimeNotify(), htmlFormattedSummary)
 		} else {
-			// For other services without Telegram, use HTML format
-			htmlSummary := ConvertMarkdownToHTML(summary)
-			message = nn.formatMessage("log_summary", map[string]interface{}{
-				"filePath": filePath,
-				"summary":  htmlSummary,
-				"time":     getCurrentTimeNotify(),
-			})
+			// Use simple plain text format for other services
+			plainSummary := nn.stripMarkdownFormatting(summary)
+			message = fmt.Sprintf("Log Summary: %s", plainSummary)
 		}
 
 		// Send to all notify library services
-		if err := nn.notifyClient.Send(ctx, "🚨 Log Summary Notification", message); err != nil {
+		if err := nn.notifyClient.Send(ctx, "Log Summary Notification", message); err != nil {
 			errors = append(errors, fmt.Errorf("failed to send notify library notification: %w", err))
 		}
 	}
@@ -796,147 +795,106 @@ func (nn *NotifyNotifier) formatMessage(msgType string, data map[string]interfac
 	}
 }
 
-// convertToHTML converts markdown text to appropriate format for different platforms
-// Uses Telegram-native markdown for Telegram and full HTML for email
-func (nn *NotifyNotifier) convertToHTML(text string) string {
-	// For Telegram, use Telegram-native markdown format
-	if nn.enabledServices["telegram"] {
-		return nn.convertToTelegramMarkdown(text)
-	}
+// convertMarkdownToTelegramHTML converts common Markdown formats to Telegram HTML
+func (nn *NotifyNotifier) convertMarkdownToTelegramHTML(text string) string {
+	// First escape HTML special characters to prevent conflicts
+	text = nn.makeHTMLSafe(text)
 
-	// For email, use the full HTML converter
-	return ConvertMarkdownToHTML(text)
-}
+	// Convert **bold** to <b>bold</b>
+	text = regexp.MustCompile(`\*\*([^*]+)\*\*`).ReplaceAllString(text, "<b>$1</b>")
 
-// convertToTelegramMarkdown converts markdown to Telegram-compatible Markdown format
-// Uses traditional Telegram Markdown (not MarkdownV2) format
-func (nn *NotifyNotifier) convertToTelegramMarkdown(text string) string {
-	// Process line by line to handle different elements
+	// Convert single *italic* to <i>italic</i> (we do this after ** to avoid conflicts)
+	text = regexp.MustCompile(`\*([^*]+)\*`).ReplaceAllString(text, "<i>$1</i>")
+
+	// Convert _italic_ to <i>italic</i>
+	text = regexp.MustCompile(`_([^_]+)_`).ReplaceAllString(text, "<i>$1</i>")
+
+	// Convert `code` to <code>code</code>
+	text = regexp.MustCompile("`([^`]+)`").ReplaceAllString(text, "<code>$1</code>")
+
+	// Convert ```code block``` to <pre>code block</pre>
+	text = regexp.MustCompile("```([^`]+)```").ReplaceAllString(text, "<pre>$1</pre>")
+
+	// Convert [link text](url) to <a href="url">link text</a>
+	text = regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`).ReplaceAllString(text, `<a href="$2">$1</a>`)
+
+	// Convert ### Header to <b>Header</b> (process line by line)
 	lines := strings.Split(text, "\n")
 	var result strings.Builder
 
 	for _, line := range lines {
-		originalLine := line
-		line = strings.TrimSpace(line)
-		if line == "" {
+		// Handle markdown headers
+		if matched := regexp.MustCompile(`^#{1,6}\s+(.+)$`).FindStringSubmatch(line); matched != nil {
+			result.WriteString("<b>" + matched[1] + "</b>\n")
 			continue
 		}
 
-		// Process conversions in order
-
-		// Convert markdown headings to bold text
-		if regexp.MustCompile(`^#{1,6}\s+`).MatchString(line) {
-			// Extract heading content and make it bold
-			headingContent := regexp.MustCompile(`^#{1,6}\s+(.*)$`).ReplaceAllString(line, "$1")
-			line = "*" + nn.escapeTelegramMarkdownContent(headingContent) + "*"
-		} else {
-			// Convert **bold** to *bold* (standard markdown bold to Telegram bold)
-			// Only if this is not already a heading line
-			boldPattern := regexp.MustCompile(`\*\*(.*?)\*\*`)
-			line = boldPattern.ReplaceAllStringFunc(line, func(match string) string {
-				content := boldPattern.FindStringSubmatch(match)[1]
-				return "*" + nn.escapeTelegramMarkdownContent(content) + "*"
-			})
+		// Handle markdown list items (- item or * item)
+		if matched := regexp.MustCompile(`^[\s]*[-*+]\s+(.+)$`).FindStringSubmatch(line); matched != nil {
+			result.WriteString("• " + matched[1] + "\n")
+			continue
 		}
 
-		// Convert _italic_ to _italic_ (ensure proper escaping)
-		italicPattern := regexp.MustCompile(`_([^_]+)_`)
-		line = italicPattern.ReplaceAllStringFunc(line, func(match string) string {
-			content := italicPattern.FindStringSubmatch(match)[1]
-			return "_" + nn.escapeTelegramMarkdownContent(content) + "_"
-		})
-
-		// Convert markdown lists to bullet points
-		listPattern := regexp.MustCompile(`^[\*\-\+]\s+(.*)$`)
-		if listPattern.MatchString(line) {
-			content := listPattern.FindStringSubmatch(line)[1]
-			line = "• " + nn.escapeTelegramMarkdownContent(content)
+		// Handle numbered lists (1. item, 2. item, etc.)
+		if matched := regexp.MustCompile(`^[\s]*\d+\.\s+(.+)$`).FindStringSubmatch(line); matched != nil {
+			result.WriteString("• " + matched[1] + "\n")
+			continue
 		}
 
-		// Handle code blocks - convert ``` blocks to ` for Telegram
-		if strings.Contains(line, "```") {
-			// Find code block content
-			codePattern := regexp.MustCompile("```([^`]+)```")
-			line = codePattern.ReplaceAllStringFunc(line, func(match string) string {
-				content := codePattern.FindStringSubmatch(match)[1]
-				return "`" + nn.escapeTelegramCodeContent(content) + "`"
-			})
+		// Handle horizontal rules (---, ***, ___)
+		if regexp.MustCompile(`^[\s]*[-*_]{3,}[\s]*$`).MatchString(line) {
+			result.WriteString("━━━━━━━━━━━━━━━━━━━━\n")
+			continue
 		}
 
-		// Handle inline code `code`
-		codePattern := regexp.MustCompile("`([^`]+)`")
-		line = codePattern.ReplaceAllStringFunc(line, func(match string) string {
-			content := codePattern.FindStringSubmatch(match)[1]
-			return "`" + nn.escapeTelegramCodeContent(content) + "`"
-		})
-
-		// Handle links [text](url)
-		linkPattern := regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
-		line = linkPattern.ReplaceAllStringFunc(line, func(match string) string {
-			text := linkPattern.FindStringSubmatch(match)[1]
-			url := linkPattern.FindStringSubmatch(match)[2]
-			return "[" + text + "](" + url + ")"
-		})
-
-		// Check if any markdown formatting was applied by comparing the processed line with a version that only has markdown patterns
-		hasMarkdown := regexp.MustCompile(`\*\*.*\*\*`).MatchString(originalLine) ||
-			regexp.MustCompile(`_.*_`).MatchString(originalLine) ||
-			regexp.MustCompile(`^#{1,6}\s+`).MatchString(originalLine) ||
-			regexp.MustCompile("`.*`").MatchString(originalLine) ||
-			regexp.MustCompile(`\[.*\]\(.*\)`).MatchString(originalLine) ||
-			regexp.MustCompile(`^[\*\-\+]\s+`).MatchString(originalLine)
-
-		// If no markdown formatting was applied, escape the entire line
-		if !hasMarkdown {
-			line = nn.escapeTelegramMarkdownContent(line)
-		}
-
-		// Add line to result
-		if result.Len() > 0 {
-			result.WriteString("\n")
-		}
-		result.WriteString(line)
+		// Regular line
+		result.WriteString(line + "\n")
 	}
 
-	return result.String()
+	finalText := result.String()
+	// Remove trailing newline if exists
+	if strings.HasSuffix(finalText, "\n") {
+		finalText = finalText[:len(finalText)-1]
+	}
+
+	return finalText
 }
 
-// escapeTelegramMarkdownContent escapes special characters for Telegram Markdown content
-// This escapes characters that could interfere with markdown formatting: _ * [ `
-func (nn *NotifyNotifier) escapeTelegramMarkdownContent(text string) string {
-	// Escape special characters that need escaping in Telegram Markdown
-	// We need to escape: _ * [ `
-	// But only when they're not part of valid markdown entities
-
-	// Escape underscores
-	text = strings.ReplaceAll(text, "_", "\\_")
-
-	// Escape asterisks
-	text = strings.ReplaceAll(text, "*", "\\*")
-
-	// Escape backticks
-	text = strings.ReplaceAll(text, "`", "\\`")
-
-	// Escape square brackets
-	text = strings.ReplaceAll(text, "[", "\\[")
-	text = strings.ReplaceAll(text, "]", "\\]")
-
+// makeHTMLSafe escapes HTML special characters to prevent parsing errors
+func (nn *NotifyNotifier) makeHTMLSafe(text string) string {
+	// Escape HTML special characters
+	text = strings.ReplaceAll(text, "&", "&amp;")
+	text = strings.ReplaceAll(text, "<", "&lt;")
+	text = strings.ReplaceAll(text, ">", "&gt;")
+	text = strings.ReplaceAll(text, "\"", "&quot;")
+	text = strings.ReplaceAll(text, "'", "&#39;")
 	return text
 }
 
-// escapeTelegramCodeContent escapes special characters for Telegram code content
-// In code blocks, we need to be careful about what gets escaped
-func (nn *NotifyNotifier) escapeTelegramCodeContent(text string) string {
-	// In code blocks, most characters don't need escaping
-	// But we should ensure the content doesn't contain characters that could break the code block
-	// Remove backticks that could break the inline code format
-	return strings.ReplaceAll(text, "`", "'")
-}
+// stripMarkdownFormatting removes all markdown formatting to ensure plain text
+func (nn *NotifyNotifier) stripMarkdownFormatting(text string) string {
+	// Remove markdown headers
+	text = regexp.MustCompile(`^#{1,6}\s+`).ReplaceAllString(text, "")
 
-// escapeTelegramMarkdown is the legacy function (kept for compatibility)
-// Deprecated: Use escapeTelegramMarkdownContent instead
-func (nn *NotifyNotifier) escapeTelegramMarkdown(text string) string {
-	return nn.escapeTelegramMarkdownContent(text)
+	// Remove bold formatting **text** and *text*
+	text = regexp.MustCompile(`\*\*([^*]+)\*\*`).ReplaceAllString(text, "$1")
+	text = regexp.MustCompile(`\*([^*]+)\*`).ReplaceAllString(text, "$1")
+
+	// Remove italic formatting _text_
+	text = regexp.MustCompile(`_([^_]+)_`).ReplaceAllString(text, "$1")
+
+	// Remove code formatting `code` and ```code```
+	text = regexp.MustCompile("```([^`]+)```").ReplaceAllString(text, "$1")
+	text = regexp.MustCompile("`([^`]+)`").ReplaceAllString(text, "$1")
+
+	// Remove links [text](url) -> text
+	text = regexp.MustCompile(`\[([^\]]+)\]\([^)]+\)`).ReplaceAllString(text, "$1")
+
+	// Remove any remaining special characters that might cause issues
+	// Keep only safe characters, emojis, and basic punctuation
+	text = regexp.MustCompile(`[\\*_\[\]()~|<>]`).ReplaceAllString(text, "")
+
+	return text
 }
 
 // getCurrentTimeNotify gets current time (notify_notifier specific)
