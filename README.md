@@ -4,6 +4,8 @@
 [![AI Powered](https://img.shields.io/badge/AI-Powered-brightgreen.svg)]()
 [![License](https://img.shields.io/badge/License-AGPL--3.0-yellow.svg)](LICENSE)
 
+![Lai Logo](docs/logo.png)
+
 Stop manually checking logs. Let AI watch, analyze, and notify you when something important happens.
 
 > **Note**: This project is under active development. Contributions welcome!
@@ -67,6 +69,7 @@ lai monitor file /var/log/nginx/error.log -d -n "nginx-monitor"
 ## 📖 Use Cases
 
 ### Application Monitoring
+
 ```bash
 # Background monitoring with custom name
 lai monitor file /var/log/nginx/error.log -d -n "nginx-errors"
@@ -75,6 +78,7 @@ lai logs nginx-errors -f  # Check monitor logs
 ```
 
 ### Docker Container Monitoring
+
 ```bash
 # Monitor specific container
 lai monitor command "docker logs webapp -f" -d -n "webapp-monitor"
@@ -84,6 +88,7 @@ lai monitor command "docker logs db -f" --line-threshold 5 --interval 10s
 ```
 
 ### Build/CI Process Monitoring
+
 ```bash
 # Get summary when build completes
 lai monitor command "npm run build" --final-summary
@@ -101,11 +106,13 @@ lai exec "python train_model.py" -d -n "model-training"
 ## 🔧 Configuration Options
 
 ### Interactive Setup (Recommended)
+
 ```bash
 lai config interactive  # Guided configuration interface
 ```
 
 ### Command Line Configuration
+
 ```bash
 # View current configuration
 lai config list
@@ -134,6 +141,7 @@ lai config reset
 ```
 
 ### Process Management
+
 ```bash
 lai list           # Show all running monitors
 lai stop <name>    # Stop a monitor
@@ -169,6 +177,7 @@ The global configuration is stored at `~/.lai/config.yaml`. You can edit this fi
 ## 🛠️ Development
 
 ### Building from Source
+
 ```bash
 git clone https://github.com/shiquda/lai.git
 cd lai
@@ -178,6 +187,7 @@ make test         # Run full test suite with coverage
 ```
 
 ### Contributing
+
 1. Fork the repository
 2. Create a feature branch
 3. Write tests for new functionality
@@ -187,6 +197,7 @@ make test         # Run full test suite with coverage
 ## 📋 Roadmap
 
 ### Recently Completed ✅
+
 - [x] Unified monitoring interface with single `monitor` command
 - [x] Interactive configuration TUI
 - [x] Multi-provider notification system (Telegram, Email, Discord, Slack)
@@ -194,6 +205,7 @@ make test         # Run full test suite with coverage
 - [x] Configuration validation and metadata system
 
 ### Upcoming Features 🚀
+
 - [ ] Webhook notifications support
 - [ ] Advanced log filtering and pattern matching
 - [ ] Integration with monitoring tools (Prometheus, Grafana)
