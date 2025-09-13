@@ -133,15 +133,18 @@ func (r *BaseCommandRunner) RunDaemon(options *CommandOptions, source collector.
 	}
 
 	sourceIdentifier := source.GetIdentifier()
-	processID := r.generateProcessID(manager, options.ProcessName, sourceIdentifier)
-	daemonLogPath := manager.GetProcessLogPath(processID)
 
 	// Parent process - start daemon process
 	if os.Getenv("LAI_DAEMON_MODE") != "1" {
+		processID := r.generateProcessID(manager, options.ProcessName, sourceIdentifier)
+		daemonLogPath := manager.GetProcessLogPath(processID)
 		return r.startDaemonProcess(manager, processID, sourceIdentifier, daemonLogPath)
 	}
 
 	// Child process - run as daemon
+	// In child process, processID is passed via environment or command line
+	// For now, we'll derive it from the process name since we're in daemon mode
+	processID := r.generateProcessIDForChild(manager, options.ProcessName, sourceIdentifier)
 	return r.runAsDaemon(manager, processID, options, source)
 }
 
@@ -153,6 +156,14 @@ func (r *BaseCommandRunner) generateProcessID(manager *daemon.Manager, processNa
 			logger.Fatalf("Process with name '%s' already exists", processName)
 		}
 		return processID
+	}
+	return manager.GenerateProcessID(sourceIdentifier)
+}
+
+// generateProcessIDForChild generates process ID for child process without checking existence
+func (r *BaseCommandRunner) generateProcessIDForChild(manager *daemon.Manager, processName, sourceIdentifier string) string {
+	if processName != "" {
+		return manager.GenerateProcessIDWithName(processName)
 	}
 	return manager.GenerateProcessID(sourceIdentifier)
 }
