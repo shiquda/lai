@@ -6,12 +6,12 @@ import (
 
 func TestParseCommandWrapper(t *testing.T) {
 	tests := []struct {
-		name           string
-		input          string
-		expectedCmd    string
-		expectedArgs   []string
-		expectError    bool
-		errorContains  string
+		name          string
+		input         string
+		expectedCmd   string
+		expectedArgs  []string
+		expectError   bool
+		errorContains string
 	}{
 		{
 			name:         "Simple command",
@@ -302,9 +302,9 @@ func TestParseCommandWrapper(t *testing.T) {
 }
 
 func containsSubstring(s, substr string) bool {
-	return len(s) >= len(substr) && s[:len(substr)] == substr || 
-		   len(s) > len(substr) && s[len(s)-len(substr):] == substr ||
-		   findSubstring(s, substr)
+	return len(s) >= len(substr) && s[:len(substr)] == substr ||
+		len(s) > len(substr) && s[len(s)-len(substr):] == substr ||
+		findSubstring(s, substr)
 }
 
 func findSubstring(s, substr string) bool {

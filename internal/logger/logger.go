@@ -144,7 +144,6 @@ func (l *Logger) Fatalf(template string, args ...interface{}) {
 	l.sugar.Fatalf(template, args...)
 }
 
-
 // Sync log buffer
 func (l *Logger) Sync() error {
 	return l.zapLogger.Sync()
@@ -216,4 +215,3 @@ func Fatal(args ...interface{}) {
 func Fatalf(template string, args ...interface{}) {
 	GetDefaultLogger().Fatalf(template, args...)
 }
-

@@ -7,24 +7,24 @@ import (
 
 func TestNewFileCommand(t *testing.T) {
 	cmd := NewFileCommand()
-	
+
 	if cmd == nil {
 		t.Fatal("NewFileCommand returned nil")
 	}
-	
+
 	if cmd.Use != "file [log-file]" {
 		t.Errorf("Expected command use 'file [log-file]', got '%s'", cmd.Use)
 	}
-	
+
 	if cmd.Short == "" {
 		t.Error("Command short description is empty")
 	}
-	
+
 	// Check that the command validates arguments correctly
 	if cmd.Args == nil {
 		t.Error("Command args validation is not set")
 	}
-	
+
 	// Check that required flags are present
 	flags := []string{"line-threshold", "interval", "chat-id", "name", "workdir", "final-summary", "error-only", "final-summary-only", "notifiers", "daemon"}
 	for _, flag := range flags {
@@ -36,19 +36,19 @@ func TestNewFileCommand(t *testing.T) {
 
 func TestNewExecCommand(t *testing.T) {
 	cmd := NewExecCommand()
-	
+
 	if cmd == nil {
 		t.Fatal("NewExecCommand returned nil")
 	}
-	
+
 	if cmd.Use != "exec [command] [args...]" {
 		t.Errorf("Expected command use 'exec [command] [args...]', got '%s'", cmd.Use)
 	}
-	
+
 	if cmd.Short == "" {
 		t.Error("Command short description is empty")
 	}
-	
+
 	// Check that required flags are present
 	flags := []string{"line-threshold", "interval", "chat-id", "name", "workdir", "final-summary", "error-only", "final-summary-only", "notifiers", "daemon"}
 	for _, flag := range flags {
@@ -72,20 +72,20 @@ func TestCommandOptions(t *testing.T) {
 		EnabledNotifiers: []string{"telegram", "email"},
 		DaemonMode:       true,
 	}
-	
+
 	// Test that values are set correctly
 	if opts.ProcessName != "test-process" {
 		t.Errorf("Expected ProcessName 'test-process', got '%s'", opts.ProcessName)
 	}
-	
+
 	if opts.WorkingDir != "/tmp" {
 		t.Errorf("Expected WorkingDir '/tmp', got '%s'", opts.WorkingDir)
 	}
-	
+
 	if !opts.DaemonMode {
 		t.Error("Expected DaemonMode to be true")
 	}
-	
+
 	if len(opts.EnabledNotifiers) != 2 {
 		t.Errorf("Expected 2 enabled notifiers, got %d", len(opts.EnabledNotifiers))
 	}
@@ -115,32 +115,32 @@ func TestParseCommandWrapperIntegration(t *testing.T) {
 			expectError: false,
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cmd, args, err := ParseCommandWrapper(tc.input)
-			
+
 			if tc.expectError {
 				if err == nil {
 					t.Error("Expected error but got none")
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 				return
 			}
-			
+
 			if cmd != tc.expectCmd {
 				t.Errorf("Expected command '%s', got '%s'", tc.expectCmd, cmd)
 			}
-			
+
 			if len(args) != len(tc.expectArgs) {
 				t.Errorf("Expected %d args, got %d", len(tc.expectArgs), len(args))
 				return
 			}
-			
+
 			for i, expectedArg := range tc.expectArgs {
 				if args[i] != expectedArg {
 					t.Errorf("Expected arg[%d] '%s', got '%s'", i, expectedArg, args[i])

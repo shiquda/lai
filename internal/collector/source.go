@@ -129,4 +129,3 @@ func (f *FileSource) Start() error {
 func (f *FileSource) Stop() {
 	// File source doesn't need explicit stop
 }
-

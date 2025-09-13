@@ -8,9 +8,9 @@ import (
 
 func TestConfigValidate_WithValidPromptTemplates(t *testing.T) {
 	cfg := &Config{
-		LogFile:   "/path/to/log.log",
-		OpenAI:    OpenAIConfig{APIKey: "test-key"},
-		Language:  "English",
+		LogFile:  "/path/to/log.log",
+		OpenAI:   OpenAIConfig{APIKey: "test-key"},
+		Language: "English",
 		Notifications: NotificationsConfig{
 			Providers: map[string]ServiceConfig{
 				"telegram": {
@@ -21,8 +21,8 @@ func TestConfigValidate_WithValidPromptTemplates(t *testing.T) {
 			},
 		},
 		PromptTemplates: PromptTemplatesConfig{
-			SummarizeTemplate:        "Analyze {{log_content}} in {{language}}",
-			ErrorAnalysisTemplate:    "Check {{log_content}} for errors in {{language}}",
+			SummarizeTemplate:     "Analyze {{log_content}} in {{language}}",
+			ErrorAnalysisTemplate: "Check {{log_content}} for errors in {{language}}",
 			CustomVariables: map[string]string{
 				"app_name": "TestApp",
 			},
@@ -35,9 +35,9 @@ func TestConfigValidate_WithValidPromptTemplates(t *testing.T) {
 
 func TestConfigValidate_WithInvalidPromptTemplates(t *testing.T) {
 	cfg := &Config{
-		LogFile:   "/path/to/log.log",
-		OpenAI:    OpenAIConfig{APIKey: "test-key"},
-		Language:  "English",
+		LogFile:  "/path/to/log.log",
+		OpenAI:   OpenAIConfig{APIKey: "test-key"},
+		Language: "English",
 		Notifications: NotificationsConfig{
 			Providers: map[string]ServiceConfig{
 				"telegram": {
@@ -63,9 +63,9 @@ func TestConfigValidate_WithInvalidPromptTemplates(t *testing.T) {
 
 func TestConfigValidate_WithEmptyPromptTemplates(t *testing.T) {
 	cfg := &Config{
-		LogFile:   "/path/to/log.log",
-		OpenAI:    OpenAIConfig{APIKey: "test-key"},
-		Language:  "English",
+		LogFile:  "/path/to/log.log",
+		OpenAI:   OpenAIConfig{APIKey: "test-key"},
+		Language: "English",
 		Notifications: NotificationsConfig{
 			Providers: map[string]ServiceConfig{
 				"telegram": {
@@ -78,7 +78,7 @@ func TestConfigValidate_WithEmptyPromptTemplates(t *testing.T) {
 		PromptTemplates: PromptTemplatesConfig{
 			SummarizeTemplate:     "",
 			ErrorAnalysisTemplate: "",
-			CustomVariables:      make(map[string]string),
+			CustomVariables:       make(map[string]string),
 		},
 	}
 
@@ -88,9 +88,9 @@ func TestConfigValidate_WithEmptyPromptTemplates(t *testing.T) {
 
 func TestConfigValidate_WithCustomVariablesInTemplate(t *testing.T) {
 	cfg := &Config{
-		LogFile:   "/path/to/log.log",
-		OpenAI:    OpenAIConfig{APIKey: "test-key"},
-		Language:  "English",
+		LogFile:  "/path/to/log.log",
+		OpenAI:   OpenAIConfig{APIKey: "test-key"},
+		Language: "English",
 		Notifications: NotificationsConfig{
 			Providers: map[string]ServiceConfig{
 				"telegram": {
@@ -115,9 +115,9 @@ func TestConfigValidate_WithCustomVariablesInTemplate(t *testing.T) {
 
 func TestConfigValidate_TemplateWithMultipleFormats(t *testing.T) {
 	cfg := &Config{
-		LogFile:   "/path/to/log.log",
-		OpenAI:    OpenAIConfig{APIKey: "test-key"},
-		Language:  "English",
+		LogFile:  "/path/to/log.log",
+		OpenAI:   OpenAIConfig{APIKey: "test-key"},
+		Language: "English",
 		Notifications: NotificationsConfig{
 			Providers: map[string]ServiceConfig{
 				"telegram": {
@@ -141,9 +141,9 @@ func TestConfigValidate_TemplateWithMultipleFormats(t *testing.T) {
 
 func TestConfigValidate_ErrorAnalysisTemplateOnly(t *testing.T) {
 	cfg := &Config{
-		LogFile:   "/path/to/log.log",
-		OpenAI:    OpenAIConfig{APIKey: "test-key"},
-		Language:  "English",
+		LogFile:  "/path/to/log.log",
+		OpenAI:   OpenAIConfig{APIKey: "test-key"},
+		Language: "English",
 		Notifications: NotificationsConfig{
 			Providers: map[string]ServiceConfig{
 				"telegram": {
@@ -154,8 +154,8 @@ func TestConfigValidate_ErrorAnalysisTemplateOnly(t *testing.T) {
 			},
 		},
 		PromptTemplates: PromptTemplatesConfig{
-			SummarizeTemplate:        "",
-			ErrorAnalysisTemplate:    "Check {{log_content}} for errors in {{language}}",
+			SummarizeTemplate:     "",
+			ErrorAnalysisTemplate: "Check {{log_content}} for errors in {{language}}",
 			CustomVariables: map[string]string{
 				"app_name": "TestApp",
 			},
@@ -168,9 +168,9 @@ func TestConfigValidate_ErrorAnalysisTemplateOnly(t *testing.T) {
 
 func TestConfigValidate_SummarizeTemplateOnly(t *testing.T) {
 	cfg := &Config{
-		LogFile:   "/path/to/log.log",
-		OpenAI:    OpenAIConfig{APIKey: "test-key"},
-		Language:  "English",
+		LogFile:  "/path/to/log.log",
+		OpenAI:   OpenAIConfig{APIKey: "test-key"},
+		Language: "English",
 		Notifications: NotificationsConfig{
 			Providers: map[string]ServiceConfig{
 				"telegram": {
@@ -183,7 +183,7 @@ func TestConfigValidate_SummarizeTemplateOnly(t *testing.T) {
 		PromptTemplates: PromptTemplatesConfig{
 			SummarizeTemplate:     "Analyze {{log_content}} in {{language}}",
 			ErrorAnalysisTemplate: "",
-			CustomVariables:      map[string]string{},
+			CustomVariables:       map[string]string{},
 		},
 	}
 
@@ -193,9 +193,9 @@ func TestConfigValidate_SummarizeTemplateOnly(t *testing.T) {
 
 func TestConfigValidate_TemplateWithBuiltinVariables(t *testing.T) {
 	cfg := &Config{
-		LogFile:   "/path/to/log.log",
-		OpenAI:    OpenAIConfig{APIKey: "test-key"},
-		Language:  "English",
+		LogFile:  "/path/to/log.log",
+		OpenAI:   OpenAIConfig{APIKey: "test-key"},
+		Language: "English",
 		Notifications: NotificationsConfig{
 			Providers: map[string]ServiceConfig{
 				"telegram": {
@@ -207,7 +207,7 @@ func TestConfigValidate_TemplateWithBuiltinVariables(t *testing.T) {
 		},
 		PromptTemplates: PromptTemplatesConfig{
 			SummarizeTemplate: "Analyze {{log_content}} for {{system}} version {{version}} at {{timestamp}}",
-			CustomVariables: map[string]string{},
+			CustomVariables:   map[string]string{},
 		},
 	}
 
@@ -219,7 +219,7 @@ func TestValidatePromptTemplates_InvalidTemplate(t *testing.T) {
 	cfg := &Config{
 		PromptTemplates: PromptTemplatesConfig{
 			SummarizeTemplate: "Analyze {{log_content}} with {{invalid_var}}",
-			CustomVariables: map[string]string{},
+			CustomVariables:   map[string]string{},
 		},
 	}
 
@@ -233,7 +233,7 @@ func TestValidatePromptTemplates_EmptyTemplate(t *testing.T) {
 		PromptTemplates: PromptTemplatesConfig{
 			SummarizeTemplate:     "",
 			ErrorAnalysisTemplate: "",
-			CustomVariables:      map[string]string{},
+			CustomVariables:       map[string]string{},
 		},
 	}
 

@@ -521,7 +521,7 @@ func (nn *NotifyNotifier) SendLogSummary(ctx context.Context, filePath, summary 
 
 	if hasNotifyServices {
 		var message string
-		
+
 		// Choose format based on enabled services
 		if nn.enabledServices["telegram"] {
 			// If Telegram is enabled, use Telegram-friendly format for all notify services
@@ -803,7 +803,7 @@ func (nn *NotifyNotifier) convertToHTML(text string) string {
 	if nn.enabledServices["telegram"] {
 		return nn.convertToTelegramMarkdown(text)
 	}
-	
+
 	// For email, use the full HTML converter
 	return ConvertMarkdownToHTML(text)
 }

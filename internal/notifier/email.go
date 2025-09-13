@@ -182,6 +182,7 @@ func (e *EmailNotifier) renderEmailTemplate(templateStr string, data TemplateDat
 //
 // Returns:
 //   - Safe HTML string
+//
 // ConvertMarkdownToHTML converts markdown text to HTML for better display
 // This function is exported for use by other notifiers (e.g., Telegram)
 func ConvertMarkdownToHTML(markdown string) string {
@@ -211,7 +212,6 @@ func ConvertMarkdownToHTML(markdown string) string {
 
 	return string(safeHTML)
 }
-
 
 // Note: The following TODO methods were considered but implemented using the common template system:
 // - buildEmailMessage: Handled by gomail.Message construction

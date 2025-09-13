@@ -20,7 +20,7 @@ func NewTemplateEngine() *TemplateEngine {
 			"language": "English",
 
 			// System information variables
-			"system": "Lai Log Monitor",
+			"system":  "Lai Log Monitor",
 			"version": "latest",
 
 			// Common formatting variables
@@ -224,8 +224,8 @@ func (e *TemplateEngine) GetBuiltinVariables() map[string]string {
 // GetSupportedVariableFormats returns the supported variable formats
 func (e *TemplateEngine) GetSupportedVariableFormats() []string {
 	return []string{
-		"{{variable}}",  // Double brace format
-		"${variable}",   // Dollar brace format
-		"$variable",     // Simple dollar format
+		"{{variable}}", // Double brace format
+		"${variable}",  // Dollar brace format
+		"$variable",    // Simple dollar format
 	}
 }

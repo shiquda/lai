@@ -82,7 +82,7 @@ func (s *TemplateEngineTestSuite) TestRenderTemplate_MixedFormats() {
 func (s *TemplateEngineTestSuite) TestRenderTemplate_CustomVariablesOverrideBuiltin() {
 	template := "Hello {{language}}, from {{custom_source}}"
 	variables := map[string]string{
-		"language":      "Chinese",  // Override built-in
+		"language":      "Chinese", // Override built-in
 		"custom_source": "Custom App",
 	}
 
@@ -180,7 +180,7 @@ func (s *TemplateEngineTestSuite) TestRenderTemplate_WhitespaceHandling() {
 func (s *TemplateEngineTestSuite) TestRenderTemplate_SpecialCharactersInVariables() {
 	template := "Test: {{special_var}}, More: {{another_var}}"
 	variables := map[string]string{
-		"special_var":  "value with spaces",
+		"special_var": "value with spaces",
 		"another_var": "value-with-dashes_and_underscores",
 	}
 

@@ -63,7 +63,7 @@ func TestConsoleOutput(t *testing.T) {
 	}
 	buf.Reset()
 
-	}
+}
 
 func TestGlobalUserOutputFunctions(t *testing.T) {
 	// Create a buffer to capture output
@@ -164,5 +164,4 @@ func TestBackwardCompatibilityThroughLogger(t *testing.T) {
 		t.Fatalf("Failed to create logger: %v", err)
 	}
 
-	}
-
+}

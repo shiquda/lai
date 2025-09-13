@@ -28,8 +28,7 @@ type UserOutput interface {
 	Error(args ...interface{})
 	Errorf(format string, args ...interface{})
 	Printf(format string, args ...interface{})
-
-	}
+}
 
 // ConsoleOutput implements UserOutput for console output
 type ConsoleOutput struct {
@@ -95,7 +94,6 @@ func (c *ConsoleOutput) Errorf(format string, args ...interface{}) {
 func (c *ConsoleOutput) Printf(format string, args ...interface{}) {
 	fmt.Fprintf(c.writer, format, args...)
 }
-
 
 // Global user output instance
 var defaultUserOutput UserOutput
