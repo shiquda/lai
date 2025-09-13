@@ -6,11 +6,11 @@
 ifeq ($(OS),Windows_NT)
     # Windows
     EXECUTABLE_EXT = .exe
-    DATE_CMD = powershell -Command "Get-Date -UFormat '+%%Y-%%m-%%d_%%H:%%M:%%S'" 2>nul || echo unknown
-    NULL_REDIRECT = 2>nul
+    DATE_CMD = powershell -Command "Get-Date -UFormat '+%Y-%m-%d_%H:%M:%S'" 2>/dev/null || echo unknown
+    NULL_REDIRECT = 2>/dev/null
 else
     # Unix-like (Linux, macOS, etc.)
-    EXECUTABLE_EXT = 
+    EXECUTABLE_EXT =
     DATE_CMD = date -u '+%Y-%m-%d_%H:%M:%S'
     NULL_REDIRECT = 2>/dev/null
 endif
@@ -100,9 +100,7 @@ clean:
 	@echo "🧹 Cleaning..."
 	@go clean -testcache
 ifeq ($(OS),Windows_NT)
-	@-del lai.exe 2>nul || echo ""
-	@-del coverage.out 2>nul || echo ""
-	@-del coverage.html 2>nul || echo ""
+	@-rm -f lai.exe coverage.out coverage.html 2>/dev/null || echo ""
 else
 	@rm -f lai coverage.out coverage.html
 endif
