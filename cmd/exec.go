@@ -17,10 +17,11 @@ func NewExecCommand() *cobra.Command {
 	runner := &ExecCommandRunner{}
 
 	cmd := &cobra.Command{
-		Use:   "exec [command] [args...]",
-		Short: "Monitor command output",
-		Long:  "Monitor the output of a command and send notifications when threshold is reached",
-		Args:  cobra.MinimumNArgs(1),
+		Use:     "exec [command] [args...]",
+		Aliases: []string{"run"},
+		Short:   "Monitor command output",
+		Long:    "Monitor the output of a command and send notifications when threshold is reached",
+		Args:    cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			options, source, err := runner.ParseArgs(cmd, args)
 			if err != nil {
