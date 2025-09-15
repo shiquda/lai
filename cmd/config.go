@@ -75,7 +75,7 @@ var configGetCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		logger.UserInfof("%s = %s", key, value)
+		logger.UserInfof("%s = %s\n", key, value)
 	},
 }
 

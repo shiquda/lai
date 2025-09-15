@@ -163,13 +163,13 @@ func runTestNotifications(enabledNotifiers []string, customMessage string, verbo
 	}
 
 	if verbose {
-		logger.UserInfof("Found %d configured notification service(s)", len(enabledChannels))
+		logger.UserInfof("Found %d configured notification service(s)\n", len(enabledChannels))
 		for _, channel := range enabledChannels {
-			logger.UserInfof("  - %s", channel)
+			logger.UserInfof("  - %s\n", channel)
 		}
 
 		if len(enabledNotifiers) > 0 {
-			logger.UserInfof("Testing specified notifiers: %v", enabledNotifiers)
+			logger.UserInfof("Testing specified notifiers: %v\n", enabledNotifiers)
 		}
 		logger.UserInfo("")
 	}
@@ -229,8 +229,8 @@ func getTestMode(connectionOnly, diagnostic, validateOnly bool) string {
 func showConfigurationOverview(cfg *config.Config, testChannels []string, testMode string) {
 	logger.UserInfo("📋 Configuration Overview")
 	logger.UserInfo("=====================================")
-	logger.UserInfof("Test Mode: %s", testMode)
-	logger.UserInfof("Services to Test: %d", len(testChannels))
+	logger.UserInfof("Test Mode: %s\n", testMode)
+	logger.UserInfof("Services to Test: %d\n", len(testChannels))
 
 	// Show each service configuration
 	for _, serviceName := range testChannels {
@@ -245,7 +245,7 @@ func showConfigurationOverview(cfg *config.Config, testChannels []string, testMo
 			status = "⚠️"
 		}
 
-		logger.UserInfof("%s %s: %s", status, serviceName, getProviderDescription(serviceConfig.Provider))
+		logger.UserInfof("%s %s: %s\n", status, serviceName, getProviderDescription(serviceConfig.Provider))
 
 		// Show configuration details for enabled services
 		if serviceConfig.Enabled {
@@ -284,8 +284,8 @@ func getProviderDescription(provider string) string {
 
 // showServiceConfigurationDetails displays detailed configuration for a service
 func showServiceConfigurationDetails(serviceName string, serviceConfig config.ServiceConfig) {
-	logger.UserInfof("   Status: %s", map[bool]string{true: "Enabled", false: "Disabled"}[serviceConfig.Enabled])
-	logger.UserInfof("   Provider: %s", serviceConfig.Provider)
+	logger.UserInfof("   Status: %s\n", map[bool]string{true: "Enabled", false: "Disabled"}[serviceConfig.Enabled])
+	logger.UserInfof("   Provider: %s\n", serviceConfig.Provider)
 
 	// Show required configuration keys
 	requiredKeys := getRequiredConfigKeys(serviceConfig.Provider)
@@ -298,7 +298,7 @@ func showServiceConfigurationDetails(serviceName string, serviceConfig config.Se
 		} else {
 			// Mask sensitive information
 			maskedValue := maskSensitiveValue(key, value)
-			logger.UserInfof("   %s: %s", key, maskedValue)
+			logger.UserInfof("   %s: %s\n", key, maskedValue)
 		}
 	}
 
@@ -523,7 +523,7 @@ func updateTestStatus(status *TestStatus, result TestResult) {
 // showTestProgress displays the progress of testing
 func showTestProgress(result TestResult, current, total int, verbose, diagnostic bool) {
 	if diagnostic {
-		logger.UserInfof("Progress: %d/%d services tested", current, total)
+		logger.UserInfof("Progress: %d/%d services tested\n", current, total)
 	}
 }
 
@@ -534,9 +534,9 @@ func showTestSummary(status *TestStatus) {
 	logger.UserInfo("=====================================")
 	logger.UserInfo("📊 Test Summary")
 	logger.UserInfo("=====================================")
-	logger.UserInfof("Test Mode: %s", status.TestMode)
-	logger.UserInfof("Total Duration: %v", duration)
-	logger.UserInfof("Services Tested: %d", status.TotalServices)
+	logger.UserInfof("Test Mode: %s\n", status.TestMode)
+	logger.UserInfof("Total Duration: %v\n", duration)
+	logger.UserInfof("Services Tested: %d\n", status.TotalServices)
 	logger.UserSuccessf("✅ Successful: %d", status.SuccessCount)
 	logger.UserErrorf("❌ Failed: %d", status.FailureCount)
 	logger.UserWarningf("⚠️  Skipped: %d", status.SkippedCount)
@@ -623,14 +623,14 @@ func listAvailableNotifiers() error {
 
 	// Display grouped providers
 	for group, providers := range groupedProviders {
-		logger.UserInfof("%s:", group)
+		logger.UserInfof("%s:\n", group)
 		for _, provider := range providers {
 			providerConfig := cfg.Notifications.Providers[provider]
 			status := "❌ Disabled"
 			if providerConfig.Enabled {
 				status = "✅ Enabled"
 			}
-			logger.UserInfof("  %s %s (%s)", status, provider, getProviderDescription(providerConfig.Provider))
+			logger.UserInfof("  %s %s (%s)\n", status, provider, getProviderDescription(providerConfig.Provider))
 		}
 		logger.UserInfo("")
 	}

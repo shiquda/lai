@@ -15,11 +15,11 @@ var versionCmd = &cobra.Command{
 	Long:  `Display the version number, build time, and git commit information for lai.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		logger.Debugf("Version command called with args: %v", args)
-		logger.UserInfof("lai version %s", version.Version)
-		logger.UserInfof("Build time: %s", version.BuildTime)
-		logger.UserInfof("Git commit: %s", version.GitCommit)
-		logger.UserInfof("Go version: %s", runtime.Version())
-		logger.UserInfof("OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
+		logger.UserInfof("lai version %s\n", version.Version)
+		logger.UserInfof("Build time: %s\n", version.BuildTime)
+		logger.UserInfof("Git commit: %s\n", version.GitCommit)
+		logger.UserInfof("Go version: %s\n", runtime.Version())
+		logger.UserInfof("OS/Arch: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 		logger.Debugf("Version information displayed successfully")
 	},
 }

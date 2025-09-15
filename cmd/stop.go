@@ -45,7 +45,7 @@ var stopCmd = &cobra.Command{
 			return
 		}
 
-		logger.UserInfof("Stopping process: %s (PID: %d)", processID, processInfo.PID)
+		logger.UserInfof("Stopping process: %s (PID: %d)\n", processID, processInfo.PID)
 
 		if err := manager.StopProcess(processID); err != nil {
 			logger.Errorf("Failed to stop process: %v", err)

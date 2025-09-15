@@ -28,12 +28,12 @@ var listCmd = &cobra.Command{
 			return
 		}
 
-		logger.UserInfof("%-20s %-8s %-10s %-20s %s", "PROCESS ID", "PID", "STATUS", "START TIME", "LOG FILE")
-		logger.UserInfof("%-20s %-8s %-10s %-20s %s", "----------", "---", "------", "----------", "--------")
+		logger.UserInfof("%-20s %-8s %-10s %-20s %s\n", "PROCESS ID", "PID", "STATUS", "START TIME", "LOG FILE")
+		logger.UserInfof("%-20s %-8s %-10s %-20s %s\n", "----------", "---", "------", "----------", "--------")
 
 		for _, proc := range processes {
 			startTime := proc.StartTime.Format("2006-01-02 15:04:05")
-			logger.UserInfof("%-20s %-8d %-10s %-20s %s",
+			logger.UserInfof("%-20s %-8d %-10s %-20s %s\n",
 				proc.ID, proc.PID, proc.Status, startTime, proc.LogFile)
 		}
 	},

@@ -100,10 +100,10 @@ func resumeProcess(manager *daemon.Manager, processID string) error {
 	}
 
 	logger.UserSuccessf("Resumed daemon with process ID: %s (PID: %d)", processID, process.Pid)
-	logger.UserInfof("Log file: %s", daemonLogPath)
+	logger.UserInfof("Log file: %s\n", daemonLogPath)
 	logger.UserInfo("Use 'lai list' to see running processes")
-	logger.UserInfof("Use 'lai logs %s' to view logs", processID)
-	logger.UserInfof("Use 'lai stop %s' to stop the process", processID)
+	logger.UserInfof("Use 'lai logs %s' to view logs\n", processID)
+	logger.UserInfof("Use 'lai stop %s' to stop the process\n", processID)
 
 	return nil
 }
