@@ -136,10 +136,12 @@ type ConfigModel struct {
 	items     []ConfigItem
 
 	// Edit state
-	editingField  *config.FieldMetadata
-	editingValue  string
-	originalValue string
-	hasChanges    bool
+	editingField     *config.FieldMetadata
+	editingValue     string
+	originalValue    string
+	hasChanges       bool
+	editContext      string // Track context: "provider", "section", or "main"
+	editContextKey   string // Additional context key (e.g., provider name or section key)
 
 	// Messages
 	statusMessage string

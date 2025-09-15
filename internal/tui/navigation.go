@@ -79,10 +79,15 @@ func (m *ConfigModel) loadSectionFields(sectionKey string) {
 		ItemType:    "navigation",
 	})
 
+	// Special handling for providers section to show channel list first
+	if sectionKey == "providers" {
+		m.loadProviderChannels(items)
+		return
+	}
+
 	// Find matching sections in metadata
 	for _, section := range m.metadata.Sections {
 		if strings.HasPrefix(section.Name, sectionKey) ||
-			(sectionKey == "providers" && section.Category == config.CategoryProviders) ||
 			(sectionKey == "general" && section.Category == config.CategoryGeneral) ||
 			(sectionKey == "defaults" && section.Category == config.CategoryDefaults) ||
 			(sectionKey == "openai" && section.Category == config.CategoryOpenAI) ||
@@ -122,6 +127,116 @@ func (m *ConfigModel) loadSectionFields(sectionKey string) {
 				items = append(items, item)
 			}
 		}
+	}
+
+	m.list.SetItems(items)
+	m.items = make([]ConfigItem, len(items))
+	for i, item := range items {
+		m.items[i] = item.(ConfigItem)
+	}
+}
+
+// loadProviderChannels loads the list of available notification channels
+func (m *ConfigModel) loadProviderChannels(items []list.Item) {
+	// Get all provider sections
+	providerSections := m.metadata.GetSectionsByCategory(config.CategoryProviders)
+	
+	for _, section := range providerSections {
+		// Get the enabled status for this provider
+		enabledKey := fmt.Sprintf("notifications.providers.%s.enabled", section.Name)
+		enabled, _ := m.getFieldValue(enabledKey)
+		
+		// Determine status icon and text
+		statusIcon := "❌"
+		statusText := "Disabled"
+		if enabled == "true" {
+			statusIcon = "✅"
+			statusText = "Enabled"
+		}
+		
+		// Create channel item
+		channelItem := ConfigItem{
+			Title:       fmt.Sprintf("%s %s", statusIcon, section.DisplayName),
+			Description: fmt.Sprintf("%s - %s", section.Description, statusText),
+			Key:         fmt.Sprintf("provider_%s", section.Name),
+			ItemType:    "provider_channel",
+			Level:       1,
+		}
+		
+		items = append(items, channelItem)
+	}
+	
+	m.list.SetItems(items)
+	m.items = make([]ConfigItem, len(items))
+	for i, item := range items {
+		m.items[i] = item.(ConfigItem)
+	}
+}
+
+// loadProviderConfig loads configuration fields for a specific provider
+func (m *ConfigModel) loadProviderConfig(providerName string) {
+	var items []list.Item
+
+	// Add back navigation item
+	items = append(items, ConfigItem{
+		Title:       "← Back to Channels",
+		Description: "Return to notification channels list",
+		Key:         "back_to_providers",
+		ItemType:    "navigation",
+	})
+
+	// Find the provider section
+	providerSections := m.metadata.GetSectionsByCategory(config.CategoryProviders)
+	var targetSection *config.ConfigSection
+	
+	for _, section := range providerSections {
+		if section.Name == providerName {
+			targetSection = &section
+			break
+		}
+	}
+	
+	if targetSection == nil {
+		// Provider not found, return to channels
+		m.loadProviderChannels([]list.Item{
+			ConfigItem{
+				Title:       "← Back to Main Menu",
+				Description: "Return to main configuration menu",
+				Key:         "back",
+				ItemType:    "navigation",
+			},
+		})
+		return
+	}
+
+	// Add provider header
+	items = append(items, ConfigItem{
+		Title:       fmt.Sprintf("📧 %s Configuration", targetSection.DisplayName),
+		Description: targetSection.Description,
+		Key:         "provider_header",
+		ItemType:    "header",
+		Level:       1,
+	})
+
+	// Add fields for this provider
+	for _, field := range targetSection.Fields {
+		currentValue, _ := m.getFieldValue(field.Key)
+		displayValue := FormatFieldValue(currentValue, string(field.Type), field.Sensitive)
+
+		item := ConfigItem{
+			Title:       field.DisplayName,
+			Description: fmt.Sprintf("%s (current: %s)", field.Description, displayValue),
+			Key:         field.Key,
+			Value:       currentValue,
+			ItemType:    "field",
+			Level:       field.Level,
+			Required:    field.Required,
+			Sensitive:   field.Sensitive,
+			Editable:    true,
+			Metadata:    &field,
+		}
+
+		items = append(items, item)
 	}
 
 	m.list.SetItems(items)
@@ -252,6 +367,28 @@ func (m *ConfigModel) handleEnterKey() (tea.Model, tea.Cmd) {
 	case "navigation":
 		if item.Key == "back" {
 			return m.handleBackNavigation()
+		} else if item.Key == "back_to_providers" {
+			// Return to provider channels list
+			m.loadProviderChannels([]list.Item{
+				ConfigItem{
+					Title:       "← Back to Main Menu",
+					Description: "Return to main configuration menu",
+					Key:         "back",
+					ItemType:    "navigation",
+				},
+			})
+			// Update breadcrumb
+			if len(m.breadcrumb) > 1 {
+				m.breadcrumb = m.breadcrumb[:len(m.breadcrumb)-1]
+			}
+		}
+
+	case "provider_channel":
+		// Extract provider name from key (format: "provider_telegram")
+		if strings.HasPrefix(item.Key, "provider_") {
+			providerName := strings.TrimPrefix(item.Key, "provider_")
+			m.loadProviderConfig(providerName)
+			m.breadcrumb = append(m.breadcrumb, item.Title)
 		}
 
 	case "action":
@@ -287,12 +424,48 @@ func (m *ConfigModel) handleAction(actionKey string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// determineEditContext determines the current editing context based on breadcrumb
+func (m *ConfigModel) determineEditContext() {
+	// Reset context
+	m.editContext = "main"
+	m.editContextKey = ""
+
+	if len(m.breadcrumb) >= 2 {
+		parentTitle := m.breadcrumb[len(m.breadcrumb)-1]
+
+		// Check if we're in a provider configuration page
+		if strings.Contains(parentTitle, "Configuration") {
+			m.editContext = "provider"
+			m.editContextKey = m.getProviderNameFromBreadcrumb(parentTitle)
+			return
+		}
+
+		// Check if we're in a regular section
+		sectionKey := m.getSectionKeyFromTitle(parentTitle)
+		if sectionKey != "" {
+			m.editContext = "section"
+			m.editContextKey = sectionKey
+			return
+		}
+
+		// Check if parent is notification providers
+		if parentTitle == "📱 Notification Providers" {
+			m.editContext = "providers"
+			m.editContextKey = "providers"
+			return
+		}
+	}
+}
+
 // startFieldEdit starts editing a configuration field
 func (m *ConfigModel) startFieldEdit(item *ConfigItem) {
 	m.state = ViewFieldEdit
 	m.editingField = item.Metadata
 	m.editingValue = item.Value
 	m.originalValue = item.Value
+
+	// Determine and set edit context based on current breadcrumb
+	m.determineEditContext()
 
 	// Set up text input
 	m.textInput.SetValue(item.Value)
@@ -329,6 +502,10 @@ func (m *ConfigModel) saveFieldEditCmd() tea.Cmd {
 		}
 
 		m.hasChanges = true
+
+		// Clear edit context before canceling
+		m.editContext = "main"
+		m.editContextKey = ""
 		m.cancelFieldEdit()
 
 		return statusMsg(fmt.Sprintf("Updated %s", fieldDisplayName))
@@ -342,18 +519,69 @@ func (m *ConfigModel) cancelFieldEdit() {
 	m.editingValue = ""
 	m.originalValue = ""
 
+	// Clear edit context
+	defer func() {
+		m.editContext = "main"
+		m.editContextKey = ""
+	}()
+
 	// Remove edit breadcrumb
 	if len(m.breadcrumb) > 0 {
 		m.breadcrumb = m.breadcrumb[:len(m.breadcrumb)-1]
 	}
 
-	// Reload current section to update display values
-	if len(m.breadcrumb) > 1 {
-		// Extract section key from breadcrumb
-		sectionTitle := m.breadcrumb[len(m.breadcrumb)-1]
-		sectionKey := m.getSectionKeyFromTitle(sectionTitle)
-		if sectionKey != "" {
-			m.loadSectionFields(sectionKey)
+	// Use the stored edit context to determine where to return
+	switch m.editContext {
+	case "provider":
+		if m.editContextKey != "" {
+			m.loadProviderConfig(m.editContextKey)
+		}
+	case "providers":
+		m.loadProviderChannels([]list.Item{
+			ConfigItem{
+				Title:       "← Back to Main Menu",
+				Description: "Return to main configuration menu",
+				Key:         "back",
+				ItemType:    "navigation",
+			},
+		})
+	case "section":
+		if m.editContextKey != "" {
+			m.loadSectionFields(m.editContextKey)
+		}
+	default:
+		// Fallback: try to determine from breadcrumb
+		if len(m.breadcrumb) > 1 {
+			parentTitle := m.breadcrumb[len(m.breadcrumb)-1]
+
+			// If parent is "📱 Notification Providers", return to provider channels
+			if parentTitle == "📱 Notification Providers" {
+				m.loadProviderChannels([]list.Item{
+					ConfigItem{
+						Title:       "← Back to Main Menu",
+						Description: "Return to main configuration menu",
+						Key:         "back",
+						ItemType:    "navigation",
+					},
+				})
+				return
+			}
+
+			// If parent contains "Configuration", return to provider config
+			if strings.Contains(parentTitle, "Configuration") {
+				providerName := m.getProviderNameFromBreadcrumb(parentTitle)
+				if providerName != "" {
+					m.loadProviderConfig(providerName)
+					return
+				}
+			}
+
+			// Try regular section
+			sectionKey := m.getSectionKeyFromTitle(parentTitle)
+			if sectionKey != "" {
+				m.loadSectionFields(sectionKey)
+				return
+			}
 		}
 	}
 }
@@ -407,5 +635,38 @@ func (m *ConfigModel) getSectionKeyFromTitle(title string) string {
 	if key, ok := titleMap[title]; ok {
 		return key
 	}
+	return ""
+}
+
+// getProviderNameFromBreadcrumb extracts provider name from breadcrumb title
+func (m *ConfigModel) getProviderNameFromBreadcrumb(title string) string {
+	// Extract provider name from titles like "✅ Telegram Configuration" or "❌ Email Configuration"
+	
+	// Known provider mappings
+	providerMap := map[string]string{
+		"Telegram Configuration":  "telegram",
+		"Email Configuration":     "email",
+		"Discord Configuration":   "discord",
+		"Slack Configuration":     "slack",
+	}
+	
+	// Remove status icons and extract clean title
+	cleanTitle := strings.TrimSpace(title)
+	for _, prefix := range []string{"✅ ", "❌ ", "📧 "} {
+		cleanTitle = strings.TrimPrefix(cleanTitle, prefix)
+	}
+	
+	// Check if we have a direct mapping
+	if providerName, ok := providerMap[cleanTitle]; ok {
+		return providerName
+	}
+	
+	// Try to extract from patterns like "ProviderName Configuration"
+	if strings.HasSuffix(cleanTitle, " Configuration") {
+		providerName := strings.TrimSuffix(cleanTitle, " Configuration")
+		// Convert to lowercase for consistency
+		return strings.ToLower(providerName)
+	}
+	
 	return ""
 }

@@ -1,8 +1,11 @@
 package notifier
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -16,6 +19,80 @@ import (
 	"github.com/shiquda/lai/internal/logger"
 )
 
+// DiscordWebhookService implements Discord webhook notifications
+// This is used when the notify library doesn't support webhooks directly
+type DiscordWebhookService struct {
+	webhookURL string
+}
+
+// DiscordWebhookPayload represents the JSON payload for Discord webhook
+type DiscordWebhookPayload struct {
+	Content string  `json:"content"`
+	Embeds  []Embed `json:"embeds,omitempty"`
+}
+
+// Embed represents a Discord embed object
+type Embed struct {
+	Title       string `json:"title,omitempty"`
+	Description string `json:"description,omitempty"`
+	Color       int    `json:"color,omitempty"`
+	Timestamp   string `json:"timestamp,omitempty"`
+}
+
+// Send sends a message via Discord webhook
+func (d *DiscordWebhookService) Send(message string) error {
+	payload := DiscordWebhookPayload{
+		Content: message,
+	}
+
+	return d.sendPayload(payload)
+}
+
+// SendEmbed sends an embedded message via Discord webhook
+func (d *DiscordWebhookService) SendEmbed(title, description string, color int) error {
+	payload := DiscordWebhookPayload{
+		Embeds: []Embed{
+			{
+				Title:       title,
+				Description: description,
+				Color:       color,
+				Timestamp:   time.Now().Format(time.RFC3339),
+			},
+		},
+	}
+
+	return d.sendPayload(payload)
+}
+
+// sendPayload sends the actual HTTP request to Discord webhook
+func (d *DiscordWebhookService) sendPayload(payload DiscordWebhookPayload) error {
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal webhook payload: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", d.webhookURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create webhook request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "Lai-Notifier/1.0")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send webhook request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("discord webhook returned status code: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
 // NotifyNotifier is a universal notifier implemented using the notify library
 // Supports all services provided by the notify library
 type NotifyNotifier struct {
@@ -23,6 +100,7 @@ type NotifyNotifier struct {
 	config          *config.NotificationsConfig
 	enabledServices map[string]bool
 	serviceConfigs  map[string]config.ServiceConfig
+	discordWebhook  *DiscordWebhookService
 }
 
 // NewNotifyNotifier creates a new notify notifier
@@ -192,9 +270,15 @@ func (nn *NotifyNotifier) setupDiscordService(serviceConfig config.ServiceConfig
 			return fmt.Errorf("discord webhook_url is required")
 		}
 
-		_ = discord.New()
-		// TODO: webhook support in notify library
-		return fmt.Errorf("discord webhook support not yet implemented")
+		// Create a custom webhook service since notify library doesn't support it
+		nn.discordWebhook = &DiscordWebhookService{
+			webhookURL: webhookURL,
+		}
+
+		// We'll handle webhook sending separately in the send methods
+		nn.enabledServices["discord"] = true
+		nn.serviceConfigs["discord"] = serviceConfig
+		return nil
 	}
 
 	// Bot token method
@@ -495,6 +579,19 @@ func (nn *NotifyNotifier) SendLogSummary(ctx context.Context, filePath, summary 
 
 	var errors []error
 
+	// Special handling for Discord webhook service
+	if nn.enabledServices["discord"] && nn.discordWebhook != nil {
+		// Create a nicely formatted embed for Discord
+		title := "🚨 Log Summary Notification"
+		description := fmt.Sprintf("**File:** %s\n**Time:** %s\n\n**Summary:**\n%s",
+			filePath, getCurrentTimeNotify(), summary)
+
+		if err := nn.discordWebhook.SendEmbed(title, description, 15158332); // Red color for alerts
+		err != nil {
+			errors = append(errors, fmt.Errorf("failed to send discord webhook notification: %w", err))
+		}
+	}
+
 	// Special handling for email service since it's not using the notify library
 	if nn.enabledServices["email"] {
 		serviceConfig, exists := nn.serviceConfigs["email"]
@@ -517,7 +614,7 @@ func (nn *NotifyNotifier) SendLogSummary(ctx context.Context, filePath, summary 
 	// Check if we have any services that use the notify library (including Telegram now)
 	hasNotifyServices := false
 	for service := range nn.enabledServices {
-		if service != "email" { // Only skip email
+		if service != "email" && service != "discord" { // Skip email and discord webhook
 			hasNotifyServices = true
 			break
 		}
@@ -565,6 +662,13 @@ func (nn *NotifyNotifier) SendMessage(ctx context.Context, message string) error
 		return fmt.Errorf("no notification channels enabled")
 	}
 
+	// Special handling for Discord webhook service
+	if nn.enabledServices["discord"] && nn.discordWebhook != nil {
+		if err := nn.discordWebhook.Send(message); err != nil {
+			return fmt.Errorf("failed to send discord webhook notification: %w", err)
+		}
+	}
+
 	// Special handling for email service since it's not using the notify library
 	if nn.enabledServices["email"] {
 		serviceConfig, exists := nn.serviceConfigs["email"]
@@ -600,6 +704,19 @@ func (nn *NotifyNotifier) SendError(ctx context.Context, filePath, errorMsg stri
 		"time":     getCurrentTimeNotify(),
 	})
 
+	// Special handling for Discord webhook service
+	if nn.enabledServices["discord"] && nn.discordWebhook != nil {
+		// Create a nicely formatted embed for Discord error
+		title := "🚨 Critical Error Alert"
+		description := fmt.Sprintf("**File:** %s\n**Time:** %s\n\n**Error Details:**\n%s",
+			filePath, getCurrentTimeNotify(), errorMsg)
+
+		if err := nn.discordWebhook.SendEmbed(title, description, 15105570); // Dark red color for errors
+		err != nil {
+			return fmt.Errorf("failed to send discord webhook notification: %w", err)
+		}
+	}
+
 	// Special handling for email service since it's not using the notify library
 	if nn.enabledServices["email"] {
 		serviceConfig, exists := nn.serviceConfigs["email"]
@@ -627,6 +744,14 @@ func (nn *NotifyNotifier) SendError(ctx context.Context, filePath, errorMsg stri
 func (nn *NotifyNotifier) TestProvider(ctx context.Context, providerName string, message string) error {
 	if !nn.enabledServices[providerName] {
 		return fmt.Errorf("provider %s is not enabled", providerName)
+	}
+
+	// Special handling for Discord webhook service
+	if providerName == "discord" && nn.discordWebhook != nil {
+		testMessage := fmt.Sprintf("🧪 Test Message from Lai\n\nProvider: %s\nTime: %s\nMessage: %s",
+			providerName, getCurrentTimeNotify(), message)
+
+		return nn.discordWebhook.Send(testMessage)
 	}
 
 	// Special handling for email service since it's not using the notify library
