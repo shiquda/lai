@@ -9,6 +9,7 @@ import (
 
 	"github.com/shiquda/lai/internal/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -260,6 +261,52 @@ func (s *ConfigTestSuite) TestLoadGlobalConfig_Default() {
 	assert.Equal(s.T(), "gpt-3.5-turbo", config.Notifications.OpenAI.Model)
 	assert.Equal(s.T(), 10, config.Defaults.LineThreshold)
 	assert.Equal(s.T(), 30*time.Second, config.Defaults.CheckInterval)
+}
+
+func (s *ConfigTestSuite) TestLoadGlobalConfig_MigratesAndReturnsUpdatedConfig() {
+	defaultConfig := getDefaultGlobalConfig()
+
+	configPath, err := GetGlobalConfigPath()
+	require.NoError(s.T(), err)
+
+	// Ensure we start with a clean directory
+	require.NoError(s.T(), os.RemoveAll(filepath.Dir(configPath)))
+	require.NoError(s.T(), os.MkdirAll(filepath.Dir(configPath), 0o755))
+
+	legacyConfig := `notifications:
+  openai:
+    api_key: "legacy-key"
+    base_url: "https://custom.openai.test/v1"
+    model: "gpt-4"
+  providers:
+    telegram:
+      enabled: true
+      provider: telegram
+      config:
+        bot_token: "legacy-token"
+        chat_id: "legacy-chat"
+defaults:
+  line_threshold: 5
+  check_interval: "15s"
+  final_summary: false
+  language: "Chinese"
+logging:
+  level: debug
+`
+
+	require.NoError(s.T(), os.WriteFile(configPath, []byte(legacyConfig), 0o644))
+
+	migratedConfig, err := LoadGlobalConfig()
+	require.NoError(s.T(), err)
+
+	// The returned config should already reflect the migrated values
+	assert.Equal(s.T(), defaultConfig.Version, migratedConfig.Version)
+	assert.Equal(s.T(), "legacy-key", migratedConfig.Notifications.OpenAI.APIKey)
+	assert.Equal(s.T(), "https://custom.openai.test/v1", migratedConfig.Notifications.OpenAI.BaseURL)
+	assert.Contains(s.T(), migratedConfig.Notifications.Providers, "slack")
+	assert.Equal(s.T(), defaultConfig.Display.Colors.Stdout, migratedConfig.Display.Colors.Stdout)
+	assert.Equal(s.T(), defaultConfig.Display.Colors.Stderr, migratedConfig.Display.Colors.Stderr)
+	assert.NotNil(s.T(), migratedConfig.Notifications.Fallback)
 }
 
 func (s *ConfigTestSuite) TestSaveAndLoadGlobalConfig() {
