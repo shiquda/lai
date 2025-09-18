@@ -63,17 +63,22 @@ notifications:
         icon_emoji: ":robot_face:"
         icon_url: ""
 
-    # Discord notifications
+    # Discord Bot notifications (full-featured)
     discord:
       enabled: true
-      provider: "discord"  # Options: "discord" (bot token), "discord_webhook" (webhook)
+      provider: "discord"
       config:
-        # Bot token method (recommended)
         bot_token: "your-discord-bot-token"
         channel_ids: ["your-channel-id-1", "your-channel-id-2"]
-        
-        # Webhook method (simpler)
-        # webhook_url: "your-discord-webhook-url"
+      defaults:
+        username: "Lai Bot"
+
+    # Discord Webhook notifications (simple setup)
+    discord_webhook:
+      enabled: true
+      provider: "discord_webhook"
+      config:
+        webhook_url: "your-discord-webhook-url"
       defaults:
         username: "Lai Bot"
 

@@ -477,6 +477,27 @@ func (m *ConfigModel) renderFieldEdit() string {
 		examplesText = textMutedStyle.Render(fmt.Sprintf("Examples: %s", examples))
 	}
 
+	// Discord-specific help
+	discordHelp := ""
+	if strings.Contains(field.Key, "discord") {
+		if strings.Contains(field.Key, "bot_token") {
+			discordHelp = textMutedStyle.Render(
+				"💡 Tip: Get this from Discord Developer Portal → Your App → Bot → Token\n" +
+				"Format should be like: MTE.MjA.XXXXX or similar",
+			)
+		} else if strings.Contains(field.Key, "webhook_url") {
+			discordHelp = textMutedStyle.Render(
+				"💡 Tip: Create webhook in Discord channel settings → Integrations\n" +
+				"Format: https://discord.com/api/webhooks/123456789/...",
+			)
+		} else if strings.Contains(field.Key, "channel_ids") {
+			discordHelp = textMutedStyle.Render(
+				"💡 Tip: Right-click channel in Discord → Copy Channel ID\n" +
+				"Format: numeric IDs like 123456789012345678",
+			)
+		}
+	}
+
 	// Create a dynamic panel style based on terminal width
 	dynamicPanelStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -492,17 +513,25 @@ func (m *ConfigModel) renderFieldEdit() string {
 
 	dynamicPanelStyle = dynamicPanelStyle.Width(panelWidth)
 
+	// Combine all content
+	content := []string{
+		fieldInfo,
+		"",
+		currentValueText,
+		"",
+		inputLabel,
+		inputField,
+		"",
+		examplesText,
+	}
+
+	// Add Discord-specific help if available
+	if discordHelp != "" {
+		content = append(content, "", discordHelp)
+	}
+
 	return dynamicPanelStyle.Render(
-		lipgloss.JoinVertical(lipgloss.Left,
-			fieldInfo,
-			"",
-			currentValueText,
-			"",
-			inputLabel,
-			inputField,
-			"",
-			examplesText,
-		),
+		lipgloss.JoinVertical(lipgloss.Left, content...),
 	)
 }
 
@@ -538,6 +567,55 @@ func (m *ConfigModel) renderHelp() string {
 - Duration: e.g., 30s, 5m, 1h
 - List: Comma-separated values
 - Secret: Input will be hidden
+
+### Discord Configuration Guide
+
+#### Discord Bot Mode (Full-featured)
+**Features:**
+- Support for multiple channels
+- Rich message formatting
+- Interactive bot commands
+- Full Discord API access
+
+**Setup Steps:**
+1. Go to Discord Developer Portal (https://discord.com/developers/applications)
+2. Create a New Application
+3. Go to "Bot" tab and click "Add Bot"
+4. Enable Privileged Gateway Intents:
+   - MESSAGE CONTENT INTENT
+   - SERVER MEMBERS INTENT
+5. Copy the Bot Token (format: MTE.MjA... or similar)
+6. Invite bot to your server using OAuth2 URL Generator
+7. Get Channel IDs from Discord (right-click channel → Copy ID)
+
+**Bot Token Format:** Should match pattern: ABC123.def456.ghi789
+
+#### Discord Webhook Mode (Simple)
+**Features:**
+- Simple setup
+- Single channel support
+- No bot required
+- Basic message sending
+
+**Setup Steps:**
+1. Go to your Discord server channel
+2. Click Channel Settings → Integrations
+3. Click "Create Webhook"
+4. Give it a name (e.g., "Lai Bot")
+5. Copy the Webhook URL
+6. Webhook URL format: https://discord.com/api/webhooks/ID/TOKEN
+
+**Webhook URL Format:** Should match pattern: https://discord.com/api/webhooks/123456789/...
+
+#### Which Mode to Choose?
+- **Choose Discord Bot** if you need multiple channels or advanced features
+- **Choose Discord Webhook** for simple single-channel notifications
+
+#### Troubleshooting
+- Invalid Bot Token: Check token format and ensure it's not expired
+- Invalid Webhook URL: Verify the URL is complete and accessible
+- Permission Issues: Ensure bot has "Send Messages" permission in channels
+- Channel IDs: Must be numeric IDs, not channel names
 `
 
 	return helpStyle.Render(helpContent)

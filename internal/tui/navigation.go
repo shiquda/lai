@@ -644,10 +644,11 @@ func (m *ConfigModel) getProviderNameFromBreadcrumb(title string) string {
 	
 	// Known provider mappings
 	providerMap := map[string]string{
-		"Telegram Configuration":  "telegram",
-		"Email Configuration":     "email",
-		"Discord Configuration":   "discord",
-		"Slack Configuration":     "slack",
+		"Telegram Configuration":    "telegram",
+		"Email Configuration":       "email",
+		"Discord Bot Configuration":  "discord",
+		"Discord Webhook Configuration": "discord_webhook",
+		"Slack Configuration":       "slack",
 	}
 	
 	// Remove status icons and extract clean title

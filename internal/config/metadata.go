@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -329,15 +330,15 @@ func GetConfigMetadata() *ConfigMetadata {
 			},
 			{
 				Name:        "discord",
-				DisplayName: "Discord Notifications",
-				Description: "Discord Webhook notification configuration",
+				DisplayName: "Discord Bot",
+				Description: "Discord Bot notification configuration with full features and multi-channel support",
 				Category:    CategoryProviders,
 				Level:       0,
 				Fields: []FieldMetadata{
 					{
 						Key:          "notifications.providers.discord.enabled",
-						DisplayName:  "Enable Discord",
-						Description:  "Whether to enable Discord notifications",
+						DisplayName:  "Enable Discord Bot",
+						Description:  "Whether to enable Discord Bot notifications",
 						Type:         TypeBool,
 						Category:     CategoryProviders,
 						Required:     false,
@@ -345,15 +346,79 @@ func GetConfigMetadata() *ConfigMetadata {
 						Level:        1,
 					},
 					{
-						Key:         "notifications.providers.discord.config.webhook_url",
-						DisplayName: "Webhook URL",
-						Description: "Discord channel Webhook URL",
+						Key:         "notifications.providers.discord.config.bot_token",
+						DisplayName: "Bot Token",
+						Description: "Discord bot authentication token from Discord Developer Portal",
 						Type:        TypeSecret,
 						Category:    CategoryProviders,
 						Required:    false,
 						Sensitive:   true,
-						Examples:    []string{"https://discord.com/api/webhooks/..."},
+						Examples:    []string{"MTIzNDU2Nzg5MA.ExAmPle.discord_bot_token_here"},
+						Validation:  "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$",
 						Level:       2,
+					},
+					{
+						Key:         "notifications.providers.discord.config.channel_ids",
+						DisplayName: "Channel IDs",
+						Description: "List of Discord channel IDs where the bot should send notifications",
+						Type:        TypeStringList,
+						Category:    CategoryProviders,
+						Required:    false,
+						Examples:    []string{"123456789012345678", "987654321098765432"},
+						Level:       2,
+					},
+					{
+						Key:          "notifications.providers.discord.defaults.username",
+						DisplayName:  "Bot Username",
+						Description:  "Username to display when sending messages",
+						Type:         TypeString,
+						Category:     CategoryProviders,
+						Required:     false,
+						DefaultValue: "Lai Bot",
+						Examples:     []string{"Lai Bot", "Log Monitor", "AI Assistant"},
+						Level:        2,
+					},
+				},
+			},
+			{
+				Name:        "discord_webhook",
+				DisplayName: "Discord Webhook",
+				Description: "Discord Webhook notification configuration - simple setup for single channel",
+				Category:    CategoryProviders,
+				Level:       0,
+				Fields: []FieldMetadata{
+					{
+						Key:          "notifications.providers.discord_webhook.enabled",
+						DisplayName:  "Enable Discord Webhook",
+						Description:  "Whether to enable Discord Webhook notifications",
+						Type:         TypeBool,
+						Category:     CategoryProviders,
+						Required:     false,
+						DefaultValue: "false",
+						Level:        1,
+					},
+					{
+						Key:         "notifications.providers.discord_webhook.config.webhook_url",
+						DisplayName: "Webhook URL",
+						Description: "Discord channel Webhook URL for sending notifications",
+						Type:        TypeSecret,
+						Category:    CategoryProviders,
+						Required:    false,
+						Sensitive:   true,
+						Examples:    []string{"https://discord.com/api/webhooks/123456789012345678/abcdefg..."},
+						Validation:  "^https://discord\\.com/api/webhooks/\\d+/.+",
+						Level:       2,
+					},
+					{
+						Key:          "notifications.providers.discord_webhook.defaults.username",
+						DisplayName:  "Webhook Username",
+						Description:  "Username to display when sending messages via webhook",
+						Type:         TypeString,
+						Category:     CategoryProviders,
+						Required:     false,
+						DefaultValue: "Lai Bot",
+						Examples:     []string{"Lai Bot", "Log Monitor", "AI Assistant"},
+						Level:        2,
 					},
 				},
 			},
@@ -469,6 +534,20 @@ func (fm *FieldMetadata) ValidateFieldValue(value string) error {
 	case TypeDuration:
 		if _, err := time.ParseDuration(value); err != nil {
 			return fmt.Errorf("field %s must be a valid duration (e.g., 30s, 5m)", fm.Key)
+		}
+	case TypeString:
+		// Check if there's a validation pattern for this field
+		if fm.Validation != "" {
+			if matched, err := regexp.MatchString(fm.Validation, value); err != nil || !matched {
+				return fmt.Errorf("field %s has invalid format", fm.Key)
+			}
+		}
+	case TypeSecret:
+		// Check if there's a validation pattern for this field
+		if fm.Validation != "" {
+			if matched, err := regexp.MatchString(fm.Validation, value); err != nil || !matched {
+				return fmt.Errorf("field %s has invalid format", fm.Key)
+			}
 		}
 	case TypeStringList:
 		// For string lists, we accept comma-separated values
