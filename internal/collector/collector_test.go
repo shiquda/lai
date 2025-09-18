@@ -45,6 +45,7 @@ func TestNew(t *testing.T) {
 	assert.Equal(t, checkInterval, collector.checkInterval)
 	assert.Equal(t, 0, collector.lastLineCount)
 	assert.Nil(t, collector.onTrigger)
+	assert.NotNil(t, collector.stopCh)
 }
 
 func TestSetTriggerHandler(t *testing.T) {
@@ -273,8 +274,9 @@ func TestCollector_Integration(t *testing.T) {
 		return nil
 	})
 
+	done := make(chan error, 1)
 	go func() {
-		collector.Start()
+		done <- collector.Start()
 	}()
 
 	time.Sleep(10 * time.Millisecond)
@@ -285,4 +287,13 @@ func TestCollector_Integration(t *testing.T) {
 
 	assert.Len(t, receivedContent, 1)
 	assert.Equal(t, "new line 1\nnew line 2\n", receivedContent[0])
+
+	collector.Stop()
+
+	select {
+	case err := <-done:
+		assert.NoError(t, err)
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("collector failed to stop")
+	}
 }

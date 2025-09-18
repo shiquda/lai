@@ -7,7 +7,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/term"
@@ -103,6 +102,8 @@ type ConfigItem struct {
 	Sensitive   bool
 	Editable    bool
 	Metadata    *config.FieldMetadata
+	Section     *SectionDescriptor
+	Provider    *ProviderDescriptor
 }
 
 // FilterState returns the title for list filtering
@@ -113,35 +114,30 @@ func (c ConfigItem) FilterValue() string {
 // ConfigModel represents the main model for the interactive config
 type ConfigModel struct {
 	// State management
-	state    ViewState
-	keyMap   KeyMap
-	quitting bool
-	width    int
-	height   int
-	err      error
+	keyMap          KeyMap
+	quitting        bool
+	width           int
+	height          int
+	err             error
+	currentState    UIState
+	stateBeforeHelp UIState
 
 	// (debug fields removed)
 
 	// Configuration data
 	globalConfig *config.GlobalConfig
 	metadata     *config.ConfigMetadata
+	navigator    *NavigationBuilder
 
 	// Navigation
-	breadcrumb  []string
-	currentPath string
+	breadcrumb []string
 
 	// UI components
-	list      list.Model
-	textInput textinput.Model
-	items     []ConfigItem
+	list  list.Model
+	items []ConfigItem
 
 	// Edit state
-	editingField     *config.FieldMetadata
-	editingValue     string
-	originalValue    string
-	hasChanges       bool
-	editContext      string // Track context: "provider", "section", or "main"
-	editContextKey   string // Additional context key (e.g., provider name or section key)
+	hasChanges bool
 
 	// Messages
 	statusMessage string
@@ -172,26 +168,19 @@ func NewConfigModel() (*ConfigModel, error) {
 	listModel.Styles.PaginationStyle = textMutedStyle
 	listModel.Styles.HelpStyle = helpStyle
 
-	// Create text input model
-	textInputModel := textinput.New()
-	textInputModel.Placeholder = "Enter configuration value..."
-	textInputModel.Focus()
-
 	model := &ConfigModel{
-		state:        ViewMainMenu,
 		keyMap:       DefaultKeyMap(),
 		globalConfig: globalConfig,
 		metadata:     metadata,
+		navigator:    NewNavigationBuilder(metadata, globalConfig),
 		list:         listModel,
-		textInput:    textInputModel,
-		breadcrumb:   []string{"Main Menu"},
 		width:        10, // Will be set properly by WindowSizeMsg
 		height:       10, // Will be set properly by WindowSizeMsg
 		// debug env feature flags removed
 	}
 
-	// Initialize main menu items
-	model.initMainMenu()
+	// Initialize main menu state
+	model.setState(NewMainMenuState())
 
 	return model, nil
 }
@@ -225,21 +214,27 @@ func (m *ConfigModel) Init() tea.Cmd {
 	)
 }
 
+func (m *ConfigModel) setState(state UIState) tea.Cmd {
+	m.currentState = state
+	if state == nil {
+		return nil
+	}
+	return state.OnEnter(m)
+}
+
+func (m *ConfigModel) resetBreadcrumb(labels ...string) {
+	m.breadcrumb = append([]string{}, labels...)
+}
+
+func (m *ConfigModel) breadcrumbTrail() []string {
+	return append([]string{}, m.breadcrumb...)
+}
+
 // Update handles messages and updates the model
 func (m *ConfigModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		if m.state == ViewFieldEdit {
-			return m.updateFieldEdit(msg)
-		}
-
-		// Handle navigation keys first, but let list handle up/down navigation
-		if newModel, cmd := m.updateNavigation(msg); cmd != nil || newModel != m {
-			return newModel, cmd
-		}
-
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -268,41 +263,32 @@ func (m *ConfigModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.list.SetHeight(listHeight)
 
-		// Update text input width if needed
-		if m.editingField != nil && m.editingField.Type != "bool" {
-			inputWidth := m.width - 12
-			if inputWidth < 30 {
-				inputWidth = 30
-			} else if inputWidth > m.width-20 {
-				inputWidth = m.width - 20
-			}
-			m.textInput.Width = inputWidth
+		if handler, ok := m.currentState.(WindowAwareState); ok {
+			handler.HandleWindowSize(m, msg)
 		}
-
-		// Remove help style width adjustment
-		// m.list.Styles.HelpStyle = hs
 	case statusMsg:
 		m.statusMessage = string(msg)
 		m.statusType = "info"
-	}
-
-	// Update list component for navigation states
-	if m.state == ViewMainMenu || m.state == ViewSectionList {
-		var cmd tea.Cmd
-		m.list, cmd = m.list.Update(msg)
-		if cmd != nil {
-			cmds = append(cmds, cmd)
+	case tea.KeyMsg:
+		if handled, cmd := m.handleGlobalKey(msg); handled {
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+			if len(cmds) > 0 {
+				return m, tea.Batch(cmds...)
+			}
+			return m, nil
 		}
 	}
 
-	// Update text input component for non-key messages when in field edit mode
-	if m.state == ViewFieldEdit {
-		// Only update text input for non-key messages to avoid double handling
-		if _, isKeyMsg := msg.(tea.KeyMsg); !isKeyMsg {
-			var cmd tea.Cmd
-			m.textInput, cmd = m.textInput.Update(msg)
-			if cmd != nil {
-				cmds = append(cmds, cmd)
+	if m.currentState != nil {
+		nextState, cmd := m.currentState.Update(m, msg)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		if nextState != nil && nextState != m.currentState {
+			if transitionCmd := m.setState(nextState); transitionCmd != nil {
+				cmds = append(cmds, transitionCmd)
 			}
 		}
 	}
@@ -314,6 +300,98 @@ func (m *ConfigModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m *ConfigModel) handleGlobalKey(msg tea.KeyMsg) (bool, tea.Cmd) {
+	noop := func() tea.Msg { return nil }
+
+	switch {
+	case key.Matches(msg, m.keyMap.Quit):
+		if m.hasChanges {
+			m.statusMessage = "Unsaved changes! Press Ctrl+S to save or press q again to force quit"
+			m.statusType = "warning"
+			return true, noop
+		}
+		m.quitting = true
+		return true, tea.Quit
+
+	case key.Matches(msg, m.keyMap.Help):
+		if _, isHelp := m.currentState.(*HelpState); isHelp {
+			if m.stateBeforeHelp != nil {
+				cmd := m.setState(m.stateBeforeHelp)
+				m.stateBeforeHelp = nil
+				return true, cmd
+			}
+			return true, nil
+		}
+		m.stateBeforeHelp = m.currentState
+		return true, m.setState(NewHelpState())
+
+	case key.Matches(msg, m.keyMap.Save):
+		return true, m.saveConfig()
+	}
+
+	return false, nil
+}
+
+func (m *ConfigModel) runAction(actionKey string) tea.Cmd {
+	switch actionKey {
+	case "save":
+		return m.saveConfig()
+	case "reset":
+		return m.resetConfig()
+	}
+	return nil
+}
+
+func (m *ConfigModel) saveConfig() tea.Cmd {
+	return func() tea.Msg {
+		if err := config.SaveGlobalConfig(m.globalConfig); err != nil {
+			return statusMsg(fmt.Sprintf("Save failed: %v", err))
+		}
+
+		m.hasChanges = false
+		return statusMsg("Configuration saved")
+	}
+}
+
+func (m *ConfigModel) resetConfig() tea.Cmd {
+	return func() tea.Msg {
+		defaultConfig := config.GetDefaultGlobalConfig()
+		previousConfig := m.globalConfig
+
+		m.globalConfig = defaultConfig
+		m.navigator.UpdateConfig(m.globalConfig)
+
+		if err := config.SaveGlobalConfig(m.globalConfig); err != nil {
+			m.globalConfig = previousConfig
+			m.navigator.UpdateConfig(m.globalConfig)
+			return statusMsg(fmt.Sprintf("Reset failed: %v", err))
+		}
+
+		m.hasChanges = false
+
+		if m.currentState != nil {
+			if cmd := m.currentState.OnEnter(m); cmd != nil {
+				// We intentionally execute the command immediately so any
+				// synchronous side effects (e.g. list focus updates) run
+				// before the status message is emitted. Future states that
+				// return asynchronous commands should update this section
+				// to enqueue the resulting message alongside the status.
+				cmd()
+			}
+		}
+
+		return statusMsg("Configuration reset to defaults")
+	}
+}
+
+func (m *ConfigModel) getFieldValue(key string) (string, error) {
+	return getFieldByPath(m.globalConfig, key)
+}
+
+func (m *ConfigModel) setFieldValue(key, value string) error {
+	return setFieldByPath(m.globalConfig, key, value)
+}
+
 // View renders the current view
 func (m *ConfigModel) View() string {
 	if m.quitting {
@@ -321,18 +399,8 @@ func (m *ConfigModel) View() string {
 	}
 
 	var content string
-
-	// Main content based on current state
-	switch m.state {
-	case ViewMainMenu, ViewSectionList:
-		// For list views, use dynamic width based on terminal size
-		listContentStyle := lipgloss.NewStyle().
-			Width(m.width - 4) // Account for minimal padding
-		content = listContentStyle.Render(m.list.View())
-	case ViewFieldEdit:
-		content = m.renderFieldEdit()
-	case ViewHelp:
-		content = m.renderHelp()
+	if m.currentState != nil {
+		content = m.currentState.View(m)
 	}
 
 	// Header with breadcrumb
@@ -370,15 +438,19 @@ func (m *ConfigModel) renderHeader() string {
 func (m *ConfigModel) renderFooter() string {
 	var helpItems []string
 
-	switch m.state {
-	case ViewMainMenu, ViewSectionList:
-		helpItems = []string{
-			"↑/↓: navigate", "Enter: select", "Esc: back", "q: quit", "?: help",
-		}
-		helpItems = append(helpItems, "/: filter")
-	case ViewFieldEdit:
+	switch m.currentState.(type) {
+	case *FieldEditState:
 		helpItems = []string{
 			"Enter: save", "Esc: cancel", "Ctrl+S: save config",
+		}
+	case *HelpState:
+		helpItems = []string{
+			"?: close help", "q: quit",
+		}
+	default:
+		helpItems = []string{
+			"↑/↓: navigate", "Enter: select", "Esc: back", "q: quit", "?: help",
+			"/: filter",
 		}
 	}
 
@@ -393,154 +465,6 @@ func (m *ConfigModel) renderFooter() string {
 		Padding(1, 2).
 		Width(m.width).
 		Render(helpText)
-}
-
-// renderFieldEdit renders the field editing interface
-func (m *ConfigModel) renderFieldEdit() string {
-	if m.editingField == nil {
-		return "Error: No field selected for editing"
-	}
-
-	field := m.editingField
-
-	// Field information
-	fieldInfo := lipgloss.JoinVertical(lipgloss.Left,
-		headerStyle.Render("Edit Configuration Field"),
-		"",
-		contentStyle.Render(fmt.Sprintf("Name: %s", field.DisplayName)),
-		descriptionStyle.Render(fmt.Sprintf("Description: %s", field.Description)),
-		contentStyle.Render(fmt.Sprintf("Type: %s", field.Type)),
-	)
-
-	if field.Required {
-		fieldInfo += "\n" + warningStyle.Render("* Required field")
-	}
-
-	// Current value display
-	currentValueText := ""
-	if m.originalValue != "" {
-		displayValue := FormatFieldValue(m.originalValue, string(field.Type), field.Sensitive)
-		currentValueText = contentStyle.Render(fmt.Sprintf("Current value: %s", displayValue))
-	} else {
-		currentValueText = textMutedStyle.Render("Current value: not set")
-	}
-
-	// Input field
-	inputLabel := contentStyle.Render("New value:")
-	inputField := ""
-
-	if field.Type == "bool" {
-		// For boolean fields, show toggle options
-		trueOption := buttonStyle.Render("true")
-		falseOption := buttonStyle.Render("false")
-		if m.textInput.Value() == "true" {
-			trueOption = buttonActiveStyle.Render("true")
-		} else if m.textInput.Value() == "false" {
-			falseOption = buttonActiveStyle.Render("false")
-		}
-		inputField = lipgloss.JoinHorizontal(lipgloss.Left, trueOption, falseOption)
-	} else {
-		// Compute panel/content widths first so input aligns with panel borders.
-		panelOuterWidth := m.width - 4 // must match calculation below for panelWidth
-		if panelOuterWidth < 50 {
-			panelOuterWidth = 50
-		}
-		// panel padding horizontal = 2(left)+2(right); borders = 2
-		panelContentWidth := panelOuterWidth - 6
-		if panelContentWidth < 20 {
-			panelContentWidth = 20
-		}
-		// inputFocusedStyle has border + Padding(0,1) => theoretical extra width = 2(border)+2(padding)=4
-		// But actual rendering adds 1 extra column (due to title/prefix styles or runewidth differences), so subtract 1 more for compensation
-		inputInnerWidth := panelContentWidth - 5
-		if inputInnerWidth < 10 {
-			inputInnerWidth = 10
-		}
-		m.textInput.Width = inputInnerWidth
-		if field.Sensitive {
-			m.textInput.EchoMode = textinput.EchoPassword
-		} else {
-			m.textInput.EchoMode = textinput.EchoNormal
-		}
-		inputField = inputFocusedStyle.Render(m.textInput.View())
-		// If still overflow (width exceeds panelContentWidth), decrement until it fits
-		for lipgloss.Width(inputField) > panelContentWidth && m.textInput.Width > 5 {
-			m.textInput.Width--
-			inputField = inputFocusedStyle.Render(m.textInput.View())
-		}
-	}
-
-	// Examples
-	examplesText := ""
-	if len(field.Examples) > 0 {
-		examples := strings.Join(field.Examples, ", ")
-		examplesText = textMutedStyle.Render(fmt.Sprintf("Examples: %s", examples))
-	}
-
-	// Create a dynamic panel style based on terminal width
-	dynamicPanelStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(borderColor).
-		Padding(1, 2).
-		Margin(1, 0)
-
-	// Use full terminal width for panels (outer width already used above for input calc)
-	panelWidth := m.width - 4
-	if panelWidth < 50 {
-		panelWidth = 50
-	}
-
-	dynamicPanelStyle = dynamicPanelStyle.Width(panelWidth)
-
-	return dynamicPanelStyle.Render(
-		lipgloss.JoinVertical(lipgloss.Left,
-			fieldInfo,
-			"",
-			currentValueText,
-			"",
-			inputLabel,
-			inputField,
-			"",
-			examplesText,
-		),
-	)
-}
-
-// renderHelp renders the help screen
-func (m *ConfigModel) renderHelp() string {
-	helpContent := `
-## Lai Interactive Configuration Help
-
-### Navigation
-- ↑/↓ or k/j: Move up/down
-- →/l: Enter selected item
-- ←/h: Go back
-- Enter: Confirm selection
-- Esc: Cancel current operation
-
-### Editing Configuration
-- Press Enter on configuration item to edit
-- Enter new value and press Enter to confirm
-- Press Esc to cancel editing
-
-### Saving Configuration
-- Ctrl+S: Save all changes
-- Warning shown when exiting with unsaved changes
-
-### Other
-- q: Quit program
-- ?: Show/hide help
-
-### Configuration Types
-- String: Direct text input
-- Number: Integer input
-- Boolean: Select true or false
-- Duration: e.g., 30s, 5m, 1h
-- List: Comma-separated values
-- Secret: Input will be hidden
-`
-
-	return helpStyle.Render(helpContent)
 }
 
 // HasError checks if the model has an error

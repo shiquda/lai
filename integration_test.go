@@ -32,10 +32,9 @@ func TestCollectorWorkflow(t *testing.T) {
 	})
 
 	// Start collector
-	done := make(chan bool)
+	done := make(chan error, 1)
 	go func() {
-		logCollector.Start()
-		done <- true
+		done <- logCollector.Start()
 	}()
 
 	// Wait for initialization
@@ -51,6 +50,15 @@ func TestCollectorWorkflow(t *testing.T) {
 	assert.Equal(t, 1, triggerCount, "Handler should be triggered once")
 	assert.Contains(t, triggerContent, "New line 1")
 	assert.Contains(t, triggerContent, "New line 2")
+
+	logCollector.Stop()
+
+	select {
+	case err := <-done:
+		assert.NoError(t, err)
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("collector failed to stop")
+	}
 }
 
 func TestConfigValidation(t *testing.T) {
