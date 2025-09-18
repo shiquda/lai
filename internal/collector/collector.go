@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/shiquda/lai/internal/logger"
@@ -13,6 +14,7 @@ import (
 type LogCollector interface {
 	SetTriggerHandler(handler func(newContent string) error)
 	Start() error
+	Stop()
 }
 
 // Collector represents a file-based log collector
@@ -22,6 +24,8 @@ type Collector struct {
 	lastLineCount int
 	checkInterval time.Duration
 	onTrigger     func(newContent string) error
+	stopCh        chan struct{}
+	stopOnce      sync.Once
 }
 
 func New(filePath string, lineThreshold int, checkInterval time.Duration) *Collector {
@@ -29,6 +33,7 @@ func New(filePath string, lineThreshold int, checkInterval time.Duration) *Colle
 		filePath:      filePath,
 		lineThreshold: lineThreshold,
 		checkInterval: checkInterval,
+		stopCh:        make(chan struct{}),
 	}
 }
 
@@ -44,13 +49,23 @@ func (c *Collector) Start() error {
 	ticker := time.NewTicker(c.checkInterval)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		if err := c.checkAndTrigger(); err != nil {
-			logger.Errorf("Error checking file: %v", err)
+	for {
+		select {
+		case <-ticker.C:
+			if err := c.checkAndTrigger(); err != nil {
+				logger.Errorf("Error checking file: %v", err)
+			}
+		case <-c.stopCh:
+			return nil
 		}
 	}
+}
 
-	return nil
+// Stop stops the collector loop and releases resources.
+func (c *Collector) Stop() {
+	c.stopOnce.Do(func() {
+		close(c.stopCh)
+	})
 }
 
 func (c *Collector) initLastLineCount() error {

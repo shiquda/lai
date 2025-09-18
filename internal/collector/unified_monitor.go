@@ -256,6 +256,10 @@ func (m *UnifiedMonitor) Start() error {
 	select {
 	case <-sigChan:
 		logger.Info("\nReceived stop signal, shutting down...")
+		m.collector.Stop()
+		if err := <-errChan; err != nil {
+			return err
+		}
 		return nil
 	case err := <-errChan:
 		return err
@@ -264,9 +268,7 @@ func (m *UnifiedMonitor) Start() error {
 
 // Stop stops the monitoring
 func (m *UnifiedMonitor) Stop() {
-	if streamCollector, ok := m.collector.(*StreamCollector); ok {
-		streamCollector.Stop()
-	}
+	m.collector.Stop()
 }
 
 // sendToAllNotifiers sends a summary to all configured notifiers
