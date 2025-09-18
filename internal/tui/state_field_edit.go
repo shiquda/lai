@@ -42,6 +42,12 @@ func (s *FieldEditState) OnEnter(m *ConfigModel) tea.Cmd {
 		return nil
 	}
 
+	if s.field.Key != "" {
+		if latestValue, err := m.getFieldValue(s.field.Key); err == nil {
+			s.originalValue = latestValue
+		}
+	}
+
 	breadcrumb := append([]string{}, s.context.BaseBreadcrumb...)
 	breadcrumb = append(breadcrumb, fmt.Sprintf("Edit: %s", s.field.DisplayName))
 	m.resetBreadcrumb(breadcrumb...)

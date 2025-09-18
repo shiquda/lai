@@ -68,6 +68,58 @@ func TestConfigModelResetConfigRefreshesState(t *testing.T) {
 	require.Equal(t, expectedDefault, afterReset.Value)
 }
 
+func TestConfigModelResetConfigRefreshesFieldEditor(t *testing.T) {
+	tempDir, cleanup := testutils.CreateTempDir(t)
+	defer cleanup()
+
+	originalHome, hasHome := os.LookupEnv("HOME")
+	require.NoError(t, os.Setenv("HOME", tempDir))
+	defer func() {
+		if hasHome {
+			require.NoError(t, os.Setenv("HOME", originalHome))
+		} else {
+			require.NoError(t, os.Unsetenv("HOME"))
+		}
+	}()
+
+	model, err := NewConfigModel()
+	require.NoError(t, err)
+
+	defaultsDescriptor, ok := model.navigator.SectionDescriptorByKey("defaults")
+	require.True(t, ok)
+
+	require.NoError(t, model.setFieldValue("defaults.line_threshold", "25"))
+	model.hasChanges = true
+
+	if cmd := model.setState(NewSectionState(defaultsDescriptor)); cmd != nil {
+		cmd()
+	}
+
+	fieldItem := findItemByKey(t, model.items, "defaults.line_threshold")
+	require.NotNil(t, fieldItem.Metadata)
+	require.Equal(t, "25", fieldItem.Value)
+
+	context := FieldEditContext{
+		BaseBreadcrumb: model.breadcrumbTrail(),
+		Section:        cloneSectionDescriptor(defaultsDescriptor),
+	}
+	fieldState := NewFieldEditState(fieldItem.Metadata, fieldItem.Value, context)
+
+	if cmd := model.setState(fieldState); cmd != nil {
+		cmd()
+	}
+
+	require.Equal(t, "25", fieldState.editor.Value())
+
+	resetCmd := model.resetConfig()
+	msg := resetCmd()
+	require.Equal(t, statusMsg("Configuration reset to defaults"), msg)
+
+	expectedDefault := strconv.Itoa(config.GetDefaultGlobalConfig().Defaults.LineThreshold)
+	require.Equal(t, expectedDefault, fieldState.editor.Value())
+	require.Equal(t, expectedDefault, fieldState.originalValue)
+}
+
 func findItemByKey(t *testing.T, items []ConfigItem, key string) ConfigItem {
 	t.Helper()
 
