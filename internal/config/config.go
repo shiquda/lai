@@ -491,8 +491,11 @@ func migrateConfigSilently(config *GlobalConfig, rawConfig map[string]interface{
 	// Use intelligent configuration merging
 	mergedConfig := smartMergeConfigs(config, defaultConfig)
 
+	// Update the provided config pointer so callers immediately get the latest values
+	*config = *mergedConfig
+
 	// Save merged config
-	if err := SaveGlobalConfig(mergedConfig); err != nil {
+	if err := SaveGlobalConfig(config); err != nil {
 		return fmt.Errorf("failed to save merged config: %w", err)
 	}
 
