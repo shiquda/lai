@@ -283,6 +283,11 @@ func getDefaultGlobalConfig() *GlobalConfig {
 					Provider: "discord",
 					Config:   map[string]interface{}{},
 				},
+				"discord_webhook": {
+					Enabled:  false, // Disabled by default until configured
+					Provider: "discord_webhook",
+					Config:   map[string]interface{}{},
+				},
 			},
 			Fallback: &FallbackConfig{
 				Enabled:  false,
@@ -1135,6 +1140,18 @@ func MigrateToNewProviderConfig(oldConfig *GlobalConfig) *GlobalConfig {
 		newConfig.Notifications.Providers["discord"] = ServiceConfig{
 			Enabled:  false,
 			Provider: "discord",
+			Config:   make(map[string]interface{}),
+			Defaults: map[string]interface{}{
+				"username": "Lai Bot",
+			},
+		}
+	}
+
+	// Default Discord Webhook provider (disabled by default)
+	if _, exists := newConfig.Notifications.Providers["discord_webhook"]; !exists {
+		newConfig.Notifications.Providers["discord_webhook"] = ServiceConfig{
+			Enabled:  false,
+			Provider: "discord_webhook",
 			Config:   make(map[string]interface{}),
 			Defaults: map[string]interface{}{
 				"username": "Lai Bot",
