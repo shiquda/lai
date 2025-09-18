@@ -137,9 +137,20 @@ func getProviderFieldValue(obj interface{}, path string) (string, error) {
 	switch {
 	case fieldName == "enabled":
 		return strconv.FormatBool(provider.Enabled), nil
+	case fieldName == "provider":
+		return provider.Provider, nil
 	case strings.HasPrefix(fieldName, "config."):
 		configKey := strings.TrimPrefix(fieldName, "config.")
 		if val, ok := provider.Config[configKey]; ok {
+			if configKey == "channel_ids" {
+				switch typed := val.(type) {
+				case []interface{}:
+					return joinInterfaceSlice(typed), nil
+				case []string:
+					joined := strings.Join(typed, ",")
+					return joined, nil
+				}
+			}
 			return fmt.Sprintf("%v", val), nil
 		}
 		return "", nil
@@ -191,6 +202,17 @@ func setProviderFieldValue(obj interface{}, path, value string) error {
 		} else {
 			return fmt.Errorf("invalid bool value: %s", value)
 		}
+	case fieldName == "provider":
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			return fmt.Errorf("provider value cannot be empty")
+		}
+
+		if !isValidProviderSelection(providerName, trimmed) {
+			return fmt.Errorf("invalid provider value: %s", trimmed)
+		}
+
+		provider.Provider = trimmed
 	case strings.HasPrefix(fieldName, "config."):
 		configKey := strings.TrimPrefix(fieldName, "config.")
 		if provider.Config == nil {
@@ -239,10 +261,56 @@ func convertStringToInterface(value, key string) interface{} {
 			return emails
 		}
 		return []string{}
+	case "channel_ids":
+		if value == "" {
+			return []interface{}{}
+		}
+
+		parts := strings.Split(value, ",")
+		result := make([]interface{}, 0, len(parts))
+		for _, part := range parts {
+			trimmed := strings.TrimSpace(part)
+			if trimmed == "" {
+				continue
+			}
+			result = append(result, trimmed)
+		}
+		return result
 	}
 
 	// Default to string
 	return value
+}
+
+func isValidProviderSelection(providerName, value string) bool {
+	switch providerName {
+	case "discord":
+		return value == "discord" || value == "discord_webhook"
+	}
+
+	// Default to allowing the provided value. Some providers only support a single
+	// identifier which may differ from the map key (e.g. smtp/gmail for email).
+	return true
+}
+
+func joinInterfaceSlice(values []interface{}) string {
+	if len(values) == 0 {
+		return ""
+	}
+
+	parts := make([]string, 0, len(values))
+	for _, v := range values {
+		switch typed := v.(type) {
+		case string:
+			if typed != "" {
+				parts = append(parts, typed)
+			}
+		default:
+			parts = append(parts, fmt.Sprintf("%v", typed))
+		}
+	}
+
+	return strings.Join(parts, ",")
 }
 
 // toCamelCase converts snake_case to CamelCase (with special handling for common acronyms)
