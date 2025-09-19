@@ -28,6 +28,7 @@ type StreamCollector struct {
 	lines     []string
 	lineMutex sync.RWMutex
 	stopCh    chan struct{}
+	stopOnce  sync.Once
 	running   bool
 	runMutex  sync.RWMutex
 	startTime time.Time
@@ -60,6 +61,8 @@ func (sc *StreamCollector) Start() error {
 		return fmt.Errorf("stream collector is already running")
 	}
 	sc.running = true
+	sc.stopOnce = sync.Once{}
+	sc.stopCh = make(chan struct{})
 	sc.startTime = time.Now() // Record start time
 	sc.runMutex.Unlock()
 
@@ -132,7 +135,9 @@ func (sc *StreamCollector) Start() error {
 		logger.Info("Command stopped by user")
 	case err := <-cmdDone:
 		// Command finished - signal threshold checker to stop
-		close(sc.stopCh)
+		sc.stopOnce.Do(func() {
+			close(sc.stopCh)
+		})
 		commandError = err
 		if err != nil {
 			logger.Errorf("Command finished with error: %v", err)
@@ -149,7 +154,7 @@ func (sc *StreamCollector) Start() error {
 		sc.sendFinalSummary(commandError)
 	}
 
-	return nil
+	return commandError
 }
 
 // Stop stops the stream collector
@@ -159,12 +164,9 @@ func (sc *StreamCollector) Stop() {
 	sc.runMutex.RUnlock()
 
 	if running {
-		select {
-		case <-sc.stopCh:
-			// Channel already closed
-		default:
+		sc.stopOnce.Do(func() {
 			close(sc.stopCh)
-		}
+		})
 	}
 }
 

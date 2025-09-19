@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"fmt"
 	"runtime"
 	"strings"
 	"testing"
@@ -44,6 +45,14 @@ func getSleepCommand() (string, []string) {
 	}
 	// Use a pure shell loop instead of seq command for better compatibility
 	return "sh", []string{"-c", "i=1; while [ $i -le 100 ]; do echo line$i; i=$((i+1)); sleep 0.1; done"}
+}
+
+// getFailingCommand returns a command that exits with a non-zero status code
+func getFailingCommand(exitCode int) (string, []string) {
+	if runtime.GOOS == "windows" {
+		return "cmd", []string{"/c", fmt.Sprintf("echo error & exit %d", exitCode)}
+	}
+	return "sh", []string{"-c", fmt.Sprintf("echo error >&2; exit %d", exitCode)}
 }
 
 // getSimpleEchoCommand returns a platform-appropriate simple echo command
@@ -183,6 +192,21 @@ func TestStreamCollectorInvalidCommand(t *testing.T) {
 	err := sc.Start()
 	if err == nil {
 		t.Error("Expected error when running non-existent command")
+	}
+}
+
+func TestStreamCollectorReturnsCommandError(t *testing.T) {
+	cmd, args := getFailingCommand(5)
+	sc := NewStreamCollector(cmd, args, 1, 100*time.Millisecond, false, getTestColorPrinter())
+
+	err := sc.Start()
+	if err == nil {
+		t.Fatal("expected error when command exits with non-zero status")
+	}
+
+	expected := fmt.Sprintf("exit status %d", 5)
+	if !strings.Contains(err.Error(), expected) {
+		t.Fatalf("expected error to contain %q, got %v", expected, err)
 	}
 }
 
